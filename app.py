@@ -23,9 +23,9 @@ SECRET_KEY = os.getenv("SECRET_KEY", "informes-aps-ese-2026-secret-key-cambiar")
 TOKEN_HOURS = 8
 
 DIR_BASE = os.path.dirname(os.path.abspath(__file__))
-DIR_HTML = DIR_BASE
+DIR_BASE = os.path.dirname(os.path.abspath(__file__))
 
-app = Flask(__name__, static_folder=DIR_HTML)
+app = Flask(__name__, static_folder=DIR_BASE)
 CORS(app)
 
 def get_engine():
@@ -85,13 +85,13 @@ def require_auth(f):
 
 @app.route("/")
 @app.route("/login")
-def login_page(): return send_from_directory(DIR_HTML, "login.html")
+def login_page(): return send_from_directory(DIR_BASE, "login.html")
 
 @app.route("/dashboard")
-def dashboard_page(): return send_from_directory(DIR_HTML, "dashboard.html")
+def dashboard_page(): return send_from_directory(DIR_BASE, "dashboard.html")
 
 @app.route("/auditoria")
-def auditoria_page(): return send_from_directory(DIR_HTML, "auditoria.html")
+def auditoria_page(): return send_from_directory(DIR_BASE, "auditoria.html")
 
 @app.route("/api/login", methods=["POST"])
 def login():
