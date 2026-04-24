@@ -22,8 +22,8 @@ logger = logging.getLogger("INFORMES_API")
 SECRET_KEY = os.getenv("SECRET_KEY", "informes-aps-ese-2026-secret-key-cambiar")
 TOKEN_HOURS = 8
 
-DIR_CODIGO = os.path.dirname(os.path.abspath(__file__))
-DIR_HTML   = os.path.join(os.path.dirname(DIR_CODIGO), "HTML")
+DIR_BASE = os.path.dirname(os.path.abspath(__file__))
+DIR_HTML = os.path.join(DIR_BASE, "HTML")
 
 app = Flask(__name__, static_folder=DIR_HTML)
 CORS(app)
