@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>INFORMES ESE · Auditoría</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,400&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <style>
+    /* ═══════════════════════════════════════════════════════════════
+       ESTILOS PANTALLA
+    ═══════════════════════════════════════════════════════════════ */
+    :root {
+      --bg:#f0f4fa;--surface:#ffffff;--navy:#0a1f3d;--navy-lt:#122848;
+      --teal:#00b09b;--teal-lt:#e6f7f5;--teal-mid:#b3e8e3;
+      --gold:#f0a500;--gold-lt:#fef7e0;--red:#e53935;--red-lt:#fde8e8;
+      --purple:#6c3fc5;--purple-lt:#ede8fb;--green:#1e9c6e;--green-lt:#e5f7f0;
+      --border:#dde4ef;--text:#1a2840;--muted:#5d7290;
+      --sidebar-w:240px;--radius:14px;
+      --shadow:0 2px 16px rgba(10,31,61,.07);--shadow-md:0 4px 28px rgba(10,31,61,.11);
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html{scroll-behavior:smooth;}
+    body{font-family:'Sora',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;}
+
+    .sidebar{width:var(--sidebar-w);background:var(--navy);height:100vh;position:fixed;left:0;top:0;display:flex;flex-direction:column;padding:1.5rem 0;z-index:100;box-shadow:4px 0 24px rgba(0,0,0,.18);}
+    .sidebar-brand{display:flex;align-items:center;gap:.75rem;padding:0 1.4rem 1.5rem;border-bottom:1px solid rgba(255,255,255,.08);}
+    .brand-logo{width:36px;height:36px;background:linear-gradient(135deg,var(--teal),#00d4b8);border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .brand-logo svg{width:20px;height:20px;fill:#fff;}
+    .brand-name{font-family:'Fraunces',serif;font-size:1rem;color:#fff;}
+    .brand-sub{font-size:.62rem;color:rgba(255,255,255,.4);letter-spacing:.1em;text-transform:uppercase;}
+    .nav{flex:1;padding:1.2rem 0;}
+    .nav-item{display:flex;align-items:center;gap:.75rem;padding:.7rem 1.4rem;color:rgba(255,255,255,.55);font-size:.83rem;font-weight:500;cursor:pointer;transition:all .18s;text-decoration:none;margin:.1rem 0;}
+    .nav-item:hover{color:#fff;background:rgba(255,255,255,.06);}
+    .nav-item.active{color:var(--teal);background:rgba(0,176,155,.12);border-right:3px solid var(--teal);}
+    .nav-item svg{width:18px;height:18px;flex-shrink:0;}
+    .nav-section-title{padding:.9rem 1.4rem .3rem;font-size:.62rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.25);}
+    .sidebar-user{padding:1rem 1.4rem;border-top:1px solid rgba(255,255,255,.08);}
+    .user-name{font-size:.82rem;color:#fff;font-weight:600;margin-bottom:.15rem;}
+    .user-role{font-size:.68rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.1em;}
+    .btn-logout{margin-top:.75rem;width:100%;background:rgba(229,57,53,.15);border:1px solid rgba(229,57,53,.3);color:#ff8a80;border-radius:8px;padding:.45rem;font-family:'Sora',sans-serif;font-size:.75rem;cursor:pointer;transition:background .2s;}
+    .btn-logout:hover{background:rgba(229,57,53,.25);}
+
+    .main{margin-left:var(--sidebar-w);flex:1;min-height:100vh;}
+    .topbar{background:var(--surface);padding:1rem 2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:var(--shadow);}
+    .topbar-title{font-family:'Fraunces',serif;font-size:1.1rem;font-weight:700;color:var(--navy);}
+    .topbar-meta{font-size:.75rem;color:var(--muted);}
+    .topbar-actions{display:flex;gap:.65rem;align-items:center;}
+    .content{padding:1.75rem 2rem 4rem;}
+
+    .auditoria-filters{display:flex;gap:1rem;margin-bottom:2rem;background:var(--surface);padding:1.5rem;border-radius:var(--radius);box-shadow:var(--shadow);flex-wrap:wrap;align-items:flex-end;}
+    .filter-group{flex:1;min-width:200px;}
+    .filter-group label{display:block;font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.45rem;}
+    .auditoria-filters input{width:100%;border:1.5px solid var(--border);border-radius:8px;padding:.8rem 1rem;font-family:'Sora',sans-serif;font-size:.9rem;color:var(--text);outline:none;transition:border-color .2s;}
+    .auditoria-filters input:focus{border-color:var(--teal);}
+    .btn-search{background:var(--navy);color:#fff;border:none;padding:.9rem 2rem;border-radius:8px;font-weight:600;font-family:'Sora',sans-serif;cursor:pointer;transition:background .2s;white-space:nowrap;height:46px;}
+    .btn-search:hover{background:var(--teal);}
+    .btn-search:disabled{background:var(--muted);cursor:not-allowed;}
+
+    /* Botón descargar informe */
+    .btn-print{
+      display:none; /* se muestra tras buscar */
+      align-items:center;gap:.5rem;
+      background:linear-gradient(135deg,var(--navy),#163f72);
+      color:#fff;border:none;
+      padding:.55rem 1.1rem;border-radius:8px;
+      font-family:'Sora',sans-serif;font-size:.8rem;font-weight:600;
+      cursor:pointer;transition:opacity .2s,transform .1s;
+      box-shadow:0 2px 10px rgba(10,31,61,.2);
+    }
+    .btn-print:hover{opacity:.9;}
+    .btn-print:active{transform:scale(.97);}
+    .btn-print svg{width:16px;height:16px;fill:currentColor;}
+
+    .section{margin-bottom:2.5rem;animation:fadeIn .4s ease;}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    .section-header{display:flex;align-items:center;gap:.75rem;margin-bottom:1.1rem;}
+    .section-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .section-icon svg{width:20px;height:20px;}
+    .section-title{font-family:'Fraunces',serif;font-size:1.1rem;color:var(--navy);}
+    .section-sub{font-size:.75rem;color:var(--muted);}
+    .cards-row{display:flex;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;}
+    .stat-card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.2rem 1.4rem;flex:1;min-width:160px;border-top:3px solid transparent;transition:box-shadow .2s,transform .2s;}
+    .stat-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px);}
+    .stat-card.c-teal{border-top-color:var(--teal)}.stat-card.c-gold{border-top-color:var(--gold)}.stat-card.c-red{border-top-color:var(--red)}.stat-card.c-purple{border-top-color:var(--purple)}.stat-card.c-green{border-top-color:var(--green)}.stat-card.c-navy{border-top-color:var(--navy)}
+    .stat-label{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.45rem;}
+    .stat-value{font-family:'Fraunces',serif;font-size:2rem;font-weight:700;color:var(--navy);line-height:1;margin-bottom:.2rem;}
+    .stat-badge{display:inline-block;padding:.15rem .55rem;border-radius:20px;font-size:.68rem;font-weight:600;}
+    .badge-error{background:var(--red-lt);color:var(--red)}.badge-ok{background:var(--green-lt);color:var(--green)}.badge-warn{background:var(--gold-lt);color:var(--gold)}.badge-info{background:var(--teal-lt);color:var(--teal)}
+    .sub-section{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.2rem 1.4rem;margin-bottom:1rem;}
+    .sub-section-title{font-size:.73rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem;padding-bottom:.6rem;border-bottom:1px solid var(--border);}
+    .chart-container{position:relative;height:220px;}
+    .divider{height:1px;background:var(--border);margin:1.8rem 0;}
+    .list-row{display:flex;justify-content:space-between;margin-bottom:.4rem;font-size:.8rem;border-bottom:1px solid var(--border);padding-bottom:.2rem;}
+
+    #loadingOverlay{position:fixed;inset:0;background:rgba(240,244,250,.8);z-index:999;display:none;flex-direction:column;align-items:center;justify-content:center;gap:1rem;}
+    .loading-spinner{width:40px;height:40px;border:3px solid rgba(0,176,155,.2);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .loading-text{font-size:.85rem;color:var(--muted);}
+    .empty-state{text-align:center;padding:4rem 2rem;color:var(--muted);}
+    .empty-state svg{width:60px;margin-bottom:1rem;opacity:.4;}
+
+    .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(13,43,82,.6);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;pointer-events:none;transition:opacity .3s;backdrop-filter:blur(3px);}
+    .modal-overlay.active{opacity:1;pointer-events:auto;}
+    .modal-content{background:#fff;padding:2.5rem;border-radius:var(--radius);max-width:420px;width:90%;text-align:center;box-shadow:var(--shadow-md);transform:translateY(20px);transition:transform .3s;}
+    .modal-overlay.active .modal-content{transform:translateY(0);}
+    .modal-icon{width:56px;height:56px;margin:0 auto 1.25rem;border-radius:50%;display:flex;align-items:center;justify-content:center;}
+    .modal-icon.warning{background:#fef3e2;color:#b45309;}.modal-icon.error{background:#fee2e2;color:#b91c1c;}.modal-icon.success{background:var(--green-lt);color:var(--green);}
+    .modal-title{font-family:'Fraunces',serif;font-size:1.4rem;color:var(--navy);margin-bottom:.5rem;}
+    .modal-text{font-size:.95rem;color:var(--muted);margin-bottom:1.75rem;line-height:1.5;}
+    .modal-btn{background:var(--navy);color:#fff;border:none;padding:.75rem 2rem;border-radius:8px;font-family:'Sora',sans-serif;font-weight:600;cursor:pointer;transition:background .2s;font-size:.95rem;}
+    .modal-btn:hover{background:#1a3d6e;}
+
+    .report-box{width:100%;height:120px;background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:.75rem;font-family:monospace;font-size:.8rem;resize:none;outline:none;}
+    .report-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;}
+    .btn-copy-small{padding:.4rem 1rem;font-size:.75rem;border-radius:6px;border:none;color:#fff;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;transition:opacity .2s;}
+    .btn-copy-small:hover{opacity:.85;}
+
+    /* ═══════════════════════════════════════════════════════════════
+       SECCIÓN IMPRIMIBLE (oculta en pantalla, visible al imprimir)
+    ═══════════════════════════════════════════════════════════════ */
+    #seccionImprimible { display: none; }
+
+    /* ═══════════════════════════════════════════════════════════════
+       ESTILOS DE IMPRESIÓN
+    ═══════════════════════════════════════════════════════════════ */
+    @media print {
+      /* Ocultar toda la UI de la app */
+      .sidebar, .topbar, .auditoria-filters, #loadingOverlay,
+      #emptyState, #resultadosAuditoria, #customModal,
+      .btn-print, .btn-search { display: none !important; }
+
+      .main { margin-left: 0 !important; }
+      .content { padding: 0 !important; }
+      body { background: #fff; display: block; }
+
+      /* Mostrar el reporte */
+      #seccionImprimible {
+        display: block !important;
+        font-family: Arial, sans-serif;
+        color: #000;
+        font-size: 9pt;
+      }
+
+      /* Encabezado institucional */
+      .rp-header-inst {
+        border: 1.5px solid #003366;
+        margin-bottom: 12pt;
+      }
+      .rp-header-top {
+        background: #003366;
+        color: #fff;
+        text-align: center;
+        padding: 8pt 12pt;
+        font-size: 8.5pt;
+        font-weight: bold;
+        letter-spacing: .03em;
+      }
+      .rp-header-info {
+        display: flex;
+        align-items: center;
+        border-top: 1px solid #003366;
+        padding: 6pt 10pt;
+        gap: 12pt;
+      }
+      .rp-logo-cell {
+        text-align: center;
+        min-width: 90pt;
+        font-size: 7pt;
+        color: #003366;
+        font-weight: bold;
+        border-right: 1px solid #ccc;
+        padding-right: 12pt;
+      }
+      .rp-logo-circle {
+        width: 44pt; height: 44pt; border-radius: 50%;
+        background: #003366;
+        display: flex; align-items: center; justify-content: center;
+        margin: 0 auto 3pt;
+      }
+      .rp-logo-circle svg { width: 28pt; height: 28pt; fill: #fff; }
+      .rp-address-cell {
+        flex: 1;
+        font-size: 7.5pt;
+        color: #333;
+        line-height: 1.6;
+        border-right: 1px solid #ccc;
+        padding: 0 12pt;
+      }
+      .rp-nit-cell {
+        font-size: 7.5pt;
+        color: #333;
+        text-align: right;
+        min-width: 80pt;
+      }
+      .rp-nit-cell strong { display: block; font-size: 10pt; color: #003366; }
+
+      /* Título del informe */
+      .rp-title-block {
+        text-align: center;
+        margin-bottom: 10pt;
+        padding-bottom: 8pt;
+        border-bottom: 2pt solid #003366;
+      }
+      .rp-title-main {
+        font-size: 13pt;
+        font-weight: bold;
+        color: #003366;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+      }
+      .rp-title-sub {
+        font-size: 8.5pt;
+        color: #555;
+        margin-top: 3pt;
+        font-style: italic;
+      }
+
+      /* Tabla de identificación del informe */
+      .rp-id-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 12pt;
+        font-size: 8.5pt;
+      }
+      .rp-id-table td {
+        border: 1px solid #003366;
+        padding: 4pt 8pt;
+      }
+      .rp-id-table td:nth-child(odd) {
+        background: #e8f0f8;
+        font-weight: bold;
+        color: #003366;
+        width: 22%;
+      }
+
+      /* Secciones del reporte */
+      .rp-section {
+        margin-bottom: 12pt;
+        page-break-inside: avoid;
+      }
+      .rp-section-title {
+        background: #003366;
+        color: #fff;
+        padding: 4pt 8pt;
+        font-size: 9.5pt;
+        font-weight: bold;
+        letter-spacing: .04em;
+        margin-bottom: 6pt;
+      }
+      .rp-sub-title {
+        background: #dce9f5;
+        color: #003366;
+        padding: 3pt 8pt;
+        font-size: 8.5pt;
+        font-weight: bold;
+        margin-bottom: 5pt;
+        border-left: 3pt solid #003366;
+      }
+
+      /* Tablas de datos */
+      .rp-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 8pt;
+        font-size: 8.5pt;
+      }
+      .rp-table th {
+        background: #003366;
+        color: #fff;
+        padding: 4pt 8pt;
+        text-align: left;
+        font-size: 8pt;
+      }
+      .rp-table td {
+        border: 1px solid #c8d6e8;
+        padding: 4pt 8pt;
+        color: #222;
+      }
+      .rp-table tr:nth-child(even) td { background: #f0f6fb; }
+      .rp-table .td-num {
+        text-align: right;
+        font-weight: bold;
+        color: #003366;
+        width: 80pt;
+      }
+      .rp-table .td-label { color: #333; }
+      .rp-table .total-row td {
+        background: #003366 !important;
+        color: #fff !important;
+        font-weight: bold;
+      }
+      .rp-table .error-row td {
+        background: #fde8e8 !important;
+        color: #c0392b !important;
+      }
+
+      /* Gráfico impreso */
+      .rp-chart-img {
+        max-width: 100%;
+        height: auto;
+        margin: 4pt auto;
+        display: block;
+        border: 1px solid #c8d6e8;
+        border-radius: 4pt;
+      }
+
+      /* Firma / pie */
+      .rp-firma {
+        margin-top: 24pt;
+        display: flex;
+        justify-content: space-around;
+        gap: 20pt;
+      }
+      .rp-firma-item {
+        text-align: center;
+        flex: 1;
+        border-top: 1pt solid #333;
+        padding-top: 5pt;
+        font-size: 7.5pt;
+      }
+      .rp-pie-page {
+        text-align: center;
+        font-size: 7pt;
+        color: #888;
+        margin-top: 10pt;
+        border-top: 1px solid #ddd;
+        padding-top: 5pt;
+      }
+
+      @page {
+        size: letter portrait;
+        margin: 1.5cm 1.5cm 2cm 1.5cm;
+      }
+    }
+
+    @media (max-width:768px){.sidebar{width:0;overflow:hidden;}.main{margin-left:0;}.content{padding:1rem;}}
+  </style>
+</head>
+<body>
+
+<!-- ══ SIDEBAR ══════════════════════════════════════════════════════ -->
+<nav class="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-logo">
+      <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+    </div>
+    <div>
+      <div class="brand-name">INFORMES</div>
+      <div class="brand-sub">ESE 2026</div>
+    </div>
+  </div>
+  <div class="nav">
+    <div class="nav-section-title">Módulos</div>
+    <a href="/dashboard" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+      <span class="nav-label">Dashboard</span>
+    </a>
+    <a href="/auditoria" class="nav-item active">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      <span class="nav-label">Auditoría</span>
+    </a>
+  </div>
+  <div class="sidebar-user">
+    <div class="user-name" id="sidebarNombre">Cargando...</div>
+    <div class="user-role" id="sidebarRol">—</div>
+    <button class="btn-logout" onclick="logout()">Cerrar sesión</button>
+  </div>
+</nav>
+
+<!-- ══ MAIN ══════════════════════════════════════════════════════════ -->
+<div class="main">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title">Auditoría de Encuestadores</div>
+      <div class="topbar-meta" id="topbarFecha">Rastreo de registros creados por usuario</div>
+    </div>
+    <div class="topbar-actions">
+      <!-- Botón imprimir (se activa luego de consultar) -->
+      <button class="btn-print" id="btnPrint" onclick="generarYImprimir()">
+        <svg viewBox="0 0 24 24"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>
+        Imprimir / PDF
+      </button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- Filtros -->
+    <div class="auditoria-filters">
+      <div class="filter-group">
+        <label>Correo del Encuestador</label>
+        <input type="email" id="inputUser" placeholder="encuestador@ese.com" autocomplete="off"/>
+      </div>
+      <div class="filter-group">
+        <label>Fecha Inicio</label>
+        <input type="date" id="inputInicio"/>
+      </div>
+      <div class="filter-group">
+        <label>Fecha Fin</label>
+        <input type="date" id="inputFin"/>
+      </div>
+      <button class="btn-search" id="btnBuscar" onclick="buscarAuditoria()">🔍 Consultar</button>
+    </div>
+
+    <div id="emptyState" class="empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      <p>Ingresa un correo electrónico y el rango de fechas para generar el reporte de auditoría.</p>
+    </div>
+
+    <!-- ── RESULTADOS ─────────────────────────────────────────────── -->
+    <div id="resultadosAuditoria" style="display:none;">
+
+      <!-- Panel errores global -->
+      <div id="panelErrores" style="display:none; margin-bottom: 2.5rem;">
+        <div class="section-header" style="justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:.75rem;">
+            <div class="section-icon" style="background:var(--red-lt);">
+              <svg viewBox="0 0 24 24" fill="var(--red)"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+            </div>
+            <div>
+              <div class="section-title">Reporte de Inconsistencias Global</div>
+              <div class="section-sub">Consolidado de errores de TODAS las tablas</div>
+            </div>
+          </div>
+          <button class="btn-search" style="background:var(--teal);" onclick="copiarTexto('textoErroresGlobal')">📋 Copiar Reporte</button>
+        </div>
+        <textarea id="textoErroresGlobal" readonly style="width:100%;height:280px;background:#0a1f3d;color:#00d4b8;font-family:monospace;font-size:.85rem;padding:1.5rem;border-radius:12px;border:2px solid var(--teal-mid);resize:none;outline:none;box-shadow:inset 0 4px 10px rgba(0,0,0,.5);"></textarea>
+      </div>
+
+      <!-- 1. DESISTIMIENTOS -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-icon" style="background:#fde8e8;"><svg viewBox="0 0 24 24" fill="#e53935"><path d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"/></svg></div>
+          <div><div class="section-title">Desistimientos</div><div class="section-sub">Abandonos registrados por este usuario</div></div>
+        </div>
+        <div class="cards-row">
+          <div class="stat-card c-red"><div class="stat-label">Total desistimientos</div><div class="stat-value" id="a-des-tot">0</div></div>
+          <div class="stat-card c-gold"><div class="stat-label">Registros con error</div><div class="stat-value" id="a-des-err">0</div><span class="stat-badge badge-warn">Requiere revisión</span></div>
+        </div>
+      </div>
+      <div class="divider"></div>
+
+      <!-- 2. PCC -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-icon" style="background:#e8f5e9;"><svg viewBox="0 0 24 24" fill="#1e9c6e"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></div>
+          <div><div class="section-title">Plan Cuidado Comunitario</div><div class="section-sub">Atenciones comunitarias registradas</div></div>
+        </div>
+        <div class="cards-row">
+          <div class="stat-card c-green"><div class="stat-label">Planes realizados</div><div class="stat-value" id="a-pcc-pla">0</div></div>
+          <div class="stat-card c-teal"><div class="stat-label">Integrantes con plan</div><div class="stat-value" id="a-pcc-int">0</div></div>
+          <div class="stat-card c-gold"><div class="stat-label">Registros con error</div><div class="stat-value" id="a-pcc-err">0</div><span class="stat-badge badge-warn">Revisar</span></div>
+        </div>
+      </div>
+      <div class="divider"></div>
+
+      <!-- 3. CARACTERIZACIÓN -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-icon" style="background:#ede8fb;"><svg viewBox="0 0 24 24" fill="#6c3fc5"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></div>
+          <div><div class="section-title">Caracterización SI-APS 2026</div><div class="section-sub">Encuestas y tamizajes realizados por este usuario</div></div>
+        </div>
+        <div class="cards-row">
+          <div class="stat-card c-purple"><div class="stat-label">Familias caracterizadas</div><div class="stat-value" id="a-ca-fam">0</div><span class="stat-badge badge-info">1. SI (Consentimiento)</span></div>
+          <div class="stat-card c-navy"><div class="stat-label">Integrantes caracterizados</div><div class="stat-value" id="a-ca-ind">0</div></div>
+        </div>
+        <div class="sub-section">
+          <div class="sub-section-title">Grupos Poblacionales Identificados</div>
+          <div class="cards-row">
+            <div class="stat-card c-teal"><div class="stat-label">Gestantes</div><div class="stat-value" id="a-ca-ges">0</div></div>
+            <div class="stat-card c-green"><div class="stat-label">Menores de 5</div><div class="stat-value" id="a-ca-men">0</div></div>
+            <div class="stat-card c-purple"><div class="stat-label">Adultos 60+</div><div class="stat-value" id="a-ca-may">0</div></div>
+            <div class="stat-card c-gold"><div class="stat-label">Víctimas Conflicto</div><div class="stat-value" id="a-ca-vic">0</div></div>
+          </div>
+        </div>
+        <div class="cards-row" style="margin-top:1rem;">
+          <div class="sub-section" style="flex:1;">
+            <div class="sub-section-title">Perfil Social del Territorio</div>
+            <div style="display:flex;flex-wrap:wrap;gap:1.5rem;">
+              <div style="flex:1;min-width:200px;"><div style="font-size:.75rem;font-weight:bold;color:var(--teal);margin-bottom:.8rem;">TIPO DE FAMILIA</div><div id="listTipoFamilia"></div></div>
+              <div style="flex:1;min-width:200px;"><div style="font-size:.75rem;font-weight:bold;color:var(--navy);margin-bottom:.8rem;">ESTRATO SOCIOECONÓMICO</div><div id="listEstrato"></div></div>
+              <div style="flex:1;min-width:200px;"><div style="font-size:.75rem;font-weight:bold;color:var(--purple);margin-bottom:.8rem;">NIVEL EDUCATIVO</div><div id="listNivelEducativo"></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Composición Étnica</div>
+          <div class="cards-row">
+            <div class="stat-card c-navy"><div class="stat-label">Con Pertenencia Étnica</div><div class="stat-value" id="a-etn-con-pct">0%</div><span class="stat-badge badge-info" id="a-etn-con-tot">0 personas</span></div>
+            <div class="stat-card c-gold"><div class="stat-label">Sin Pertenencia Étnica</div><div class="stat-value" id="a-etn-sin-pct">0%</div></div>
+          </div>
+        </div>
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Errores de Registro (Caracterización)</div>
+          <div class="cards-row">
+            <div class="stat-card c-red"><div class="stat-label">Errores Familiar</div><div class="stat-value" id="a-ca-err-f">0</div></div>
+            <div class="stat-card c-gold"><div class="stat-label">Errores Individual</div><div class="stat-value" id="a-ca-err-i">0</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="divider"></div>
+
+      <!-- 4. PCF GENERAL -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-icon" style="background:#e6f7f5;"><svg viewBox="0 0 24 24" fill="#00b09b"><path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/></svg></div>
+          <div><div class="section-title">Plan Cuidado Familiar (General)</div><div class="section-sub">Intervenciones del promotor/médico (Excluye Psicología)</div></div>
+        </div>
+        <div class="cards-row">
+          <div class="stat-card c-teal"><div class="stat-label">Familias intervenidas</div><div class="stat-value" id="a-pcf-fam">0</div></div>
+          <div class="stat-card c-navy"><div class="stat-label">Integrantes intervenidos</div><div class="stat-value" id="a-pcf-int">0</div></div>
+        </div>
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Reportes Detallados de Plan Cuidado Familiar (General)</div>
+          <div style="display:flex;flex-direction:column;gap:1.5rem;">
+            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--teal);">1. Intervenciones Familiares Realizadas</span><button class="btn-copy-small" style="background:var(--teal);" onclick="copiarTexto('txtPcfRealizados')">📋 Copiar</button></div><textarea id="txtPcfRealizados" class="report-box" readonly style="border-color:var(--teal-lt);"></textarea></div>
+            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--red);">2. Errores de Registro</span><button class="btn-copy-small" style="background:var(--red);" onclick="copiarTexto('txtPcfErrores')">📋 Copiar</button></div><textarea id="txtPcfErrores" class="report-box" style="background:#fde8e8;border-color:var(--red-lt);color:var(--red);" readonly></textarea></div>
+          </div>
+        </div>
+      </div>
+      <div class="divider"></div>
+
+      <!-- 5. PCF PSICOLOGÍA -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-icon" style="background:#ede8fb;"><svg viewBox="0 0 24 24" fill="#6c3fc5"><path d="M11.5 2C6.81 2 3 5.81 3 10.5S6.81 19 11.5 19h.5v3c4.86-2.34 8-7 8-11.5C20 5.81 16.19 2 11.5 2zm1 14.5h-2v-2h2v2zm0-4h-2c0-3.25 3-3 3-5 0-1.1-.9-2-2-2s-2 .9-2 2h-2c0-2.21 1.79-4 4-4s4 1.79 4 4c0 2.5-3 2.75-3 5z"/></svg></div>
+          <div><div class="section-title">Plan Cuidado Familiar — Psicología</div><div class="section-sub">Intervenciones registradas con el perfil Profesional Psicología</div></div>
+        </div>
+        <div class="cards-row">
+          <div class="stat-card c-purple"><div class="stat-label">Intervenciones familiares</div><div class="stat-value" id="a-psi-fam">0</div></div>
+          <div class="stat-card c-navy"><div class="stat-label">Integrantes intervenidos</div><div class="stat-value" id="a-psi-int">0</div></div>
+          <div class="stat-card c-teal"><div class="stat-label">Seguimientos realizados</div><div class="stat-value" id="a-psi-seg">0</div></div>
+        </div>
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Reportes Detallados de Psicología</div>
+          <div style="display:flex;flex-direction:column;gap:1.5rem;">
+            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--purple);">1. Intervenciones Familiares</span><button class="btn-copy-small" style="background:var(--purple);" onclick="copiarTexto('txtPsicoRealizados')">📋 Copiar</button></div><textarea id="txtPsicoRealizados" class="report-box" readonly style="border-color:var(--purple-lt);"></textarea></div>
+            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--teal);">2. Seguimientos Psicológicos</span><button class="btn-copy-small" style="background:var(--teal);" onclick="copiarTexto('txtPsicoSeguimientos')">📋 Copiar</button></div><textarea id="txtPsicoSeguimientos" class="report-box" style="border-color:var(--teal-lt);" readonly></textarea></div>
+            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--red);">3. Errores de Registro</span><button class="btn-copy-small" style="background:var(--red);" onclick="copiarTexto('txtPsicoErrores')">📋 Copiar</button></div><textarea id="txtPsicoErrores" class="report-box" style="background:#fde8e8;border-color:var(--red-lt);color:var(--red);" readonly></textarea></div>
+          </div>
+        </div>
+      </div>
+      <div class="divider"></div>
+
+      <!-- 6. TRÁMITES -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-icon" style="background:#fef7e0;"><svg viewBox="0 0 24 24" fill="#f0a500"><path d="M20 6h-2.18c.07-.44.18-.86.18-1a3 3 0 0 0-6 0c0 .14.11.56.18 1H10c-.36 0-.96.15-.96.96v13c0 .57.39 1.04.96 1.04h10c.57 0 1-.47 1-1.04V6.96c0-.81-.57-.96-1-.96zM14 3a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm2 16H8V7h2v2h4V7h2v12z"/></svg></div>
+          <div><div class="section-title">Trámites Realizados</div><div class="section-sub">Gestión documental generada por este encuestador</div></div>
+        </div>
+        <div class="cards-row">
+          <div class="stat-card c-navy"><div class="stat-label">Total trámites</div><div class="stat-value" id="a-tr-tot">0</div></div>
+          <div class="stat-card c-green"><div class="stat-label">Trámites resolutivos</div><div class="stat-value" id="a-tr-res">0</div><span class="stat-badge badge-ok">Resueltos</span></div>
+          <div class="stat-card c-red"><div class="stat-label">Con error de registro</div><div class="stat-value" id="a-tr-err">0</div></div>
+        </div>
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Desglose por tipo de trámite</div>
+          <div class="chart-container"><canvas id="chartTramitesAuditoria"></canvas></div>
+        </div>
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Reportes Detallados de Trámites</div>
+          <div style="display:flex;flex-direction:column;gap:1.5rem;">
+            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--navy);">1. Trámites Realizados</span><button class="btn-copy-small" style="background:var(--navy);" onclick="copiarTexto('txtTramRealizados')">📋 Copiar</button></div><textarea id="txtTramRealizados" class="report-box" readonly></textarea></div>
+            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--green);">2. Trámites Resueltos</span><button class="btn-copy-small" style="background:var(--green);" onclick="copiarTexto('txtTramResueltos')">📋 Copiar</button></div><textarea id="txtTramResueltos" class="report-box" style="border-color:var(--green-lt);" readonly></textarea></div>
+            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--red);">3. Trámites con Errores</span><button class="btn-copy-small" style="background:var(--red);" onclick="copiarTexto('txtTramErrores')">📋 Copiar</button></div><textarea id="txtTramErrores" class="report-box" style="background:#fde8e8;border-color:var(--red-lt);color:var(--red);" readonly></textarea></div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /resultadosAuditoria -->
+
+    <!-- ══ SECCIÓN IMPRIMIBLE (solo se ve al imprimir) ═══════════ -->
+    <div id="seccionImprimible"></div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- Loading overlay -->
+<div id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text" id="loadingText">Consultando base de datos...</div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="customModal">
+  <div class="modal-content">
+    <div class="modal-icon success" id="modalIcon">
+      <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M20 6L9 17l-5-5"></path></svg>
+    </div>
+    <div class="modal-title" id="modalTitle">Atención</div>
+    <div class="modal-text" id="modalText">Mensaje</div>
+    <button class="modal-btn" onclick="closeModal()">Entendido</button>
+  </div>
+</div>
+
+<!-- ══ JAVASCRIPT ════════════════════════════════════════════════ -->
+<script>
+  const API_BASE = window.location.protocol === 'file:' ? 'http://127.0.0.1:5001' : window.location.origin;
+  const token = localStorage.getItem('informes_token');
+  if (!token) window.location.href = '/login';
+
+  const userInfo = JSON.parse(localStorage.getItem('informes_user') || '{}');
+  document.getElementById('sidebarNombre').textContent = userInfo.nombre || '—';
+  document.getElementById('sidebarRol').textContent    = userInfo.rol   || '—';
+
+  // Datos de la última consulta (para el reporte imprimible)
+  let _datosAuditoria = null;
+  let _usuarioConsultado = '';
+  let _rangoFechas = '';
+
+  // ── Auth & utils ──────────────────────────────────────────────────
+  async function logout() {
+    try { await fetch(`${API_BASE}/api/logout`, { method:'POST', headers:{'Authorization':'Bearer '+token} }); } catch(e){}
+    localStorage.removeItem('informes_token');
+    localStorage.removeItem('informes_user');
+    window.location.href = '/login';
+  }
+
+  function showModal(title, text, type='warning') {
+    document.getElementById('modalTitle').innerText = title;
+    document.getElementById('modalText').innerText  = text;
+    const svgOk  = '<svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M20 6L9 17l-5-5"></path></svg>';
+    const svgWrn = '<svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2.5" fill="none"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>';
+    const el = document.getElementById('modalIcon');
+    el.className = 'modal-icon ' + type;
+    el.innerHTML = type === 'success' ? svgOk : svgWrn;
+    document.getElementById('customModal').classList.add('active');
+  }
+  function closeModal() { document.getElementById('customModal').classList.remove('active'); }
+
+  function copiarTexto(id) {
+    navigator.clipboard.writeText(document.getElementById(id).value)
+      .then(() => showModal('¡Reporte Copiado!','El texto se copió al portapapeles.','success'))
+      .catch(err => alert('Error al copiar: ' + err));
+  }
+
+  function fmt(n) { return Number(n||0).toLocaleString('es-CO'); }
+  function setVal(id, v) { document.getElementById(id).textContent = fmt(v); }
+
+  function renderList(cid, arr) {
+    const c = document.getElementById(cid);
+    c.innerHTML = '';
+    if (!arr || !arr.length) { c.innerHTML = '<div style="font-size:.8rem;color:var(--muted);">Sin registros</div>'; return; }
+    arr.forEach(i => {
+      c.innerHTML += `<div class="list-row"><span style="color:var(--muted);">${i.label}</span><span style="font-weight:bold;color:var(--navy);">${i.total}</span></div>`;
+    });
+  }
+
+  let tramitesChart = null;
+  const PALETTE = ['#00b09b','#0a1f3d','#f0a500','#6c3fc5','#e53935','#1e9c6e','#06b6d4'];
+
+  function renderBarChart(cid, labels, data) {
+    const ctx = document.getElementById(cid);
+    if (!ctx) return;
+    if (tramitesChart) tramitesChart.destroy();
+    tramitesChart = new Chart(ctx, {
+      type:'bar',
+      data:{ labels, datasets:[{ data, backgroundColor:PALETTE.map(c=>c+'cc'), borderColor:PALETTE, borderWidth:0, borderRadius:6 }] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ font:{ family:'Sora', size:10 } } }, x:{ ticks:{ font:{ family:'Sora', size:9 } } } } }
+    });
+  }
+
+  // ── BUSCAR AUDITORÍA ──────────────────────────────────────────────
+  async function buscarAuditoria() {
+    const email = document.getElementById('inputUser').value.trim();
+    const fi    = document.getElementById('inputInicio').value;
+    const ff    = document.getElementById('inputFin').value;
+    const btn   = document.getElementById('btnBuscar');
+
+    if (!email||!fi||!ff) { alert('Por favor ingresa el correo y el rango de fechas completo.'); return; }
+
+    btn.disabled = true;
+    document.getElementById('loadingOverlay').style.display = 'flex';
+    document.getElementById('emptyState').style.display     = 'none';
+    document.getElementById('resultadosAuditoria').style.display = 'none';
+    document.getElementById('btnPrint').style.display = 'none';
+
+    try {
+      const resp = await fetch(`${API_BASE}/api/auditoria?usuario=${encodeURIComponent(email)}&fecha_inicio=${fi}&fecha_fin=${ff}`, {
+        headers:{ 'Authorization':'Bearer '+token }
+      });
+      if (resp.status === 401) { logout(); return; }
+      const data = await resp.json();
+      if (data.error) { alert(data.error); document.getElementById('emptyState').style.display='block'; return; }
+
+      // Guardar para el reporte imprimible
+      _datosAuditoria    = data;
+      _usuarioConsultado = email;
+      _rangoFechas       = `${fi} al ${ff}`;
+
+      // Poblar UI
+      setVal('a-des-tot',  data.desistimientos?.total);
+      setVal('a-des-err',  data.desistimientos?.con_error);
+      setVal('a-pcc-pla',  data.pcc?.planes);
+      setVal('a-pcc-int',  data.pcc?.integrantes);
+      setVal('a-pcc-err',  data.pcc?.con_error);
+      setVal('a-ca-fam',   data.caracterizacion?.familias);
+      setVal('a-ca-ind',   data.caracterizacion?.individuos);
+      setVal('a-ca-ges',   data.caracterizacion?.gestantes);
+      setVal('a-ca-men',   data.caracterizacion?.menores_5);
+      setVal('a-ca-may',   data.caracterizacion?.adultos_60);
+      setVal('a-ca-vic',   data.caracterizacion?.victimas_conflicto);
+      setVal('a-ca-err-f', data.caracterizacion?.error_familiar);
+      setVal('a-ca-err-i', data.caracterizacion?.error_individual);
+
+      renderList('listTipoFamilia',   data.caracterizacion?.tipo_familia);
+      renderList('listEstrato',        data.caracterizacion?.estrato);
+      renderList('listNivelEducativo', data.caracterizacion?.nivel_educativo);
+
+      document.getElementById('a-etn-con-pct').textContent = (data.caracterizacion?.etnia_con_pct||0)+'%';
+      document.getElementById('a-etn-con-tot').textContent = (data.caracterizacion?.etnia_con_total||0)+' personas';
+      document.getElementById('a-etn-sin-pct').textContent = (data.caracterizacion?.etnia_sin_pct||0)+'%';
+
+      setVal('a-pcf-fam', data.pcf?.familias_intervenidas);
+      setVal('a-pcf-int', data.pcf?.integrantes_intervenidos);
+      setVal('a-psi-fam', data.pcf_psicologia?.intervenciones_familiares);
+      setVal('a-psi-int', data.pcf_psicologia?.integrantes);
+      setVal('a-psi-seg', data.pcf_psicologia?.seguimientos);
+      setVal('a-tr-tot',  data.tramites?.total);
+      setVal('a-tr-res',  data.tramites?.resolutivos);
+      setVal('a-tr-err',  data.tramites?.con_error);
+
+      const tr = data.tramites?.por_tipo || [];
+      renderBarChart('chartTramitesAuditoria', tr.map(x=>x.label), tr.map(x=>x.total));
+
+      // Paneles de texto
+      const panelErr = document.getElementById('panelErrores');
+      panelErr.style.display = 'block';
+      document.getElementById('textoErroresGlobal').value       = data.reporte_errores_texto;
+      document.getElementById('txtPcfRealizados').value          = data.pcf.reporte_familias;
+      document.getElementById('txtPcfErrores').value             = data.pcf.reporte_errores;
+      document.getElementById('txtPsicoRealizados').value        = data.pcf_psicologia.reporte_familias;
+      document.getElementById('txtPsicoSeguimientos').value      = data.pcf_psicologia.reporte_seguimientos;
+      document.getElementById('txtPsicoErrores').value           = data.pcf_psicologia.reporte_errores;
+      document.getElementById('txtTramRealizados').value         = data.tramites.reporte_realizados;
+      document.getElementById('txtTramResueltos').value          = data.tramites.reporte_resueltos;
+      document.getElementById('txtTramErrores').value            = data.tramites.reporte_errores;
+
+      document.getElementById('resultadosAuditoria').style.display = 'block';
+      // Mostrar botón imprimir
+      const btnP = document.getElementById('btnPrint');
+      btnP.style.display = 'flex';
+
+    } catch(err) {
+      console.error(err);
+      alert('Hubo un error de conexión al consultar la auditoría.');
+      document.getElementById('emptyState').style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      document.getElementById('loadingOverlay').style.display = 'none';
+    }
+  }
+
+  // ── GENERAR REPORTE IMPRIMIBLE ────────────────────────────────────
+  function generarYImprimir() {
+    if (!_datosAuditoria) return;
+
+    const d  = _datosAuditoria;
+    const ca = d.caracterizacion || {};
+    const tf = ca.tipo_familia || [];
+    const es = ca.estrato      || [];
+    const ed = ca.nivel_educativo || [];
+    const tr = d.tramites?.por_tipo || [];
+
+    // Capturar imagen del gráfico de trámites
+    let chartImgTag = '';
+    const cnv = document.getElementById('chartTramitesAuditoria');
+    if (cnv && tr.length) {
+      chartImgTag = `<img class="rp-chart-img" src="${cnv.toDataURL('image/png')}" alt="Gráfico trámites" style="max-height:160pt;"/>`;
+    }
+
+    // Helper para filas de tablas de perfil social
+    const filasSocial = (arr) => arr.length
+      ? arr.map(i => `<tr><td class="td-label">${i.label}</td><td class="td-num">${fmt(i.total)}</td></tr>`).join('')
+      : '<tr><td colspan="2" style="color:#888;font-style:italic;">Sin datos registrados</td></tr>';
+
+    // Fecha de generación
+    const hoy = new Date().toLocaleDateString('es-CO', { dateStyle:'full' });
+
+    const html = `
+      <!-- ══ ENCABEZADO INSTITUCIONAL ══ -->
+      <div class="rp-header-inst">
+        <div class="rp-header-top">
+          MINISTERIO DE SALUD Y PROTECCIÓN SOCIAL &nbsp;·&nbsp;
+          EMPRESA SOCIAL DEL ESTADO — VILLAVICENCIO &nbsp;·&nbsp;
+          EQUIPOS BÁSICOS DE SALUD — EBS
+        </div>
+        <div class="rp-header-info">
+          <div class="rp-logo-cell">
+            <div class="rp-logo-circle">
+              <svg viewBox="0 0 24 24"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm-7 3a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm5 12H7v-.5c0-2.5 2-4 5-4s5 1.5 5 4v.5z"/></svg>
+            </div>
+            <div>ESE</div>
+            <div>VILLAVICENCIO</div>
+          </div>
+          <div class="rp-address-cell">
+            Carrera 42 N° 33–24 Barzal Alto, Villavicencio — Meta<br/>
+            Conmutador: (098) 6614100<br/>
+            NIT: 822.002.459
+          </div>
+          <div class="rp-nit-cell">
+            <strong>NIT</strong>822.002.459<br/>
+            Res. 763/2025<br/>
+            <span style="font-size:6.5pt;color:#888;">Sistema INFORMES ESE</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ TÍTULO ══ -->
+      <div class="rp-title-block">
+        <div class="rp-title-main">Reporte de Auditoría — Encuestador APS</div>
+        <div class="rp-title-sub">Operación de los Equipos Básicos de Salud en Territorios y Microterritorios</div>
+      </div>
+
+      <!-- ══ TABLA IDENTIFICACIÓN ══ -->
+      <table class="rp-id-table">
+        <tr>
+          <td>Encuestador:</td><td>${_usuarioConsultado}</td>
+          <td>Período consultado:</td><td>${_rangoFechas}</td>
+        </tr>
+        <tr>
+          <td>Generado por:</td><td>${userInfo.nombre||'—'}</td>
+          <td>Fecha de generación:</td><td>${hoy}</td>
+        </tr>
+      </table>
+
+      <!-- ══ 1. DESISTIMIENTOS ══ -->
+      <div class="rp-section">
+        <div class="rp-section-title">1. DESISTIMIENTOS</div>
+        <table class="rp-table">
+          <tr><th>Indicador</th><th style="width:90pt;text-align:right;">Valor</th></tr>
+          <tr><td class="td-label">Total desistimientos registrados</td><td class="td-num">${fmt(d.desistimientos?.total)}</td></tr>
+          <tr class="${(d.desistimientos?.con_error||0)>0?'error-row':''}">
+            <td class="td-label">Registros con error de captura</td>
+            <td class="td-num">${fmt(d.desistimientos?.con_error)}</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- ══ 2. PLAN CUIDADO COMUNITARIO ══ -->
+      <div class="rp-section">
+        <div class="rp-section-title">2. PLAN CUIDADO COMUNITARIO</div>
+        <table class="rp-table">
+          <tr><th>Indicador</th><th style="width:90pt;text-align:right;">Valor</th></tr>
+          <tr><td class="td-label">Planes comunitarios realizados</td><td class="td-num">${fmt(d.pcc?.planes)}</td></tr>
+          <tr><td class="td-label">Integrantes con plan comunitario</td><td class="td-num">${fmt(d.pcc?.integrantes)}</td></tr>
+          <tr class="${(d.pcc?.con_error||0)>0?'error-row':''}">
+            <td class="td-label">Registros con error</td>
+            <td class="td-num">${fmt(d.pcc?.con_error)}</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- ══ 3. CARACTERIZACIÓN SI-APS ══ -->
+      <div class="rp-section">
+        <div class="rp-section-title">3. CARACTERIZACIÓN SI-APS 2026</div>
+
+        <div class="rp-sub-title">3.1 Cobertura de Caracterización</div>
+        <table class="rp-table">
+          <tr><th>Dato</th><th style="width:90pt;text-align:right;">Total período</th></tr>
+          <tr><td>Familias / Hogares caracterizados (con consentimiento)</td><td class="td-num">${fmt(ca.familias)}</td></tr>
+          <tr><td>Personas / Integrantes caracterizados</td><td class="td-num">${fmt(ca.individuos)}</td></tr>
+        </table>
+
+        <div class="rp-sub-title">3.2 Población Clave Identificada</div>
+        <table class="rp-table">
+          <tr><th>Grupo poblacional</th><th style="width:90pt;text-align:right;">N° identificados</th></tr>
+          <tr><td>Gestantes</td><td class="td-num">${fmt(ca.gestantes)}</td></tr>
+          <tr><td>Menores de 5 años</td><td class="td-num">${fmt(ca.menores_5)}</td></tr>
+          <tr><td>Adultos mayores (60+)</td><td class="td-num">${fmt(ca.adultos_60)}</td></tr>
+          <tr><td>Víctimas del conflicto armado</td><td class="td-num">${fmt(ca.victimas_conflicto)}</td></tr>
+          <tr><td>Población étnica identificada</td><td class="td-num">${fmt(ca.poblacion_etnica)}</td></tr>
+        </table>
+
+        <div class="rp-sub-title">3.3 Perfil Social del Territorio</div>
+        <table class="rp-table">
+          <tr><th>Variable</th><th style="width:90pt;text-align:right;">Total</th></tr>
+          <tr><td colspan="2" style="background:#eaf0f8;font-style:italic;color:#003366;padding:3pt 8pt;font-size:7.5pt;">Tipo de familia</td></tr>
+          ${filasSocial(tf)}
+          <tr><td colspan="2" style="background:#eaf0f8;font-style:italic;color:#003366;padding:3pt 8pt;font-size:7.5pt;">Estrato socioeconómico</td></tr>
+          ${filasSocial(es)}
+          <tr><td colspan="2" style="background:#eaf0f8;font-style:italic;color:#003366;padding:3pt 8pt;font-size:7.5pt;">Nivel educativo</td></tr>
+          ${filasSocial(ed)}
+        </table>
+
+        <div class="rp-sub-title">3.4 Composición Étnica</div>
+        <table class="rp-table">
+          <tr><th>Categoría</th><th style="width:90pt;text-align:right;">Porcentaje</th></tr>
+          <tr><td>Con pertenencia étnica</td><td class="td-num">${ca.etnia_con_pct||0}% (${fmt(ca.etnia_con_total)} personas)</td></tr>
+          <tr><td>Sin pertenencia étnica</td><td class="td-num">${ca.etnia_sin_pct||0}%</td></tr>
+        </table>
+
+        <div class="rp-sub-title" style="background:#fde8e8;color:#c0392b;border-left-color:#c0392b;">3.5 Errores de Registro</div>
+        <table class="rp-table">
+          <tr><th>Módulo</th><th style="width:90pt;text-align:right;">Errores</th></tr>
+          <tr class="${(ca.error_familiar||0)>0?'error-row':''}"><td>Caracterización familiar</td><td class="td-num">${fmt(ca.error_familiar)}</td></tr>
+          <tr class="${(ca.error_individual||0)>0?'error-row':''}"><td>Caracterización individual</td><td class="td-num">${fmt(ca.error_individual)}</td></tr>
+        </table>
+      </div>
+
+      <!-- ══ 4. PCF GENERAL ══ -->
+      <div class="rp-section">
+        <div class="rp-section-title">4. PLAN CUIDADO FAMILIAR — GENERAL</div>
+        <table class="rp-table">
+          <tr><th>Tipo de Plan</th><th style="width:90pt;text-align:right;">Total período</th></tr>
+          <tr><td>Familias intervenidas (excl. Psicología)</td><td class="td-num">${fmt(d.pcf?.familias_intervenidas)}</td></tr>
+          <tr><td>Integrantes intervenidos</td><td class="td-num">${fmt(d.pcf?.integrantes_intervenidos)}</td></tr>
+        </table>
+      </div>
+
+      <!-- ══ 5. PCF PSICOLOGÍA ══ -->
+      <div class="rp-section">
+        <div class="rp-section-title">5. PLAN CUIDADO FAMILIAR — PERFIL PSICOLOGÍA</div>
+        <table class="rp-table">
+          <tr><th>Indicador</th><th style="width:90pt;text-align:right;">Total período</th></tr>
+          <tr><td>Intervenciones familiares (Psicología)</td><td class="td-num">${fmt(d.pcf_psicologia?.intervenciones_familiares)}</td></tr>
+          <tr><td>Integrantes intervenidos</td><td class="td-num">${fmt(d.pcf_psicologia?.integrantes)}</td></tr>
+          <tr><td>Seguimientos psicológicos realizados</td><td class="td-num">${fmt(d.pcf_psicologia?.seguimientos)}</td></tr>
+        </table>
+      </div>
+
+      <!-- ══ 6. TRÁMITES ══ -->
+      <div class="rp-section">
+        <div class="rp-section-title">6. TRÁMITES Y GESTIONES REALIZADAS</div>
+
+        <div class="rp-sub-title">6.1 Resumen de Trámites</div>
+        <table class="rp-table">
+          <tr><th>Indicador</th><th style="width:90pt;text-align:right;">Total</th></tr>
+          <tr><td>Total trámites gestionados</td><td class="td-num">${fmt(d.tramites?.total)}</td></tr>
+          <tr><td>Trámites resolutivos (efectivos)</td><td class="td-num">${fmt(d.tramites?.resolutivos)}</td></tr>
+          <tr class="${(d.tramites?.con_error||0)>0?'error-row':''}"><td>Trámites con error de registro</td><td class="td-num">${fmt(d.tramites?.con_error)}</td></tr>
+        </table>
+
+        ${tr.length ? `
+        <div class="rp-sub-title">6.2 Desglose por Tipo de Trámite</div>
+        <table class="rp-table">
+          <tr><th>Tipo de trámite</th><th style="width:90pt;text-align:right;">N° gestionados</th></tr>
+          ${tr.map(t=>`<tr><td>${t.label}</td><td class="td-num">${fmt(t.total)}</td></tr>`).join('')}
+          <tr class="total-row"><td>TOTAL</td><td class="td-num">${fmt(d.tramites?.total)}</td></tr>
+        </table>
+        ${chartImgTag}
+        ` : ''}
+      </div>
+
+      <!-- ══ FIRMA ══ -->
+      <div class="rp-firma">
+        <div class="rp-firma-item">
+          <div style="font-weight:bold;margin-bottom:2pt;">${_usuarioConsultado}</div>
+          <div>Encuestador(a) APS</div>
+        </div>
+        <div class="rp-firma-item">
+          <div style="font-weight:bold;margin-bottom:2pt;">___________________________</div>
+          <div>Revisado por</div>
+        </div>
+        <div class="rp-firma-item">
+          <div style="font-weight:bold;margin-bottom:2pt;">___________________________</div>
+          <div>Coordinación APS</div>
+        </div>
+      </div>
+
+      <div class="rp-pie-page">
+        Empresa Social del Estado — Villavicencio · Sistema INFORMES ESE ·
+        Generado el ${hoy} · Resolución 763/2025
+      </div>
+    `;
+
+    document.getElementById('seccionImprimible').innerHTML = html;
+    window.print();
+  }
+
+  // Listeners
+  ['inputUser','inputInicio','inputFin'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => { if(e.key==='Enter') buscarAuditoria(); });
+  });
+</script>
+</body>
+</html>

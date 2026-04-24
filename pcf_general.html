@@ -1,0 +1,46 @@
+<div class="section">
+  <div class="section-header">
+    <div class="section-icon" style="background:#e6f7f5;">
+      <svg viewBox="0 0 24 24" fill="#00b09b"><path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/></svg>
+    </div>
+    <div>
+      <div class="section-title">Plan Cuidado Familiar (General)</div>
+      <div class="section-sub">Intervenciones del promotor/médico (Excluye perfil de Psicología)</div>
+    </div>
+  </div>
+  <div class="cards-row">
+    <div class="stat-card c-teal">
+      <div class="stat-label">Familias intervenidas</div>
+      <div class="stat-value" id="a-pcf-fam">0</div>
+    </div>
+    <div class="stat-card c-navy">
+      <div class="stat-label">Integrantes intervenidos</div>
+      <div class="stat-value" id="a-pcf-int">0</div>
+    </div>
+  </div>
+
+  <div class="sub-section" style="margin-top:1rem;">
+    <div class="sub-section-title">Reportes Detallados de Plan Cuidado Familiar (General)</div>
+
+    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+
+      <div>
+        <div class="report-header">
+          <span style="font-size: 0.85rem; font-weight: bold; color: var(--teal);">1. Intervenciones Familiares Realizadas</span>
+          <button class="btn-copy-small" style="background: var(--teal);" onclick="copiarTexto('txtPcfRealizados')">📋 Copiar</button>
+        </div>
+        <textarea id="txtPcfRealizados" class="report-box" readonly style="border-color: var(--teal-lt);"></textarea>
+      </div>
+
+      <div>
+        <div class="report-header">
+          <span style="font-size: 0.85rem; font-weight: bold; color: var(--red);">2. Errores de Registro (Principal e Integrantes)</span>
+          <button class="btn-copy-small" style="background: var(--red);" onclick="copiarTexto('txtPcfErrores')">📋 Copiar</button>
+        </div>
+        <textarea id="txtPcfErrores" class="report-box" style="background: #fde8e8; border-color: var(--red-lt); color: var(--red);" readonly></textarea>
+      </div>
+
+    </div>
+  </div>
+</div>
+<div class="divider"></div>

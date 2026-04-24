@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>INFORMES ESE · Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,400&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg        : #f0f4fa;
+      --surface   : #ffffff;
+      --navy      : #0a1f3d;
+      --navy-lt   : #122848;
+      --teal      : #00b09b;
+      --teal-lt   : #e6f7f5;
+      --teal-mid  : #b3e8e3;
+      --gold      : #f0a500;
+      --gold-lt   : #fef7e0;
+      --red       : #e53935;
+      --red-lt    : #fde8e8;
+      --purple    : #6c3fc5;
+      --purple-lt : #ede8fb;
+      --green     : #1e9c6e;
+      --green-lt  : #e5f7f0;
+      --border    : #dde4ef;
+      --text      : #1a2840;
+      --muted     : #5d7290;
+      --sidebar-w : 240px;
+      --radius    : 14px;
+      --shadow    : 0 2px 16px rgba(10,31,61,.07);
+      --shadow-md : 0 4px 28px rgba(10,31,61,.11);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Sora', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+    }
+
+    /* ── Sidebar ────────────────────────────────────────────────── */
+    .sidebar {
+      width: var(--sidebar-w);
+      background: var(--navy);
+      height: 100vh;
+      position: fixed; left: 0; top: 0;
+      display: flex; flex-direction: column;
+      padding: 1.5rem 0;
+      z-index: 100;
+      box-shadow: 4px 0 24px rgba(0,0,0,.18);
+    }
+    .sidebar-brand {
+      display: flex; align-items: center; gap: .75rem;
+      padding: 0 1.4rem 1.5rem;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+    .brand-logo {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--teal), #00d4b8);
+      border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .brand-logo svg { width: 20px; height: 20px; fill: #fff; }
+    .brand-name { font-family: 'Fraunces', serif; font-size: 1rem; color: #fff; }
+    .brand-sub  { font-size: .62rem; color: rgba(255,255,255,.4); letter-spacing: .1em; text-transform: uppercase; }
+
+    .nav { flex: 1; padding: 1.2rem 0; }
+    .nav-item {
+      display: flex; align-items: center; gap: .75rem;
+      padding: .7rem 1.4rem; color: rgba(255,255,255,.55);
+      font-size: .83rem; font-weight: 500;
+      cursor: pointer; transition: all .18s;
+      text-decoration: none; margin: .1rem 0;
+    }
+    .nav-item:hover { color: #fff; background: rgba(255,255,255,.06); }
+    .nav-item.active {
+      color: var(--teal);
+      background: rgba(0,176,155,.12);
+      border-right: 3px solid var(--teal);
+    }
+    .nav-item svg { width: 18px; height: 18px; flex-shrink: 0; }
+    .nav-label { font-size: .8rem; }
+
+    .nav-section-title {
+      padding: .9rem 1.4rem .3rem;
+      font-size: .62rem; font-weight: 700; letter-spacing: .14em;
+      text-transform: uppercase; color: rgba(255,255,255,.25);
+    }
+
+    .sidebar-user {
+      padding: 1rem 1.4rem;
+      border-top: 1px solid rgba(255,255,255,.08);
+    }
+    .user-name { font-size: .82rem; color: #fff; font-weight: 600; margin-bottom: .15rem; }
+    .user-role { font-size: .68rem; color: rgba(255,255,255,.4); text-transform: uppercase; letter-spacing: .1em; }
+    .btn-logout {
+      margin-top: .75rem; width: 100%;
+      background: rgba(229,57,53,.15); border: 1px solid rgba(229,57,53,.3);
+      color: #ff8a80; border-radius: 8px;
+      padding: .45rem; font-family: 'Sora', sans-serif;
+      font-size: .75rem; cursor: pointer; transition: background .2s;
+    }
+    .btn-logout:hover { background: rgba(229,57,53,.25); }
+
+    /* ── Main content ───────────────────────────────────────────── */
+    .main {
+      margin-left: var(--sidebar-w);
+      flex: 1; min-height: 100vh;
+    }
+
+    .topbar {
+      background: var(--surface);
+      padding: 1rem 2rem;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 50;
+      box-shadow: var(--shadow);
+    }
+    .topbar-title {
+      font-family: 'Fraunces', serif;
+      font-size: 1.1rem; font-weight: 700; color: var(--navy);
+    }
+    .topbar-meta { font-size: .75rem; color: var(--muted); }
+    .btn-refresh {
+      background: var(--teal-lt); border: 1px solid var(--teal-mid);
+      color: var(--teal); border-radius: 8px;
+      padding: .4rem .9rem; font-family: 'Sora', sans-serif;
+      font-size: .78rem; font-weight: 600; cursor: pointer; transition: all .2s;
+    }
+    .btn-refresh:hover { background: var(--teal-mid); }
+
+    .content { padding: 1.75rem 2rem 4rem; }
+
+    /* ── Sección ────────────────────────────────────────────────── */
+    .section {
+      margin-bottom: 2.5rem;
+      animation: fadeIn .4s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .section-header {
+      display: flex; align-items: center; gap: .75rem;
+      margin-bottom: 1.1rem;
+    }
+    .section-icon {
+      width: 38px; height: 38px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .section-icon svg { width: 20px; height: 20px; }
+    .section-title { font-family: 'Fraunces', serif; font-size: 1.1rem; color: var(--navy); }
+    .section-sub   { font-size: .75rem; color: var(--muted); }
+
+    /* ── Cards grid ─────────────────────────────────────────────── */
+    .cards-row {
+      display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;
+    }
+    .stat-card {
+      background: var(--surface); border-radius: var(--radius);
+      box-shadow: var(--shadow); padding: 1.2rem 1.4rem;
+      flex: 1; min-width: 160px;
+      border-top: 3px solid transparent;
+      transition: box-shadow .2s, transform .2s;
+    }
+    .stat-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+    .stat-card.c-teal   { border-top-color: var(--teal); }
+    .stat-card.c-gold   { border-top-color: var(--gold); }
+    .stat-card.c-red    { border-top-color: var(--red); }
+    .stat-card.c-purple { border-top-color: var(--purple); }
+    .stat-card.c-green  { border-top-color: var(--green); }
+    .stat-card.c-navy   { border-top-color: var(--navy); }
+    .stat-label {
+      font-size: .68rem; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: .45rem;
+    }
+    .stat-value {
+      font-family: 'Fraunces', serif;
+      font-size: 2rem; font-weight: 700; color: var(--navy);
+      line-height: 1; margin-bottom: .2rem;
+    }
+    .stat-value.loading { font-size: 1rem; color: var(--muted); }
+    .stat-badge {
+      display: inline-block; padding: .15rem .55rem; border-radius: 20px;
+      font-size: .68rem; font-weight: 600;
+    }
+    .badge-error  { background: var(--red-lt);    color: var(--red); }
+    .badge-ok     { background: var(--green-lt);  color: var(--green); }
+    .badge-warn   { background: var(--gold-lt);   color: var(--gold); }
+    .badge-info   { background: var(--teal-lt);   color: var(--teal); }
+
+    /* ── Chart cards ─────────────────────────────────────────────── */
+    .charts-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1rem; margin-bottom: 1rem;
+    }
+    .chart-card {
+      background: var(--surface); border-radius: var(--radius);
+      box-shadow: var(--shadow); padding: 1.2rem 1.4rem;
+    }
+    .chart-card-title {
+      font-size: .73rem; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 1rem;
+    }
+    .chart-container { position: relative; height: 200px; }
+
+    /* ── Subsección ─────────────────────────────────────────────── */
+    .sub-section {
+      background: var(--surface); border-radius: var(--radius);
+      box-shadow: var(--shadow); padding: 1.2rem 1.4rem;
+      margin-bottom: 1rem;
+    }
+    .sub-section-title {
+      font-size: .73rem; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 1rem;
+      padding-bottom: .6rem; border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Separador visual ───────────────────────────────────────── */
+    .divider {
+      height: 1px; background: var(--border); margin: 1.8rem 0;
+    }
+
+    /* ── Etnia composición ──────────────────────────────────────── */
+    .etnia-bar {
+      height: 10px; border-radius: 10px;
+      overflow: hidden; background: var(--border);
+      margin: .6rem 0;
+    }
+    .etnia-fill {
+      height: 100%; border-radius: 10px;
+      background: linear-gradient(90deg, var(--teal), #00d4b8);
+      transition: width .8s ease;
+    }
+    .etnia-labels {
+      display: flex; justify-content: space-between;
+      font-size: .75rem; color: var(--muted);
+    }
+    .etnia-labels span:first-child { color: var(--teal); font-weight: 600; }
+    .etnia-labels span:last-child  { color: var(--muted); }
+
+    /* ── Loading overlay ────────────────────────────────────────── */
+    #loadingOverlay {
+      position: fixed; inset: 0;
+      background: rgba(240,244,250,.8);
+      z-index: 999;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 1rem;
+    }
+    .loading-spinner {
+      width: 40px; height: 40px;
+      border: 3px solid rgba(0,176,155,.2);
+      border-top-color: var(--teal);
+      border-radius: 50%; animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-size: .85rem; color: var(--muted); }
+
+    @media (max-width: 768px) {
+      .sidebar { width: 0; overflow: hidden; }
+      .main    { margin-left: 0; }
+      .content { padding: 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Sidebar ─────────────────────────────────────────────────── -->
+<nav class="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-logo">
+      <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+    </div>
+    <div>
+      <div class="brand-name">INFORMES</div>
+      <div class="brand-sub">ESE 2026</div>
+    </div>
+  </div>
+
+  <div class="nav">
+    <div class="nav-section-title">Módulos</div>
+    <a href="/dashboard" class="nav-item active">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+      <span class="nav-label">Dashboard</span>
+    </a>
+    <a href="/auditoria" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      <span class="nav-label">Auditoría</span>
+    </a>
+  </div>
+
+  <div class="sidebar-user">
+    <div class="user-name" id="sidebarNombre">Cargando...</div>
+    <div class="user-role" id="sidebarRol">—</div>
+    <button class="btn-logout" onclick="logout()">Cerrar sesión</button>
+  </div>
+</nav>
+
+<!-- ── Main ───────────────────────────────────────────────────── -->
+<div class="main">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title">Dashboard General 2026</div>
+      <div class="topbar-meta" id="topbarFecha">Cargando datos...</div>
+    </div>
+    <button class="btn-refresh" onclick="loadDashboard()">↻ Actualizar</button>
+  </div>
+
+  <div class="content">
+
+    <!-- ── 1. DESISTIMIENTOS ──────────────────────────────────── -->
+    <div class="section" id="sec-desist">
+      <div class="section-header">
+        <div class="section-icon" style="background:#fde8e8;">
+          <svg viewBox="0 0 24 24" fill="#e53935"><path d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"/></svg>
+        </div>
+        <div>
+          <div class="section-title">Desistimientos</div>
+          <div class="section-sub">Registros de abandono de procesos</div>
+        </div>
+      </div>
+      <div class="cards-row">
+        <div class="stat-card c-red">
+          <div class="stat-label">Total desistimientos</div>
+          <div class="stat-value loading" id="d-total">—</div>
+        </div>
+        <div class="stat-card c-gold">
+          <div class="stat-label">Con error de registro</div>
+          <div class="stat-value loading" id="d-error">—</div>
+          <span class="stat-badge badge-warn">Requiere revisión</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- ── 2. PLAN CUIDADO COMUNITARIO ──────────────────────────── -->
+    <div class="section" id="sec-pcc">
+      <div class="section-header">
+        <div class="section-icon" style="background:#e8f5e9;">
+          <svg viewBox="0 0 24 24" fill="#1e9c6e"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+        </div>
+        <div>
+          <div class="section-title">Plan Cuidado Comunitario</div>
+          <div class="section-sub">Planes y participantes en atención comunitaria</div>
+        </div>
+      </div>
+      <div class="cards-row">
+        <div class="stat-card c-green">
+          <div class="stat-label">Planes realizados</div>
+          <div class="stat-value loading" id="pcc-planes">—</div>
+        </div>
+        <div class="stat-card c-teal">
+          <div class="stat-label">Integrantes con plan</div>
+          <div class="stat-value loading" id="pcc-integ">—</div>
+        </div>
+        <div class="stat-card c-gold">
+          <div class="stat-label">Con error de registro</div>
+          <div class="stat-value loading" id="pcc-error">—</div>
+          <span class="stat-badge badge-warn">Requiere revisión</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- ── 3. CARACTERIZACIÓN SI-APS ────────────────────────────── -->
+    <div class="section" id="sec-caract">
+      <div class="section-header">
+        <div class="section-icon" style="background:#ede8fb;">
+          <svg viewBox="0 0 24 24" fill="#6c3fc5"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+        </div>
+        <div>
+          <div class="section-title">Caracterización SI-APS 2026</div>
+          <div class="section-sub">Familias e individuos caracterizados en el territorio</div>
+        </div>
+      </div>
+
+      <!-- Conteos base -->
+      <div class="cards-row">
+        <div class="stat-card c-purple">
+          <div class="stat-label">Familias caracterizadas</div>
+          <div class="stat-value loading" id="ca-familias">—</div>
+          <span class="stat-badge badge-info">Con consentimiento</span>
+        </div>
+        <div class="stat-card c-navy">
+          <div class="stat-label">Integrantes caracterizados</div>
+          <div class="stat-value loading" id="ca-individuos">—</div>
+        </div>
+        <div class="stat-card c-red">
+          <div class="stat-label">Familias sin aseguramiento</div>
+          <div class="stat-value loading" id="ca-sinaseg">—</div>
+          <span class="stat-badge badge-error">No afiliadas</span>
+        </div>
+      </div>
+
+      <!-- Grupos poblacionales -->
+      <div class="sub-section">
+        <div class="sub-section-title">Grupos Poblacionales</div>
+        <div class="cards-row">
+          <div class="stat-card c-teal">
+            <div class="stat-label">Gestantes</div>
+            <div class="stat-value loading" id="ca-gestantes">—</div>
+          </div>
+          <div class="stat-card c-green">
+            <div class="stat-label">Menores de 5 años</div>
+            <div class="stat-value loading" id="ca-menores5">—</div>
+          </div>
+          <div class="stat-card c-gold">
+            <div class="stat-label">Adultos mayores (60+)</div>
+            <div class="stat-value loading" id="ca-adultos60">—</div>
+          </div>
+          <div class="stat-card c-red">
+            <div class="stat-label">Víctimas conflicto</div>
+            <div class="stat-value loading" id="ca-victimas">—</div>
+          </div>
+          <div class="stat-card c-purple">
+            <div class="stat-label">Población étnica</div>
+            <div class="stat-value loading" id="ca-etnica">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Perfil social -->
+      <div class="sub-section">
+        <div class="sub-section-title">Perfil Social del Territorio</div>
+        <div class="charts-row">
+          <div class="chart-card">
+            <div class="chart-card-title">Tipo de familia predominante</div>
+            <div class="chart-container">
+              <canvas id="chartTipoFamilia"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card-title">Estrato socioeconómico</div>
+            <div class="chart-container">
+              <canvas id="chartEstrato"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card-title">Nivel educativo más frecuente</div>
+            <div class="chart-container">
+              <canvas id="chartEducacion"></canvas>
+            </div>
+          </div>
+        </div>
+        <!-- Composición étnica -->
+        <div class="chart-card" style="margin-top:1rem;">
+          <div class="chart-card-title">Composición Étnica</div>
+          <div class="etnia-bar">
+            <div class="etnia-fill" id="etnia-fill-bar" style="width:0%"></div>
+          </div>
+          <div class="etnia-labels">
+            <span id="etnia-con-label">— Con pertenencia étnica</span>
+            <span id="etnia-sin-label">— Sin pertenencia étnica</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Errores -->
+      <div class="cards-row" style="margin-top:.75rem;">
+        <div class="stat-card c-gold">
+          <div class="stat-label">Errores en caracterización familiar</div>
+          <div class="stat-value loading" id="ca-err-fam">—</div>
+          <span class="stat-badge badge-warn">Sin consentimiento o vacíos</span>
+        </div>
+        <div class="stat-card c-gold">
+          <div class="stat-label">Errores en caracterización individual</div>
+          <div class="stat-value loading" id="ca-err-ind">—</div>
+          <span class="stat-badge badge-warn">Registros incompletos</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- ── 4. PLAN CUIDADO FAMILIAR ──────────────────────────────── -->
+    <div class="section" id="sec-pcf">
+      <div class="section-header">
+        <div class="section-icon" style="background:#e6f7f5;">
+          <svg viewBox="0 0 24 24" fill="#00b09b"><path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/></svg>
+        </div>
+        <div>
+          <div class="section-title">Plan Cuidado Familiar</div>
+          <div class="section-sub">Intervenciones familiares (excluye Psicología)</div>
+        </div>
+      </div>
+      <div class="cards-row">
+        <div class="stat-card c-teal">
+          <div class="stat-label">Familias intervenidas</div>
+          <div class="stat-value loading" id="pcf-fam">—</div>
+        </div>
+        <div class="stat-card c-navy">
+          <div class="stat-label">Integrantes intervenidos</div>
+          <div class="stat-value loading" id="pcf-integ">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- ── 5. PLAN CUIDADO FAMILIAR – PSICOLOGÍA ─────────────────── -->
+    <div class="section" id="sec-pcf-psi">
+      <div class="section-header">
+        <div class="section-icon" style="background:#ede8fb;">
+          <svg viewBox="0 0 24 24" fill="#6c3fc5"><path d="M11.5 2C6.81 2 3 5.81 3 10.5S6.81 19 11.5 19h.5v3c4.86-2.34 8-7 8-11.5C20 5.81 16.19 2 11.5 2zm1 14.5h-2v-2h2v2zm0-4h-2c0-3.25 3-3 3-5 0-1.1-.9-2-2-2s-2 .9-2 2h-2c0-2.21 1.79-4 4-4s4 1.79 4 4c0 2.5-3 2.75-3 5z"/></svg>
+        </div>
+        <div>
+          <div class="section-title">Plan Cuidado Familiar — Psicología</div>
+          <div class="section-sub">Intervenciones del perfil Profesional Psicología</div>
+        </div>
+      </div>
+      <div class="cards-row">
+        <div class="stat-card c-purple">
+          <div class="stat-label">Intervenciones familiares</div>
+          <div class="stat-value loading" id="psi-interv">—</div>
+        </div>
+        <div class="stat-card c-navy">
+          <div class="stat-label">Integrantes intervenidos</div>
+          <div class="stat-value loading" id="psi-integ">—</div>
+        </div>
+        <div class="stat-card c-teal">
+          <div class="stat-label">Seguimientos realizados</div>
+          <div class="stat-value loading" id="psi-seg">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- ── 6. TRÁMITES ────────────────────────────────────────────── -->
+    <div class="section" id="sec-tramites">
+      <div class="section-header">
+        <div class="section-icon" style="background:#fef7e0;">
+          <svg viewBox="0 0 24 24" fill="#f0a500"><path d="M20 6h-2.18c.07-.44.18-.86.18-1a3 3 0 0 0-6 0c0 .14.11.56.18 1H10c-.36 0-.96.15-.96.96v13c0 .57.39 1.04.96 1.04h10c.57 0 1-.47 1-1.04V6.96c0-.81-.57-.96-1-.96zM14 3a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm2 16H8V7h2v2h4V7h2v12z"/></svg>
+        </div>
+        <div>
+          <div class="section-title">Trámites</div>
+          <div class="section-sub">Gestión y resolución de trámites realizados</div>
+        </div>
+      </div>
+      <div class="cards-row">
+        <div class="stat-card c-gold">
+          <div class="stat-label">Total trámites</div>
+          <div class="stat-value loading" id="tr-total">—</div>
+        </div>
+        <div class="stat-card c-green">
+          <div class="stat-label">Trámites resolutivos</div>
+          <div class="stat-value loading" id="tr-resol">—</div>
+          <span class="stat-badge badge-ok">Resueltos</span>
+        </div>
+        <div class="stat-card c-red">
+          <div class="stat-label">Con error de registro</div>
+          <div class="stat-value loading" id="tr-error">—</div>
+          <span class="stat-badge badge-error">Revisar</span>
+        </div>
+      </div>
+      <div class="sub-section" style="margin-top:.5rem;">
+        <div class="sub-section-title">Tipo de trámite</div>
+        <div class="chart-card" style="box-shadow:none;padding:0;">
+          <div class="chart-container" style="height:220px;">
+            <canvas id="chartTramites"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- Loading overlay -->
+<div id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">Cargando estadísticas...</div>
+</div>
+
+<script>
+  // ── Configuración ────────────────────────────────────────────────
+  const API_BASE = window.location.protocol === 'file:'
+    ? 'http://127.0.0.1:5001'
+    : window.location.origin;
+
+  // ── Auth guard ────────────────────────────────────────────────────
+  const token = localStorage.getItem('informes_token');
+  if (!token) { window.location.href = '/login'; }
+
+  const userInfo = JSON.parse(localStorage.getItem('informes_user') || '{}');
+  document.getElementById('sidebarNombre').textContent = userInfo.nombre || '—';
+  document.getElementById('sidebarRol').textContent    = userInfo.rol   || '—';
+
+  function logout() {
+    localStorage.removeItem('informes_token');
+    localStorage.removeItem('informes_user');
+    window.location.href = '/login';
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────
+  function fmt(n) {
+    if (n === null || n === undefined) return '—';
+    return Number(n).toLocaleString('es-CO');
+  }
+
+  function setVal(id, value) {
+    const el = document.getElementById(id);
+    if (el) { el.textContent = fmt(value); el.classList.remove('loading'); }
+  }
+
+  function headers() {
+    return { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+  }
+
+  // ── Charts ───────────────────────────────────────────────────────
+  const PALETTE = [
+    '#00b09b','#0a1f3d','#f0a500','#6c3fc5','#e53935',
+    '#1e9c6e','#00d4b8','#f5a623','#8b5cf6','#ef4444',
+    '#06b6d4','#84cc16','#f97316','#ec4899','#64748b',
+  ];
+
+  function buildChart(canvasId, type, labels, data, options = {}) {
+    const ctx = document.getElementById(canvasId);
+    if (!ctx) return;
+    return new Chart(ctx, {
+      type,
+      data: {
+        labels,
+        datasets: [{
+          data,
+          backgroundColor: type === 'doughnut' ? PALETTE : PALETTE.map(c => c + 'cc'),
+          borderColor    : type === 'doughnut' ? PALETTE.map(c => c + '33') : PALETTE,
+          borderWidth    : type === 'bar' ? 0 : 2,
+          borderRadius   : type === 'bar' ? 6 : 0,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display   : type === 'doughnut',
+            position  : 'right',
+            labels    : { font: { family: 'Sora', size: 10 }, boxWidth: 10, padding: 8 },
+          },
+          tooltip: {
+            bodyFont: { family: 'Sora', size: 11 },
+            titleFont: { family: 'Sora', size: 12, weight: '600' },
+          },
+        },
+        scales: type === 'bar' ? {
+          y: { beginAtZero: true, ticks: { font: { family: 'Sora', size: 10 } } },
+          x: { ticks: { font: { family: 'Sora', size: 9 }, maxRotation: 40 } },
+        } : {},
+        ...options,
+      },
+    });
+  }
+
+  // ── Cargar dashboard ─────────────────────────────────────────────
+  async function loadDashboard() {
+    document.getElementById('loadingOverlay').style.display = 'flex';
+    try {
+      const resp = await fetch(`${API_BASE}/api/dashboard`, { headers: headers() });
+
+      if (resp.status === 401) { logout(); return; }
+
+      const d = await resp.json();
+      const now = new Date().toLocaleString('es-CO', {
+        dateStyle: 'long', timeStyle: 'short'
+      });
+      document.getElementById('topbarFecha').textContent = 'Última actualización: ' + now;
+
+      // 1. DESISTIMIENTOS
+      setVal('d-total', d.desistimientos?.total);
+      setVal('d-error', d.desistimientos?.con_error);
+
+      // 2. PCC
+      setVal('pcc-planes', d.pcc?.planes);
+      setVal('pcc-integ',  d.pcc?.integrantes);
+      setVal('pcc-error',  d.pcc?.con_error);
+
+      // 3. CARACTERIZACIÓN
+      setVal('ca-familias',   d.caracterizacion?.familias);
+      setVal('ca-individuos', d.caracterizacion?.individuos);
+      setVal('ca-sinaseg',    d.caracterizacion?.sin_aseguramiento);
+      setVal('ca-gestantes',  d.caracterizacion?.gestantes);
+      setVal('ca-menores5',   d.caracterizacion?.menores_5);
+      setVal('ca-adultos60',  d.caracterizacion?.adultos_60);
+      setVal('ca-victimas',   d.caracterizacion?.victimas_conflicto);
+      setVal('ca-etnica',     d.caracterizacion?.poblacion_etnica);
+      setVal('ca-err-fam',    d.caracterizacion?.error_familiar);
+      setVal('ca-err-ind',    d.caracterizacion?.error_individual);
+
+      // Composición étnica
+      const pctCon = d.caracterizacion?.etnia_con_pct || 0;
+      const pctSin = d.caracterizacion?.etnia_sin_pct || 0;
+      document.getElementById('etnia-fill-bar').style.width = pctCon + '%';
+      document.getElementById('etnia-con-label').textContent =
+        `${pctCon}% con pertenencia étnica (${fmt(d.caracterizacion?.etnia_con_total)})`;
+      document.getElementById('etnia-sin-label').textContent =
+        `${pctSin}% sin pertenencia étnica`;
+
+      // Gráficos tipo familia
+      const tf = d.caracterizacion?.tipo_familia || [];
+      buildChart('chartTipoFamilia', 'doughnut',
+        tf.map(x => x.label), tf.map(x => x.total));
+
+      // Gráfico estrato
+      const es = d.caracterizacion?.estrato || [];
+      buildChart('chartEstrato', 'bar',
+        es.map(x => x.label), es.map(x => x.total));
+
+      // Gráfico educación
+      const ed = d.caracterizacion?.nivel_educativo || [];
+      buildChart('chartEducacion', 'bar',
+        ed.map(x => x.label), ed.map(x => x.total));
+
+      // 4. PCF
+      setVal('pcf-fam',   d.pcf?.familias_intervenidas);
+      setVal('pcf-integ', d.pcf?.integrantes_intervenidos);
+
+      // 5. PCF PSICOLOGÍA
+      setVal('psi-interv', d.pcf_psicologia?.intervenciones_familiares);
+      setVal('psi-integ',  d.pcf_psicologia?.integrantes);
+      setVal('psi-seg',    d.pcf_psicologia?.seguimientos);
+
+      // 6. TRÁMITES
+      setVal('tr-total', d.tramites?.total);
+      setVal('tr-resol', d.tramites?.resolutivos);
+      setVal('tr-error', d.tramites?.con_error);
+
+      const tr = d.tramites?.por_tipo || [];
+      buildChart('chartTramites', 'bar',
+        tr.map(x => x.label), tr.map(x => x.total));
+
+    } catch (err) {
+      console.error('Error cargando dashboard:', err);
+      document.getElementById('topbarFecha').textContent =
+        '⚠️ Error al cargar datos. Verifica la conexión.';
+    } finally {
+      document.getElementById('loadingOverlay').style.display = 'none';
+    }
+  }
+
+  loadDashboard();
+</script>
+</body>
+</html>

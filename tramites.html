@@ -1,0 +1,63 @@
+<div class="section">
+  <div class="section-header">
+    <div class="section-icon" style="background:#fef7e0;">
+      <svg viewBox="0 0 24 24" fill="#f0a500"><path d="M20 6h-2.18c.07-.44.18-.86.18-1a3 3 0 0 0-6 0c0 .14.11.56.18 1H10c-.36 0-.96.15-.96.96v13c0 .57.39 1.04.96 1.04h10c.57 0 1-.47 1-1.04V6.96c0-.81-.57-.96-1-.96zM14 3a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm2 16H8V7h2v2h4V7h2v12z"/></svg>
+    </div>
+    <div>
+      <div class="section-title">Trámites Realizados</div>
+      <div class="section-sub">Gestión documental generada por este encuestador</div>
+    </div>
+  </div>
+  <div class="cards-row">
+    <div class="stat-card c-navy">
+      <div class="stat-label">Total trámites</div>
+      <div class="stat-value" id="a-tr-tot">0</div>
+    </div>
+    <div class="stat-card c-green">
+      <div class="stat-label">Trámites resolutivos</div>
+      <div class="stat-value" id="a-tr-res">0</div>
+      <span class="stat-badge badge-ok">Resueltos</span>
+    </div>
+    <div class="stat-card c-red">
+      <div class="stat-label">Con error de registro</div>
+      <div class="stat-value" id="a-tr-err">0</div>
+    </div>
+  </div>
+
+  <div class="sub-section" style="margin-top:1rem;">
+    <div class="sub-section-title">Desglose de trámites por tipo</div>
+    <div class="chart-container">
+      <canvas id="chartTramitesAuditoria"></canvas>
+    </div>
+  </div>
+
+  <div class="sub-section" style="margin-top:1rem;">
+    <div class="sub-section-title">Reportes Detallados de Trámites</div>
+
+    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+      <div>
+        <div class="report-header">
+          <span style="font-size: 0.85rem; font-weight: bold; color: var(--navy);">1. Trámites Realizados (Detectados)</span>
+          <button class="btn-copy-small" style="background: var(--navy);" onclick="copiarTexto('txtTramRealizados')">📋 Copiar</button>
+        </div>
+        <textarea id="txtTramRealizados" class="report-box" readonly></textarea>
+      </div>
+
+      <div>
+        <div class="report-header">
+          <span style="font-size: 0.85rem; font-weight: bold; color: var(--green);">2. Trámites Resueltos (Efectivos)</span>
+          <button class="btn-copy-small" style="background: var(--green);" onclick="copiarTexto('txtTramResueltos')">📋 Copiar</button>
+        </div>
+        <textarea id="txtTramResueltos" class="report-box" style="border-color: var(--green-lt);" readonly></textarea>
+      </div>
+
+      <div>
+        <div class="report-header">
+          <span style="font-size: 0.85rem; font-weight: bold; color: var(--red);">3. Trámites con Errores</span>
+          <button class="btn-copy-small" style="background: var(--red);" onclick="copiarTexto('txtTramErrores')">📋 Copiar</button>
+        </div>
+        <textarea id="txtTramErrores" class="report-box" style="background: #fde8e8; border-color: var(--red-lt); color: var(--red);" readonly></textarea>
+      </div>
+    </div>
+  </div>
+</div>

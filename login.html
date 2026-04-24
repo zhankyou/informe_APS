@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>INFORMES ESE · Acceso</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,400&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg        : #080f1a;
+      --surface   : #0f1d2e;
+      --border    : rgba(255,255,255,.08);
+      --teal      : #00d4b8;
+      --teal-glow : rgba(0,212,184,.18);
+      --gold      : #f0a500;
+      --text      : #e8f0fe;
+      --muted     : #6b8aaa;
+      --danger    : #ff6b6b;
+      --radius    : 16px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+
+    body {
+      font-family: 'Sora', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* ── Fondo animado ─────────────────────────────────────────── */
+    .bg-grid {
+      position: fixed; inset: 0; pointer-events: none;
+      background-image:
+        linear-gradient(rgba(0,212,184,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,184,.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+    }
+    .bg-orb { position: fixed; border-radius: 50%; filter: blur(80px); pointer-events: none; }
+    .bg-orb-1 {
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(0,212,184,.12), transparent 70%);
+      top: -120px; left: -120px;
+      animation: pulse 8s ease-in-out infinite;
+    }
+    .bg-orb-2 {
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, rgba(240,165,0,.08), transparent 70%);
+      bottom: -100px; right: -100px;
+      animation: pulse 10s ease-in-out infinite reverse;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: .7; }
+      50%  { transform: scale(1.15); opacity: 1; }
+    }
+
+    /* ── Card ──────────────────────────────────────────────────── */
+    .card {
+      position: relative; z-index: 10;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2.5rem 2.2rem 2.2rem;
+      width: 100%; max-width: 420px;
+      box-shadow: 0 0 0 1px rgba(0,212,184,.06), 0 24px 60px rgba(0,0,0,.5);
+      animation: cardIn .6s cubic-bezier(.16,1,.3,1);
+    }
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(24px) scale(.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* ── Logo / Brand ──────────────────────────────────────────── */
+    .brand { display: flex; align-items: center; gap: .9rem; margin-bottom: 2rem; }
+    .brand-icon {
+      width: 48px; height: 48px;
+      background: linear-gradient(135deg, var(--teal), #00abb8);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 20px var(--teal-glow); flex-shrink: 0;
+    }
+    .brand-icon svg { width: 26px; height: 26px; fill: #fff; }
+    .brand-text .title { font-family: 'Fraunces', serif; font-size: 1.25rem; font-weight: 700; color: var(--text); line-height: 1; }
+    .brand-text .sub { font-size: .7rem; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; margin-top: .25rem; }
+
+    /* ── Heading ───────────────────────────────────────────────── */
+    .heading { font-family: 'Fraunces', serif; font-size: 1.55rem; font-weight: 300; font-style: italic; color: var(--text); margin-bottom: .4rem; }
+    .sub-heading { font-size: .8rem; color: var(--muted); margin-bottom: 1.75rem; }
+
+    /* ── Formulario ────────────────────────────────────────────── */
+    .field { margin-bottom: 1.1rem; position: relative; }
+    .field label {
+      display: block; font-size: .7rem; font-weight: 600;
+      letter-spacing: .1em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: .45rem;
+    }
+
+    /* Contenedor relativo para el input de la contraseña y el ojito */
+    .input-wrapper { position: relative; display: flex; align-items: center; }
+
+    .field input {
+      width: 100%; background: rgba(255,255,255,.04); border: 1.5px solid var(--border);
+      border-radius: 10px; padding: .8rem 1rem; color: var(--text);
+      font-family: 'Sora', sans-serif; font-size: .9rem; outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .field input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-glow); }
+    .field input::placeholder { color: var(--muted); }
+
+    /* Botón Mostrar/Ocultar Contraseña */
+    .btn-toggle-pass {
+      position: absolute; right: 12px; background: transparent; border: none;
+      color: var(--muted); cursor: pointer; outline: none; font-size: 1.1rem;
+      padding: 0; transition: color 0.2s;
+    }
+    .btn-toggle-pass:hover { color: var(--teal); }
+
+    /* ── Botón Ingresar ────────────────────────────────────────── */
+    .btn-login {
+      width: 100%; margin-top: 1rem; background: linear-gradient(135deg, var(--teal), #00abb8);
+      border: none; border-radius: 10px; padding: .9rem; color: #fff;
+      font-family: 'Sora', sans-serif; font-size: .9rem; font-weight: 600;
+      letter-spacing: .05em; cursor: pointer; transition: opacity .2s, transform .1s, box-shadow .2s;
+      box-shadow: 0 4px 20px var(--teal-glow);
+    }
+    .btn-login:hover { opacity: .92; box-shadow: 0 6px 28px var(--teal-glow); }
+    .btn-login:active { transform: scale(.98); }
+    .btn-login:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* ── Indicador dispositivo ─────────────────────────────────── */
+    .device-indicator {
+      display: flex; align-items: center; gap: .5rem; margin-top: 1.5rem; padding-top: 1.2rem;
+      border-top: 1px solid var(--border); font-size: .72rem; color: var(--muted);
+    }
+    .device-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: var(--teal);
+      flex-shrink: 0; animation: blink 2s ease-in-out infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    /* ── Spinner ───────────────────────────────────────────────── */
+    .spinner {
+      display: inline-block; width: 13px; height: 13px; border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite;
+      vertical-align: middle; margin-right: .4rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .card-footer { text-align: center; margin-top: 1.5rem; font-size: .7rem; color: var(--muted); }
+
+    /* ── POP-UP TRANSPARENTE DE ERRORES (TOAST) ────────────────── */
+    .toast-container {
+      position: fixed; top: 30px; left: 50%; transform: translateX(-50%) translateY(-150px);
+      background: rgba(15, 29, 46, 0.85); backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.1); border-radius: 12px;
+      padding: 1rem 1.5rem; display: flex; align-items: center; gap: 1rem;
+      box-shadow: 0 15px 40px rgba(0,0,0,0.6); z-index: 9999;
+      transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.4s;
+      opacity: 0; pointer-events: none; min-width: 320px; max-width: 90%;
+    }
+    .toast-container.show { transform: translateX(-50%) translateY(0); opacity: 1; pointer-events: auto; }
+    .toast-icon { font-size: 1.8rem; }
+    .toast-content { flex: 1; }
+    .toast-title { font-family: 'Fraunces', serif; color: #fff; font-size: 1rem; margin-bottom: 0.2rem; }
+    .toast-text { font-size: 0.8rem; color: rgba(255,255,255,0.8); line-height: 1.4; }
+
+    /* Colores del Toast dependiendo del tipo */
+    .toast-error { border-left: 4px solid var(--danger); }
+    .toast-success { border-left: 4px solid var(--teal); }
+    .toast-warning { border-left: 4px solid var(--gold); }
+  </style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="bg-orb bg-orb-1"></div>
+<div class="bg-orb bg-orb-2"></div>
+
+<div id="toast" class="toast-container">
+  <div id="toastIcon" class="toast-icon">⚠️</div>
+  <div class="toast-content">
+    <div id="toastTitle" class="toast-title">Atención</div>
+    <div id="toastText" class="toast-text">Mensaje de error aquí.</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="brand">
+    <div class="brand-icon">
+      <svg viewBox="0 0 24 24"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm-7 3a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm5 12H7v-.5c0-2.5 2-4 5-4s5 1.5 5 4v.5z"/></svg>
+    </div>
+    <div class="brand-text">
+      <div class="title">INFORMES ESE</div>
+      <div class="sub">APS · Sistema de Gestión 2026</div>
+    </div>
+  </div>
+
+  <h1 class="heading">Bienvenido de nuevo</h1>
+  <p class="sub-heading">Ingresa tus credenciales para continuar</p>
+
+  <div class="field">
+    <label>Correo electrónico / Usuario</label>
+    <input type="text" id="inputCorreo" placeholder="usuario@ese.com" autocomplete="email"/>
+  </div>
+
+  <div class="field">
+    <label>Contraseña</label>
+    <div class="input-wrapper">
+      <input type="password" id="inputPass" placeholder="••••••••" autocomplete="current-password"/>
+      <button type="button" class="btn-toggle-pass" id="btnTogglePass" onclick="togglePassword()">
+        <svg id="eyeShow" style="width:20px;height:20px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+        <svg id="eyeHide" style="width:20px;height:20px;display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+      </button>
+    </div>
+  </div>
+
+  <button class="btn-login" id="btnLogin" onclick="handleLogin()">
+    Ingresar al sistema
+  </button>
+
+  <div class="device-indicator">
+    <div class="device-dot"></div>
+    <span id="deviceStatus">Identificando dispositivo...</span>
+  </div>
+
+  <div class="card-footer">
+    Acceso restringido · Solo dispositivos autorizados
+  </div>
+</div>
+
+<script>
+  const API_BASE = window.location.protocol === 'file:' ? 'http://127.0.0.1:5001' : window.location.origin;
+
+  // ── Mostrar / Ocultar Contraseña ────────────────────────────────
+  function togglePassword() {
+    const input = document.getElementById('inputPass');
+    const eyeShow = document.getElementById('eyeShow');
+    const eyeHide = document.getElementById('eyeHide');
+
+    if (input.type === 'password') {
+      input.type = 'text';
+      eyeShow.style.display = 'none';
+      eyeHide.style.display = 'block';
+    } else {
+      input.type = 'password';
+      eyeShow.style.display = 'block';
+      eyeHide.style.display = 'none';
+    }
+  }
+
+  // ── Funciones del Pop-up Transparente (Toast) ───────────────────
+  let toastTimeout;
+  function showToast(title, message, type = 'error') {
+    const toast = document.getElementById('toast');
+    const toastIcon = document.getElementById('toastIcon');
+    const toastTitle = document.getElementById('toastTitle');
+    const toastText = document.getElementById('toastText');
+
+    toast.className = `toast-container toast-${type} show`;
+    toastTitle.textContent = title;
+    toastText.textContent = message;
+
+    if(type === 'error') toastIcon.textContent = '⚠️';
+    if(type === 'success') toastIcon.textContent = '✅';
+    if(type === 'warning') toastIcon.textContent = '🔒';
+
+    clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => { toast.classList.remove('show'); }, 6000);
+  }
+
+  // ── Verificar Sesión Existente ──────────────────────────────────
+  (function checkExistingSession() {
+    const token = localStorage.getItem('informes_token');
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload.exp * 1000 > Date.now()) { window.location.href = '/dashboard'; return; }
+      } catch(_) {}
+      localStorage.removeItem('informes_token');
+      localStorage.removeItem('informes_user');
+    }
+  })();
+
+  // ── Generación de huella del dispositivo ────────────────────────
+  let deviceFingerprint = '';
+  async function generateFingerprint() {
+    const components = [
+      navigator.userAgent, navigator.language || '', screen.width + 'x' + screen.height,
+      screen.colorDepth, String(new Date().getTimezoneOffset()), navigator.platform || '',
+      String(navigator.hardwareConcurrency || ''), navigator.vendor || '',
+    ].join('||');
+
+    try {
+      const buf  = new TextEncoder().encode(components);
+      const hash = await crypto.subtle.digest('SHA-256', buf);
+      deviceFingerprint = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+      document.getElementById('deviceStatus').textContent = 'Dispositivo identificado: ' + deviceFingerprint.substring(0, 12) + '...';
+    } catch (e) {
+      deviceFingerprint = btoa(components).substring(0, 64);
+      document.getElementById('deviceStatus').textContent = 'Dispositivo identificado (modo básico)';
+    }
+  }
+  generateFingerprint();
+
+  // ── Lógica de Inicio de Sesión ──────────────────────────────────
+  async function handleLogin() {
+    const correo = document.getElementById('inputCorreo').value.trim();
+    const pass   = document.getElementById('inputPass').value;
+    const btn    = document.getElementById('btnLogin');
+
+    if (!correo || !pass) {
+      showToast('Campos Incompletos', 'Por favor ingresa tu usuario y contraseña.', 'warning');
+      return;
+    }
+
+    if (!deviceFingerprint) {
+      showToast('Cargando Seguridad', 'Identificando dispositivo... Intenta de nuevo en un momento.', 'warning');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Verificando...';
+
+    try {
+      const resp = await fetch(`${API_BASE}/api/login`, {
+        method : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body   : JSON.stringify({ correo: correo, password: pass, device_fingerprint: deviceFingerprint }),
+      });
+
+      const data = await resp.json();
+
+      if (!resp.ok) {
+        // Aquí mostramos el Pop-Up con el mensaje exacto enviado por Python (Ej. Error de contraseña o dispositivo)
+        showToast('Acceso Denegado', data.error || 'Error al iniciar sesión.', 'error');
+        return;
+      }
+
+      localStorage.setItem('informes_token', data.token);
+      localStorage.setItem('informes_user', JSON.stringify({ nombre: data.nombre, rol: data.rol, correo: correo }));
+
+      showToast('Bienvenido', 'Acceso concedido. Redirigiendo...', 'success');
+      setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
+
+    } catch (err) {
+      showToast('Sin Conexión', 'No se pudo conectar con el servidor. Verifica tu red o si el servidor backend está encendido.', 'error');
+      console.error(err);
+    } finally {
+      if(!document.querySelector('.toast-success.show')){ // Solo reactiva el botón si falló
+        btn.disabled = false;
+        btn.innerHTML = 'Ingresar al sistema';
+      }
+    }
+  }
+
+  // Permitir usar "Enter" en los inputs
+  ['inputCorreo', 'inputPass'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
+  });
+</script>
+</body>
+</html>

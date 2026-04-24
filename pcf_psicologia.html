@@ -1,0 +1,56 @@
+<div class="section">
+  <div class="section-header">
+    <div class="section-icon" style="background:#ede8fb;">
+      <svg viewBox="0 0 24 24" fill="#6c3fc5"><path d="M11.5 2C6.81 2 3 5.81 3 10.5S6.81 19 11.5 19h.5v3c4.86-2.34 8-7 8-11.5C20 5.81 16.19 2 11.5 2zm1 14.5h-2v-2h2v2zm0-4h-2c0-3.25 3-3 3-5 0-1.1-.9-2-2-2s-2 .9-2 2h-2c0-2.21 1.79-4 4-4s4 1.79 4 4c0 2.5-3 2.75-3 5z"/></svg>
+    </div>
+    <div>
+      <div class="section-title">Plan Cuidado Familiar — Psicología</div>
+      <div class="section-sub">Intervenciones registradas con el perfil Profesional Psicología</div>
+    </div>
+  </div>
+  <div class="cards-row">
+    <div class="stat-card c-purple">
+      <div class="stat-label">Intervenciones familiares</div>
+      <div class="stat-value" id="a-psi-fam">0</div>
+    </div>
+    <div class="stat-card c-navy">
+      <div class="stat-label">Integrantes intervenidos</div>
+      <div class="stat-value" id="a-psi-int">0</div>
+    </div>
+    <div class="stat-card c-teal">
+      <div class="stat-label">Seguimientos realizados</div>
+      <div class="stat-value" id="a-psi-seg">0</div>
+    </div>
+  </div>
+
+  <div class="sub-section" style="margin-top:1rem;">
+    <div class="sub-section-title">Reportes Detallados de Planes de Cuidado Psicología</div>
+
+    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+      <div>
+        <div class="report-header">
+          <span style="font-size: 0.85rem; font-weight: bold; color: var(--purple);">1. Intervenciones Familiares Realizadas</span>
+          <button class="btn-copy-small" style="background: var(--purple);" onclick="copiarTexto('txtPsicoRealizados')">📋 Copiar</button>
+        </div>
+        <textarea id="txtPsicoRealizados" class="report-box" readonly style="border-color: var(--purple-lt);"></textarea>
+      </div>
+
+      <div>
+        <div class="report-header">
+          <span style="font-size: 0.85rem; font-weight: bold; color: var(--teal);">2. Seguimientos Psicológicos</span>
+          <button class="btn-copy-small" style="background: var(--teal);" onclick="copiarTexto('txtPsicoSeguimientos')">📋 Copiar</button>
+        </div>
+        <textarea id="txtPsicoSeguimientos" class="report-box" style="border-color: var(--teal-lt);" readonly></textarea>
+      </div>
+
+      <div>
+        <div class="report-header">
+          <span style="font-size: 0.85rem; font-weight: bold; color: var(--red);">3. Errores de Registro en Psicología</span>
+          <button class="btn-copy-small" style="background: var(--red);" onclick="copiarTexto('txtPsicoErrores')">📋 Copiar</button>
+        </div>
+        <textarea id="txtPsicoErrores" class="report-box" style="background: #fde8e8; border-color: var(--red-lt); color: var(--red);" readonly></textarea>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="divider"></div>

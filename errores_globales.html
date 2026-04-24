@@ -1,0 +1,17 @@
+<div id="panelErrores" style="display:none; margin-bottom: 2.5rem;">
+  <div class="section-header" style="justify-content: space-between;">
+    <div style="display: flex; align-items: center; gap: .75rem;">
+      <div class="section-icon" style="background:var(--red-lt);">
+        <svg viewBox="0 0 24 24" fill="var(--red)"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+      </div>
+      <div>
+        <div class="section-title">Reporte de Inconsistencias Global</div>
+        <div class="section-sub">Consolidado de errores de TODAS las tablas</div>
+      </div>
+    </div>
+    <button class="btn-search" style="background: var(--teal);" onclick="copiarTexto('textoErroresGlobal')">
+      📋 Copiar Reporte
+    </button>
+  </div>
+  <textarea id="textoErroresGlobal" readonly style="width: 100%; height: 280px; background: #0a1f3d; color: #00d4b8; font-family: monospace; font-size: 0.85rem; padding: 1.5rem; border-radius: 12px; border: 2px solid var(--teal-mid); resize: none; outline: none; box-shadow: inset 0 4px 10px rgba(0,0,0,0.5);"></textarea>
+</div>
