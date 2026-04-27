@@ -105,7 +105,7 @@ def login_page(): return send_from_directory(DIR_BASE, "login.html")
 
 
 @app.route("/dashboard")
-def dashboard_page(): return send_from_directory(DIR_BASE, "Dashboard.html")
+def dashboard_page(): return send_from_directory(DIR_BASE, "dashboard.html")
 
 
 @app.route("/auditoria")
