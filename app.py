@@ -98,22 +98,23 @@ def require_auth(f):
     return decorated
 
 
-# ── RUTAS HTML (Ajustadas para la misma carpeta y mayúsculas en Render) ──
 @app.route("/")
 @app.route("/login")
 def login_page(): return send_from_directory(DIR_BASE, "login.html")
 
+
 @app.route("/dashboard")
 def dashboard_page(): return send_from_directory(DIR_BASE, "dashboard.html")
 
+
 @app.route("/auditoria")
 def auditoria_page(): return send_from_directory(DIR_BASE, "auditoria.html")
+
 
 @app.route("/firma.webp")
 def firma_page(): return send_from_directory(DIR_BASE, "firma.webp")
 
 
-# ── API ENDPOINTS ──
 @app.route("/api/login", methods=["POST"])
 def login():
     body = request.get_json(silent=True) or {}
@@ -149,7 +150,6 @@ def login():
     return jsonify({"token": token, "nombre": nombre_visual, "rol": "Auditor"})
 
 
-# NUEVO: Búsqueda total de encuestadores combinando TODAS las tablas
 @app.route("/api/encuestadores", methods=["GET"])
 @require_auth
 def get_encuestadores():
@@ -254,6 +254,7 @@ def get_dashboard():
         "seguimientos": safe_count("SELECT COUNT(*) FROM pcf_psicologia_seguimientos_2026"),
     }
 
+    # ================= TRÁMITES DASHBOARD =================
     res_tramites = ejecutar(
         "SELECT SUM(CAST(realizados AS numeric)) as tot, SUM(CAST(efectivos AS numeric)) as res, SUM(CAST(errores AS numeric)) as err FROM tramites_consolidados_2026")
     tr_tot = res_tramites[0]["tot"] or 0 if res_tramites else 0
@@ -271,15 +272,36 @@ def get_dashboard():
                 val = item.strip()
                 if val:
                     conteo_tramites[val] = conteo_tramites.get(val, 0) + 1
-
     por_tipo_lista = [{"label": k, "total": v} for k, v in
                       sorted(conteo_tramites.items(), key=lambda x: x[1], reverse=True)]
+
+    # Nuevas Métricas: Registros (Personas) y Familias únicas
+    tr_registros = safe_count("SELECT COUNT(*) FROM tramites_aps_2026")
+    tr_familias_query = """
+                        SELECT COUNT(DISTINCT
+                                     COALESCE("7_4_territorio", '') ||
+                                     COALESCE("8_5_microterritorio", '') ||
+                                     CASE \
+                                         WHEN "3_2_cdigo_hogar" = 'No Aplica' OR "3_2_cdigo_hogar" IS NULL \
+                                             THEN COALESCE("4_21_cdigo_hogar", '') \
+                                         ELSE "3_2_cdigo_hogar" END ||
+                                     CASE \
+                                         WHEN "5_3_cdigo_familia" = 'No Aplica' OR "5_3_cdigo_familia" IS NULL \
+                                             THEN COALESCE("6_31_cdigo_familia", '') \
+                                         ELSE "5_3_cdigo_familia" END
+                               ) as total
+                        FROM tramites_aps_2026 \
+                        """
+    tr_fam_res = ejecutar(tr_familias_query)
+    tr_familias = tr_fam_res[0]["total"] if tr_fam_res else 0
 
     data["tramites"] = {
         "total": tr_tot,
         "resolutivos": tr_res,
         "con_error": tr_err,
         "por_tipo": por_tipo_lista,
+        "total_registros": tr_registros,
+        "total_familias": tr_familias
     }
     return jsonify(data)
 
@@ -442,13 +464,9 @@ def get_auditoria():
         "reporte_errores": texto_err_pcf if texto_err_pcf else "✅ Excelente. No hay errores de registro en Plan Cuidado Familiar."
     }
 
-    # =========================================================================
-    # LÓGICA DE PSICOLOGÍA (COMPROMISOS Y EVALUACIÓN SEPARADOS Y BLINDADOS)
-    # =========================================================================
     fam_psico_count = safe_count(
         q("pcf_planes_principal_2026", "TRIM(\"4_3_perfil_profesion\") = 'Profesional Psicología'"), params)
 
-    # Extraer TODO de seguimientos de forma segura
     try:
         res_psico_seg = ejecutar("""
                                  SELECT *
@@ -457,7 +475,6 @@ def get_auditoria():
                                    AND to_date(SUBSTRING(CAST(created_at AS text), 1, 10), 'YYYY-MM-DD') BETWEEN CAST(:fecha_ini AS DATE) AND CAST(:fecha_fin AS DATE)
                                  """, params)
     except Exception as e:
-        logger.error(f"Error extrayendo seguimientos de Psicología: {e}")
         res_psico_seg = []
 
     seg_psico_count = len(res_psico_seg)
@@ -476,7 +493,6 @@ def get_auditoria():
     es_psicologo = (fam_psico_count > 0 or seg_psico_count > 0)
 
     if es_psicologo:
-        # Familias
         try:
             res_psico_fam = ejecutar("""
                                      SELECT ec5_uuid, created_at
@@ -490,24 +506,19 @@ def get_auditoria():
         except:
             pass
 
-        # Procesar los seguimientos en Python (Súper seguro contra errores de nombre de columna)
         for idx, r in enumerate(res_psico_seg, 1):
-            # Buscar ec5_branch_uuid primero, luego ec5_uuid
             uid_ficha = r.get('ec5_branch_uuid') or r.get('ec5_uuid') or 'N/A'
             texto_psico_seg += f"Seguimiento {idx}: Ficha [{uid_ficha}] - {str(r.get('created_at', ''))[:10]}\n"
 
-            # Buscar columnas sin importar si EpiCollect les cambió una letra al final
             motivo = next((v for k, v in r.items() if k.startswith('128_23_')), None)
             req_cont = next((v for k, v in r.items() if k.startswith('130_25_')), None)
             comp = next((v for k, v in r.items() if k.startswith('131_26_')), None)
             evalu = next((v for k, v in r.items() if k.startswith('132_27_')), None)
 
-            # Clasificación de Motivos
             if motivo and str(motivo).strip() and str(motivo).strip() != 'None':
                 m_str = str(motivo).strip()
                 motivos_count[m_str] = motivos_count.get(m_str, 0) + 1
 
-            # Clasificación de Continuidad
             if req_cont:
                 v_req = str(req_cont).upper()
                 if 'SI' in v_req or 'SÍ' in v_req:
@@ -515,15 +526,12 @@ def get_auditoria():
                 elif 'NO' in v_req:
                     cont_seg_no += 1
 
-            # Extracción de Compromisos (Solo si no está vacío)
             if comp and str(comp).strip() and str(comp).strip() != 'None':
                 texto_psico_compromisos += f"Ficha [{uid_ficha}]: {str(comp).replace(chr(10), ' ')}\n\n"
 
-            # Extracción de Evaluación (Solo si no está vacío)
             if evalu and str(evalu).strip() and str(evalu).strip() != 'None':
                 texto_psico_evaluacion += f"Ficha [{uid_ficha}]: {str(evalu).replace(chr(10), ' ')}\n\n"
 
-        # Errores
         try:
             res_err_psico = ejecutar("""
                                      SELECT id_ficha, detalle_inconsistencias, modulo
@@ -538,7 +546,6 @@ def get_auditoria():
         except:
             pass
 
-    # Convertir motivos_count a formato de lista para el frontend
     motivos_seg_aud = [{"label": k, "total": v} for k, v in
                        sorted(motivos_count.items(), key=lambda item: item[1], reverse=True)]
 
@@ -559,6 +566,7 @@ def get_auditoria():
             msg_no_psicologo if not es_psicologo else "✅ Excelente. No hay errores de psicología.")
     }
 
+    # ================= TRÁMITES AUDITORÍA =================
     res_tram_aud = ejecutar("""
                             SELECT SUM(CAST(realizados AS numeric)) as tot,
                                    SUM(CAST(efectivos AS numeric))  as res,
@@ -582,7 +590,6 @@ def get_auditoria():
     conteo_tramites_aud = {}
     texto_realizados = ""
     texto_resueltos = ""
-
     c_re = 1
     c_ef = 1
 
@@ -620,11 +627,35 @@ def get_auditoria():
         texto_errores_tr += f"{c_err}. Ficha [{row['id_ficha']}]: {row['detalle_inconsistencias']}\n"
         c_err += 1
 
+    # NUEVAS MÉTRICAS TRÁMITES (AUDITORÍA)
+    tr_registros_aud = safe_count(q("tramites_aps_2026"), params)
+    tr_familias_query_aud = """
+                            SELECT COUNT(DISTINCT
+                                         COALESCE("7_4_territorio", '') ||
+                                         COALESCE("8_5_microterritorio", '') ||
+                                         CASE \
+                                             WHEN "3_2_cdigo_hogar" = 'No Aplica' OR "3_2_cdigo_hogar" IS NULL \
+                                                 THEN COALESCE("4_21_cdigo_hogar", '') \
+                                             ELSE "3_2_cdigo_hogar" END ||
+                                         CASE \
+                                             WHEN "5_3_cdigo_familia" = 'No Aplica' OR "5_3_cdigo_familia" IS NULL \
+                                                 THEN COALESCE("6_31_cdigo_familia", '') \
+                                             ELSE "5_3_cdigo_familia" END
+                                   ) as total
+                            FROM tramites_aps_2026
+                            WHERE LOWER(TRIM(CAST(created_by AS text))) = LOWER(:usuario)
+                              AND to_date(SUBSTRING(CAST(created_at AS text), 1, 10), 'YYYY-MM-DD') BETWEEN CAST(:fecha_ini AS DATE) AND CAST(:fecha_fin AS DATE) \
+                            """
+    tr_fam_res_aud = ejecutar(tr_familias_query_aud, params)
+    tr_familias_aud = tr_fam_res_aud[0]["total"] if tr_fam_res_aud else 0
+
     data["tramites"] = {
         "total": a_tr_tot,
         "resolutivos": a_tr_res,
         "con_error": a_tr_err,
         "por_tipo": por_tipo_lista_aud,
+        "total_registros": tr_registros_aud,
+        "total_familias": tr_familias_aud,
         "reporte_realizados": texto_realizados if texto_realizados else "No hay trámites realizados en estas fechas.",
         "reporte_resueltos": texto_resueltos if texto_resueltos else "No hay trámites resueltos en estas fechas.",
         "reporte_errores": texto_errores_tr if texto_errores_tr else "✅ Excelente. No hay trámites con errores."
