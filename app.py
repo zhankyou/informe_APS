@@ -22,11 +22,12 @@ logger = logging.getLogger("INFORMES_API")
 SECRET_KEY = os.getenv("SECRET_KEY", "informes-aps-ese-2026-secret-key-cambiar")
 TOKEN_HOURS = 8
 
-DIR_BASE = os.path.dirname(os.path.abspath(__file__))
+# Ajuste para Render: Todos los archivos en la misma carpeta raíz
 DIR_BASE = os.path.dirname(os.path.abspath(__file__))
 
 app = Flask(__name__, static_folder=DIR_BASE)
 CORS(app)
+
 
 def get_engine():
     db_user = os.getenv("DB_USER_AIVEN")
@@ -37,7 +38,9 @@ def get_engine():
     cadena = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}?sslmode=require"
     return create_engine(cadena, pool_pre_ping=True, pool_size=5, max_overflow=10)
 
+
 engine = get_engine()
+
 
 def ejecutar(query_str: str, params: dict = None) -> list:
     try:
@@ -48,13 +51,17 @@ def ejecutar(query_str: str, params: dict = None) -> list:
         logger.error(f"❌ Error SQL detectado: {e}")
         return []
 
+
 def safe_count(query_str: str, params: dict = None) -> int:
     rows = ejecutar(query_str, params)
     if rows:
         val = list(rows[0].values())[0]
-        try: return int(val or 0)
-        except: return 0
+        try:
+            return int(val or 0)
+        except:
+            return 0
     return 0
+
 
 def safe_group(query_str: str, params: dict = None) -> list:
     rows = ejecutar(query_str, params)
@@ -64,13 +71,19 @@ def safe_group(query_str: str, params: dict = None) -> list:
         if len(vals) >= 2: result.append({"label": str(vals[0] or "Sin dato"), "total": int(vals[1] or 0)})
     return result
 
+
 def generar_token(user_id: int, correo: str, nombre: str, rol: str) -> str:
-    payload = {"user_id" : user_id, "correo": correo, "nombre": nombre, "rol": rol, "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=TOKEN_HOURS)}
+    payload = {"user_id": user_id, "correo": correo, "nombre": nombre, "rol": rol,
+               "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=TOKEN_HOURS)}
     return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
 
+
 def verificar_token(token: str) -> dict | None:
-    try: return jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-    except: return None
+    try:
+        return jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+    except:
+        return None
+
 
 def require_auth(f):
     @wraps(f)
@@ -81,46 +94,83 @@ def require_auth(f):
         if not payload: return jsonify({"error": "Token inválido"}), 401
         g.user = payload
         return f(*args, **kwargs)
+
     return decorated
 
+
+# ── RUTAS HTML (Ajustadas para la misma carpeta y mayúsculas en Render) ──
 @app.route("/")
 @app.route("/login")
 def login_page(): return send_from_directory(DIR_BASE, "login.html")
 
+
 @app.route("/dashboard")
-def dashboard_page(): return send_from_directory(DIR_BASE, "dashboard.html")
+def dashboard_page(): return send_from_directory(DIR_BASE, "Dashboard.html")
+
 
 @app.route("/auditoria")
 def auditoria_page(): return send_from_directory(DIR_BASE, "auditoria.html")
 
+
+# ── API ENDPOINTS ──
 @app.route("/api/login", methods=["POST"])
 def login():
     body = request.get_json(silent=True) or {}
-    correo      = str(body.get("correo", "")).strip().lower()
-    password    = str(body.get("password", "")).strip()
+    correo = str(body.get("correo", "")).strip().lower()
+    password = str(body.get("password", "")).strip()
     fingerprint = str(body.get("device_fingerprint", "")).strip()
 
     if not correo or not password: return jsonify({"error": "Credenciales requeridas"}), 400
 
-    rows = ejecutar("SELECT id, username, password_hash, device_id FROM usuarios WHERE LOWER(TRIM(username)) = :u LIMIT 1", {"u": correo})
+    rows = ejecutar(
+        "SELECT id, username, password_hash, device_id FROM usuarios WHERE LOWER(TRIM(username)) = :u LIMIT 1",
+        {"u": correo})
     if not rows: return jsonify({"error": "Credenciales incorrectas"}), 401
 
     usuario = rows[0]
-    if not check_password_hash(usuario["password_hash"], password): return jsonify({"error": "Credenciales incorrectas"}), 401
+    if not check_password_hash(usuario["password_hash"], password): return jsonify(
+        {"error": "Credenciales incorrectas"}), 401
 
     stored_fp = usuario.get("device_id")
     if not stored_fp:
         try:
             with engine.begin() as conn:
-                conn.execute(text("UPDATE usuarios SET device_id = :fp WHERE id = :uid"), {"fp": fingerprint, "uid": usuario["id"]})
-        except: pass
+                conn.execute(text("UPDATE usuarios SET device_id = :fp WHERE id = :uid"),
+                             {"fp": fingerprint, "uid": usuario["id"]})
+        except:
+            pass
     elif stored_fp != fingerprint:
         return jsonify({"error": "Acceso denegado: Usuario vinculado a otro dispositivo."}), 403
 
     nombre_visual = usuario["username"].capitalize()
-    token = generar_token(user_id = usuario["id"], correo = usuario["username"], nombre = nombre_visual, rol = "Auditor")
+    token = generar_token(user_id=usuario["id"], correo=usuario["username"], nombre=nombre_visual, rol="Auditor")
 
     return jsonify({"token": token, "nombre": nombre_visual, "rol": "Auditor"})
+
+
+# NUEVO: Búsqueda total de encuestadores combinando TODAS las tablas
+@app.route("/api/encuestadores", methods=["GET"])
+@require_auth
+def get_encuestadores():
+    rows = ejecutar("""
+                    SELECT DISTINCT LOWER(TRIM(CAST(created_by AS text))) as correo
+                    FROM (SELECT created_by
+                          FROM caracterizacion_si_aps_individual_2026
+                          UNION
+                          SELECT created_by
+                          FROM pcc_principal_2026
+                          UNION
+                          SELECT created_by
+                          FROM pcf_planes_principal_2026
+                          UNION
+                          SELECT created_by
+                          FROM desistimiento_aps_2026) AS todas_las_tablas
+                    WHERE created_by IS NOT NULL
+                      AND created_by != ''
+                    """)
+    correos = [r["correo"] for r in rows if r["correo"]]
+    return jsonify(correos)
+
 
 @app.route("/api/dashboard", methods=["GET"])
 @require_auth
@@ -137,75 +187,80 @@ def get_dashboard():
     }
 
     query_edades = """
-    WITH fechas_limpias AS (
-        SELECT 
-            to_date(SUBSTRING(CAST(created_at AS text), 1, 10), 'YYYY-MM-DD') as f_crea,
-            TRIM(CAST("107_7_fecha_de_nacim" AS text)) as f_nac_raw
-        FROM caracterizacion_si_aps_individual_2026
-        WHERE "107_7_fecha_de_nacim" IS NOT NULL 
-    ),
-    edades AS (
-        SELECT 
-            f_crea,
-            CASE 
-                WHEN f_nac_raw ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN to_date(LEFT(f_nac_raw, 10), 'YYYY-MM-DD')
-                WHEN f_nac_raw ~ '^[0-9]{2}/[0-9]{2}/[0-9]{4}' THEN to_date(LEFT(f_nac_raw, 10), 'DD/MM/YYYY')
-                ELSE NULL 
-            END as f_nac
-        FROM fechas_limpias
-    )
-    SELECT 
-        COUNT(*) FILTER (WHERE EXTRACT(YEAR FROM AGE(f_crea, f_nac)) < 5) as menores,
-        COUNT(*) FILTER (WHERE EXTRACT(YEAR FROM AGE(f_crea, f_nac)) >= 60) as mayores
-    FROM edades 
-    WHERE f_nac IS NOT NULL
-    """
+                   WITH fechas_limpias \
+                            AS (SELECT to_date(SUBSTRING(CAST(created_at AS text), 1, 10), 'YYYY-MM-DD') as f_crea, \
+                                       TRIM(CAST("107_7_fecha_de_nacim" AS text))                        as f_nac_raw \
+                                FROM caracterizacion_si_aps_individual_2026 \
+                                WHERE "107_7_fecha_de_nacim" IS NOT NULL),
+                        edades AS (SELECT f_crea, \
+                                          CASE \
+                                              WHEN f_nac_raw ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN to_date(LEFT(f_nac_raw, 10), 'YYYY-MM-DD') \
+                                              WHEN f_nac_raw ~ '^[0-9]{2}/[0-9]{2}/[0-9]{4}' THEN to_date(LEFT(f_nac_raw, 10), 'DD/MM/YYYY') \
+                                              ELSE NULL \
+                                              END as f_nac \
+                                   FROM fechas_limpias)
+                   SELECT COUNT(*) FILTER (WHERE EXTRACT(YEAR FROM AGE(f_crea, f_nac)) < 5) as menores, COUNT(*) FILTER (WHERE EXTRACT(YEAR FROM AGE(f_crea, f_nac)) >= 60) as mayores
+                   FROM edades
+                   WHERE f_nac IS NOT NULL \
+                   """
     res_edades = ejecutar(query_edades)
     menores_5 = res_edades[0]["menores"] if res_edades else 0
     adultos_60 = res_edades[0]["mayores"] if res_edades else 0
 
     etnia_comp = ejecutar("""
-        SELECT COUNT(*) FILTER (WHERE "116_16_pertenencia_t" = '7. Ninguna' OR "116_16_pertenencia_t" IS NULL) AS sin_etnia,
-               COUNT(*) FILTER (WHERE "116_16_pertenencia_t" IS NOT NULL AND "116_16_pertenencia_t" != '7. Ninguna') AS con_etnia,
-               COUNT(*) AS total FROM caracterizacion_si_aps_individual_2026
-    """)
+                          SELECT COUNT(*) FILTER (WHERE "116_16_pertenencia_t" = '7. Ninguna' OR "116_16_pertenencia_t" IS NULL) AS sin_etnia, COUNT(*) FILTER (WHERE "116_16_pertenencia_t" IS NOT NULL AND "116_16_pertenencia_t" != '7. Ninguna') AS con_etnia, COUNT(*) AS total
+                          FROM caracterizacion_si_aps_individual_2026
+                          """)
     etnia_data = etnia_comp[0] if etnia_comp else {"sin_etnia": 0, "con_etnia": 0, "total": 0}
     total_etnia = int(etnia_data.get("total") or 1)
 
     data["caracterizacion"] = {
-        "familias": safe_count("SELECT COUNT(*) FROM caracterizacion_si_aps_familiar_2026 WHERE \"1_1_consentimiento_i\" = '1. SI'"),
+        "familias": safe_count(
+            "SELECT COUNT(*) FROM caracterizacion_si_aps_familiar_2026 WHERE \"1_1_consentimiento_i\" = '1. SI'"),
         "individuos": safe_count("SELECT COUNT(*) FROM caracterizacion_si_aps_individual_2026"),
-        "sin_aseguramiento": safe_count("SELECT COUNT(DISTINCT ec5_branch_owner_uuid) FROM caracterizacion_si_aps_individual_2026 WHERE \"113_13_rgimen_de_afi\" = '5. No afiliado'"),
-        "gestantes": safe_count("SELECT COUNT(*) FROM caracterizacion_si_aps_individual_2026 WHERE \"109_9_se_encuentra_e\" = '1. SI'"),
+        "sin_aseguramiento": safe_count(
+            "SELECT COUNT(DISTINCT ec5_branch_owner_uuid) FROM caracterizacion_si_aps_individual_2026 WHERE \"113_13_rgimen_de_afi\" = '5. No afiliado'"),
+        "gestantes": safe_count(
+            "SELECT COUNT(*) FROM caracterizacion_si_aps_individual_2026 WHERE \"109_9_se_encuentra_e\" = '1. SI'"),
         "menores_5": menores_5,
         "adultos_60": adultos_60,
-        "victimas_conflicto": safe_count("SELECT COUNT(*) FROM caracterizacion_si_aps_familiar_2026 WHERE \"78_52_familia_vctima\" = '1. SI'"),
-        "poblacion_etnica": safe_count("SELECT COUNT(*) FROM caracterizacion_si_aps_individual_2026 WHERE \"116_16_pertenencia_t\" IS NOT NULL AND \"116_16_pertenencia_t\" != '7. Ninguna'"),
-        "tipo_familia": safe_group("SELECT \"64_41_tipo_de_famili\", COUNT(*) as total FROM caracterizacion_si_aps_familiar_2026 WHERE \"64_41_tipo_de_famili\" IS NOT NULL GROUP BY 1 ORDER BY 2 DESC"),
-        "estrato": safe_group("SELECT \"23_12_estrato_socioe\", COUNT(*) as total FROM caracterizacion_si_aps_familiar_2026 WHERE \"23_12_estrato_socioe\" IS NOT NULL GROUP BY 1 ORDER BY 1"),
-        "nivel_educativo": safe_group("SELECT \"112_12_nivel_educati\", COUNT(*) as total FROM caracterizacion_si_aps_individual_2026 WHERE \"112_12_nivel_educati\" IS NOT NULL GROUP BY 1 ORDER BY 2 DESC"),
+        "victimas_conflicto": safe_count(
+            "SELECT COUNT(*) FROM caracterizacion_si_aps_familiar_2026 WHERE \"78_52_familia_vctima\" = '1. SI'"),
+        "poblacion_etnica": safe_count(
+            "SELECT COUNT(*) FROM caracterizacion_si_aps_individual_2026 WHERE \"116_16_pertenencia_t\" IS NOT NULL AND \"116_16_pertenencia_t\" != '7. Ninguna'"),
+        "tipo_familia": safe_group(
+            "SELECT \"64_41_tipo_de_famili\", COUNT(*) as total FROM caracterizacion_si_aps_familiar_2026 WHERE \"64_41_tipo_de_famili\" IS NOT NULL GROUP BY 1 ORDER BY 2 DESC"),
+        "estrato": safe_group(
+            "SELECT \"23_12_estrato_socioe\", COUNT(*) as total FROM caracterizacion_si_aps_familiar_2026 WHERE \"23_12_estrato_socioe\" IS NOT NULL GROUP BY 1 ORDER BY 1"),
+        "nivel_educativo": safe_group(
+            "SELECT \"112_12_nivel_educati\", COUNT(*) as total FROM caracterizacion_si_aps_individual_2026 WHERE \"112_12_nivel_educati\" IS NOT NULL GROUP BY 1 ORDER BY 2 DESC"),
         "etnia_sin_pct": round(int(etnia_data.get("sin_etnia") or 0) / total_etnia * 100, 1),
         "etnia_con_pct": round(int(etnia_data.get("con_etnia") or 0) / total_etnia * 100, 1),
         "etnia_con_total": int(etnia_data.get("con_etnia") or 0),
         "error_familiar": safe_count("SELECT COUNT(*) FROM auditoria_errores_2026 WHERE modulo = 'CARACT_FAMILIAR'"),
-        "error_individual": safe_count("SELECT COUNT(*) FROM auditoria_errores_2026 WHERE modulo = 'CARACT_INDIVIDUAL'"),
+        "error_individual": safe_count(
+            "SELECT COUNT(*) FROM auditoria_errores_2026 WHERE modulo = 'CARACT_INDIVIDUAL'"),
     }
     data["pcf"] = {
-        "familias_intervenidas": safe_count("SELECT COUNT(*) FROM pcf_planes_principal_2026 WHERE \"4_3_perfil_profesion\" IS NULL OR TRIM(\"4_3_perfil_profesion\") != 'Profesional Psicología'"),
+        "familias_intervenidas": safe_count(
+            "SELECT COUNT(*) FROM pcf_planes_principal_2026 WHERE \"4_3_perfil_profesion\" IS NULL OR TRIM(\"4_3_perfil_profesion\") != 'Profesional Psicología'"),
         "integrantes_intervenidos": safe_count("SELECT COUNT(*) FROM pcf_planes_integrantes_2026"),
     }
     data["pcf_psicologia"] = {
-        "intervenciones_familiares": safe_count("SELECT COUNT(*) FROM pcf_planes_principal_2026 WHERE TRIM(\"4_3_perfil_profesion\") = 'Profesional Psicología'"),
+        "intervenciones_familiares": safe_count(
+            "SELECT COUNT(*) FROM pcf_planes_principal_2026 WHERE TRIM(\"4_3_perfil_profesion\") = 'Profesional Psicología'"),
         "integrantes": safe_count("SELECT COUNT(*) FROM pcf_psicologia_principal_2026"),
         "seguimientos": safe_count("SELECT COUNT(*) FROM pcf_psicologia_seguimientos_2026"),
     }
 
-    res_tramites = ejecutar("SELECT SUM(CAST(realizados AS numeric)) as tot, SUM(CAST(efectivos AS numeric)) as res, SUM(CAST(errores AS numeric)) as err FROM tramites_consolidados_2026")
+    res_tramites = ejecutar(
+        "SELECT SUM(CAST(realizados AS numeric)) as tot, SUM(CAST(efectivos AS numeric)) as res, SUM(CAST(errores AS numeric)) as err FROM tramites_consolidados_2026")
     tr_tot = res_tramites[0]["tot"] or 0 if res_tramites else 0
     tr_res = res_tramites[0]["res"] or 0 if res_tramites else 0
     tr_err = res_tramites[0]["err"] or 0 if res_tramites else 0
 
-    res_tramites_nombres = ejecutar("SELECT nombres_realizados FROM tramites_consolidados_2026 WHERE nombres_realizados IS NOT NULL")
+    res_tramites_nombres = ejecutar(
+        "SELECT nombres_realizados FROM tramites_consolidados_2026 WHERE nombres_realizados IS NOT NULL")
     conteo_tramites = {}
     for row in res_tramites_nombres:
         texto = str(row["nombres_realizados"])
@@ -216,7 +271,8 @@ def get_dashboard():
                 if val:
                     conteo_tramites[val] = conteo_tramites.get(val, 0) + 1
 
-    por_tipo_lista = [{"label": k, "total": v} for k, v in sorted(conteo_tramites.items(), key=lambda x: x[1], reverse=True)]
+    por_tipo_lista = [{"label": k, "total": v} for k, v in
+                      sorted(conteo_tramites.items(), key=lambda x: x[1], reverse=True)]
 
     data["tramites"] = {
         "total": tr_tot,
@@ -230,9 +286,9 @@ def get_dashboard():
 @app.route("/api/auditoria", methods=["GET"])
 @require_auth
 def get_auditoria():
-    usuario     = request.args.get("usuario", "").strip()
-    fecha_ini   = request.args.get("fecha_inicio", "").strip()
-    fecha_fin   = request.args.get("fecha_fin", "").strip()
+    usuario = request.args.get("usuario", "").strip()
+    fecha_ini = request.args.get("fecha_inicio", "").strip()
+    fecha_fin = request.args.get("fecha_fin", "").strip()
 
     if not usuario: return jsonify({"error": "El parámetro 'usuario' es requerido."}), 400
     params = {"usuario": usuario, "fecha_ini": fecha_ini or "2000-01-01", "fecha_fin": fecha_fin or "2099-12-31"}
@@ -255,40 +311,35 @@ def get_auditoria():
 
     data = {"usuario": usuario, "rango_fechas": f"{params['fecha_ini']} / {params['fecha_fin']}"}
 
-    data["desistimientos"] = {"total": safe_count(q("desistimiento_aps_2026"), params), "con_error": safe_count(qerr("DESISTIMIENTOS"), params)}
-    data["pcc"] = {"planes": safe_count(q("pcc_principal_2026"), params), "integrantes": safe_count(q("pcc_integrantes_2026"), params), "con_error": safe_count(qerr("PCC_PRINCIPAL"), params)}
+    data["desistimientos"] = {"total": safe_count(q("desistimiento_aps_2026"), params),
+                              "con_error": safe_count(qerr("DESISTIMIENTOS"), params)}
+    data["pcc"] = {"planes": safe_count(q("pcc_principal_2026"), params),
+                   "integrantes": safe_count(q("pcc_integrantes_2026"), params),
+                   "con_error": safe_count(qerr("PCC_PRINCIPAL"), params)}
 
     query_edades_aud = """
-    WITH fechas_limpias AS (
-        SELECT 
-            to_date(SUBSTRING(CAST(created_at AS text), 1, 10), 'YYYY-MM-DD') as f_crea,
-            TRIM(CAST("107_7_fecha_de_nacim" AS text)) as f_nac_raw
-        FROM caracterizacion_si_aps_individual_2026
-        WHERE LOWER(TRIM(CAST(created_by AS text))) = LOWER(:usuario)
-        AND to_date(SUBSTRING(CAST(created_at AS text), 1, 10), 'YYYY-MM-DD') BETWEEN CAST(:fecha_ini AS DATE) AND CAST(:fecha_fin AS DATE)
-        AND "107_7_fecha_de_nacim" IS NOT NULL 
-    ),
-    edades AS (
-        SELECT 
-            f_crea,
-            CASE 
-                WHEN f_nac_raw ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN to_date(LEFT(f_nac_raw, 10), 'YYYY-MM-DD')
-                WHEN f_nac_raw ~ '^[0-9]{2}/[0-9]{2}/[0-9]{4}' THEN to_date(LEFT(f_nac_raw, 10), 'DD/MM/YYYY')
-                ELSE NULL 
-            END as f_nac
-        FROM fechas_limpias
-    )
-    SELECT 
-        COUNT(*) FILTER (WHERE EXTRACT(YEAR FROM AGE(f_crea, f_nac)) < 5) as menores,
-        COUNT(*) FILTER (WHERE EXTRACT(YEAR FROM AGE(f_crea, f_nac)) >= 60) as mayores
-    FROM edades 
-    WHERE f_nac IS NOT NULL
-    """
+                       WITH fechas_limpias \
+                                AS (SELECT to_date(SUBSTRING(CAST(created_at AS text), 1, 10), 'YYYY-MM-DD') as f_crea, \
+                                           TRIM(CAST("107_7_fecha_de_nacim" AS text))                        as f_nac_raw \
+                                    FROM caracterizacion_si_aps_individual_2026 \
+                                    WHERE LOWER(TRIM(CAST(created_by AS text))) = LOWER(:usuario) \
+                                      AND to_date(SUBSTRING(CAST(created_at AS text), 1, 10), 'YYYY-MM-DD') BETWEEN CAST(:fecha_ini AS DATE) AND CAST(:fecha_fin AS DATE) \
+                                      AND "107_7_fecha_de_nacim" IS NOT NULL),
+                            edades AS (SELECT f_crea, \
+                                              CASE \
+                                                  WHEN f_nac_raw ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN to_date(LEFT(f_nac_raw, 10), 'YYYY-MM-DD') \
+                                                  WHEN f_nac_raw ~ '^[0-9]{2}/[0-9]{2}/[0-9]{4}' THEN to_date(LEFT(f_nac_raw, 10), 'DD/MM/YYYY') \
+                                                  ELSE NULL \
+                                                  END as f_nac \
+                                       FROM fechas_limpias)
+                       SELECT COUNT(*) FILTER (WHERE EXTRACT(YEAR FROM AGE(f_crea, f_nac)) < 5) as menores, COUNT(*) FILTER (WHERE EXTRACT(YEAR FROM AGE(f_crea, f_nac)) >= 60) as mayores
+                       FROM edades
+                       WHERE f_nac IS NOT NULL \
+                       """
     res_edades_aud = ejecutar(query_edades_aud, params)
     men_5_aud = res_edades_aud[0]["menores"] if res_edades_aud else 0
     may_60_aud = res_edades_aud[0]["mayores"] if res_edades_aud else 0
 
-    # === NUEVAS CONSULTAS: PERFIL SOCIAL Y ETNIA (AUDITORÍA) ===
     tipo_familia_aud = safe_group(f"""
         SELECT "64_41_tipo_de_famili", COUNT(*) as total 
         FROM caracterizacion_si_aps_familiar_2026 
@@ -317,14 +368,11 @@ def get_auditoria():
     """, params)
 
     etnia_comp_aud = ejecutar("""
-        SELECT 
-            COUNT(*) FILTER (WHERE "116_16_pertenencia_t" = '7. Ninguna' OR "116_16_pertenencia_t" IS NULL) AS sin_etnia,
-            COUNT(*) FILTER (WHERE "116_16_pertenencia_t" IS NOT NULL AND "116_16_pertenencia_t" != '7. Ninguna') AS con_etnia,
-            COUNT(*) AS total 
-        FROM caracterizacion_si_aps_individual_2026
-        WHERE LOWER(TRIM(CAST(created_by AS text))) = LOWER(:usuario) 
-        AND to_date(SUBSTRING(CAST(created_at AS text), 1, 10), 'YYYY-MM-DD') BETWEEN CAST(:fecha_ini AS DATE) AND CAST(:fecha_fin AS DATE)
-    """, params)
+                              SELECT COUNT(*) FILTER (WHERE "116_16_pertenencia_t" = '7. Ninguna' OR "116_16_pertenencia_t" IS NULL) AS sin_etnia, COUNT(*) FILTER (WHERE "116_16_pertenencia_t" IS NOT NULL AND "116_16_pertenencia_t" != '7. Ninguna') AS con_etnia, COUNT(*) AS total
+                              FROM caracterizacion_si_aps_individual_2026
+                              WHERE LOWER(TRIM(CAST(created_by AS text))) = LOWER(:usuario)
+                                AND to_date(SUBSTRING(CAST(created_at AS text), 1, 10), 'YYYY-MM-DD') BETWEEN CAST(:fecha_ini AS DATE) AND CAST(:fecha_fin AS DATE)
+                              """, params)
 
     etnia_data_aud = etnia_comp_aud[0] if etnia_comp_aud else {"sin_etnia": 0, "con_etnia": 0, "total": 0}
     total_etnia_aud = int(etnia_data_aud.get("total") or 1)
@@ -333,11 +381,15 @@ def get_auditoria():
     data["caracterizacion"] = {
         "familias": safe_count(q("caracterizacion_si_aps_familiar_2026", "\"1_1_consentimiento_i\" = '1. SI'"), params),
         "individuos": safe_count(q("caracterizacion_si_aps_individual_2026"), params),
-        "gestantes": safe_count(q("caracterizacion_si_aps_individual_2026", "\"109_9_se_encuentra_e\" = '1. SI'"), params),
+        "gestantes": safe_count(q("caracterizacion_si_aps_individual_2026", "\"109_9_se_encuentra_e\" = '1. SI'"),
+                                params),
         "menores_5": men_5_aud,
         "adultos_60": may_60_aud,
-        "victimas_conflicto": safe_count(q("caracterizacion_si_aps_familiar_2026", "\"78_52_familia_vctima\" = '1. SI'"), params),
-        "poblacion_etnica": safe_count(q("caracterizacion_si_aps_individual_2026", "\"116_16_pertenencia_t\" IS NOT NULL AND \"116_16_pertenencia_t\" != '7. Ninguna'"), params),
+        "victimas_conflicto": safe_count(
+            q("caracterizacion_si_aps_familiar_2026", "\"78_52_familia_vctima\" = '1. SI'"), params),
+        "poblacion_etnica": safe_count(q("caracterizacion_si_aps_individual_2026",
+                                         "\"116_16_pertenencia_t\" IS NOT NULL AND \"116_16_pertenencia_t\" != '7. Ninguna'"),
+                                       params),
         "error_familiar": safe_count(qerr("CARACT_FAMILIAR"), params),
         "error_individual": safe_count(qerr("CARACT_INDIVIDUAL"), params),
         "tipo_familia": tipo_familia_aud,
@@ -348,35 +400,39 @@ def get_auditoria():
         "etnia_con_total": int(etnia_data_aud.get("con_etnia") or 0)
     }
 
-    # =========================================================================
-    pcf_fam_count = safe_count(q("pcf_planes_principal_2026", "(\"4_3_perfil_profesion\" IS NULL OR TRIM(\"4_3_perfil_profesion\") != 'Profesional Psicología')"), params)
+    pcf_fam_count = safe_count(q("pcf_planes_principal_2026",
+                                 "(\"4_3_perfil_profesion\" IS NULL OR TRIM(\"4_3_perfil_profesion\") != 'Profesional Psicología')"),
+                               params)
     texto_pcf_fam = ""
     texto_err_pcf = ""
 
     if pcf_fam_count > 0:
         try:
             res_pcf_fam = ejecutar("""
-                SELECT ec5_uuid, created_at 
-                FROM pcf_planes_principal_2026 
-                WHERE LOWER(TRIM(CAST(created_by AS text))) = LOWER(:usuario) 
-                AND to_date(SUBSTRING(CAST(created_at AS text), 1, 10), 'YYYY-MM-DD') BETWEEN CAST(:fecha_ini AS DATE) AND CAST(:fecha_fin AS DATE)
-                AND ("4_3_perfil_profesion" IS NULL OR TRIM("4_3_perfil_profesion") != 'Profesional Psicología')
-            """, params)
+                                   SELECT ec5_uuid, created_at
+                                   FROM pcf_planes_principal_2026
+                                   WHERE LOWER(TRIM(CAST(created_by AS text))) = LOWER(:usuario)
+                                     AND to_date(SUBSTRING(CAST(created_at AS text), 1, 10), 'YYYY-MM-DD') BETWEEN CAST(:fecha_ini AS DATE) AND CAST(:fecha_fin AS DATE)
+                                     AND ("4_3_perfil_profesion" IS NULL OR TRIM("4_3_perfil_profesion") != 'Profesional Psicología')
+                                   """, params)
             for idx, r in enumerate(res_pcf_fam, 1):
                 texto_pcf_fam += f"Intervención {idx}: Ficha [{r.get('ec5_uuid', 'N/A')}] - {str(r.get('created_at', ''))[:10]}\n"
-        except: pass
+        except:
+            pass
 
     try:
         res_err_pcf = ejecutar("""
-            SELECT id_ficha, detalle_inconsistencias, modulo 
-            FROM auditoria_errores_2026
-            WHERE LOWER(TRIM(CAST(usuario_creador AS text))) = LOWER(:usuario)
-            AND modulo IN ('PCF_PRINCIPAL', 'PCF_INTEGRANTES')
-            AND to_date(SUBSTRING(CAST(fecha_creacion AS text), 1, 10), 'YYYY-MM-DD') BETWEEN CAST(:fecha_ini AS DATE) AND CAST(:fecha_fin AS DATE)
-        """, params)
+                               SELECT id_ficha, detalle_inconsistencias, modulo
+                               FROM auditoria_errores_2026
+                               WHERE LOWER(TRIM(CAST(usuario_creador AS text))) = LOWER(:usuario)
+                                 AND modulo IN ('PCF_PRINCIPAL', 'PCF_INTEGRANTES')
+                                 AND to_date(SUBSTRING(CAST(fecha_creacion AS text), 1, 10),
+                                             'YYYY-MM-DD') BETWEEN CAST(:fecha_ini AS DATE) AND CAST(:fecha_fin AS DATE)
+                               """, params)
         for idx, r in enumerate(res_err_pcf, 1):
             texto_err_pcf += f"{idx}. [{r['modulo']}] Ficha [{r['id_ficha']}]: {r['detalle_inconsistencias']}\n"
-    except: pass
+    except:
+        pass
 
     data["pcf"] = {
         "familias_intervenidas": pcf_fam_count,
@@ -385,77 +441,142 @@ def get_auditoria():
         "reporte_errores": texto_err_pcf if texto_err_pcf else "✅ Excelente. No hay errores de registro en Plan Cuidado Familiar."
     }
 
-    fam_psico_count = safe_count(q("pcf_planes_principal_2026", "TRIM(\"4_3_perfil_profesion\") = 'Profesional Psicología'"), params)
-    seg_psico_count = safe_count(q("pcf_psicologia_seguimientos_2026"), params)
+    # =========================================================================
+    # LÓGICA DE PSICOLOGÍA (COMPROMISOS Y EVALUACIÓN SEPARADOS Y BLINDADOS)
+    # =========================================================================
+    fam_psico_count = safe_count(
+        q("pcf_planes_principal_2026", "TRIM(\"4_3_perfil_profesion\") = 'Profesional Psicología'"), params)
+
+    # Extraer TODO de seguimientos de forma segura
+    try:
+        res_psico_seg = ejecutar("""
+                                 SELECT *
+                                 FROM pcf_psicologia_seguimientos_2026
+                                 WHERE LOWER(TRIM(CAST(created_by AS text))) = LOWER(:usuario)
+                                   AND to_date(SUBSTRING(CAST(created_at AS text), 1, 10), 'YYYY-MM-DD') BETWEEN CAST(:fecha_ini AS DATE) AND CAST(:fecha_fin AS DATE)
+                                 """, params)
+    except Exception as e:
+        logger.error(f"Error extrayendo seguimientos de Psicología: {e}")
+        res_psico_seg = []
+
+    seg_psico_count = len(res_psico_seg)
+
+    motivos_count = {}
+    cont_seg_si = 0
+    cont_seg_no = 0
 
     texto_psico_fam = ""
     texto_psico_seg = ""
     texto_err_psico = ""
+    texto_psico_compromisos = ""
+    texto_psico_evaluacion = ""
+
     msg_no_psicologo = "El encuestador no registró atenciones bajo el perfil 'Profesional Psicología' o no aplica."
     es_psicologo = (fam_psico_count > 0 or seg_psico_count > 0)
 
     if es_psicologo:
+        # Familias
         try:
             res_psico_fam = ejecutar("""
-                SELECT ec5_uuid, created_at 
-                FROM pcf_planes_principal_2026 
-                WHERE LOWER(TRIM(CAST(created_by AS text))) = LOWER(:usuario) 
-                AND to_date(SUBSTRING(CAST(created_at AS text), 1, 10), 'YYYY-MM-DD') BETWEEN CAST(:fecha_ini AS DATE) AND CAST(:fecha_fin AS DATE)
-                AND TRIM("4_3_perfil_profesion") = 'Profesional Psicología'
-            """, params)
+                                     SELECT ec5_uuid, created_at
+                                     FROM pcf_planes_principal_2026
+                                     WHERE LOWER(TRIM(CAST(created_by AS text))) = LOWER(:usuario)
+                                       AND to_date(SUBSTRING(CAST(created_at AS text), 1, 10), 'YYYY-MM-DD') BETWEEN CAST(:fecha_ini AS DATE) AND CAST(:fecha_fin AS DATE)
+                                       AND TRIM("4_3_perfil_profesion") = 'Profesional Psicología'
+                                     """, params)
             for idx, r in enumerate(res_psico_fam, 1):
                 texto_psico_fam += f"Intervención {idx}: Ficha [{r.get('ec5_uuid', 'N/A')}] - {str(r.get('created_at', ''))[:10]}\n"
-        except: pass
+        except:
+            pass
 
-        try:
-            res_psico_seg = ejecutar("""
-                SELECT ec5_uuid, created_at
-                FROM pcf_psicologia_seguimientos_2026 
-                WHERE LOWER(TRIM(CAST(created_by AS text))) = LOWER(:usuario) 
-                AND to_date(SUBSTRING(CAST(created_at AS text), 1, 10), 'YYYY-MM-DD') BETWEEN CAST(:fecha_ini AS DATE) AND CAST(:fecha_fin AS DATE)
-            """, params)
-            for idx, r in enumerate(res_psico_seg, 1):
-                texto_psico_seg += f"Seguimiento {idx}: Ficha [{r.get('ec5_uuid', 'N/A')}] - {str(r.get('created_at', ''))[:10]}\n"
-        except: pass
+        # Procesar los seguimientos en Python (Súper seguro contra errores de nombre de columna)
+        for idx, r in enumerate(res_psico_seg, 1):
+            # Buscar ec5_branch_uuid primero, luego ec5_uuid
+            uid_ficha = r.get('ec5_branch_uuid') or r.get('ec5_uuid') or 'N/A'
+            texto_psico_seg += f"Seguimiento {idx}: Ficha [{uid_ficha}] - {str(r.get('created_at', ''))[:10]}\n"
 
+            # Buscar columnas sin importar si EpiCollect les cambió una letra al final
+            motivo = next((v for k, v in r.items() if k.startswith('128_23_')), None)
+            req_cont = next((v for k, v in r.items() if k.startswith('130_25_')), None)
+            comp = next((v for k, v in r.items() if k.startswith('131_26_')), None)
+            evalu = next((v for k, v in r.items() if k.startswith('132_27_')), None)
+
+            # Clasificación de Motivos
+            if motivo and str(motivo).strip() and str(motivo).strip() != 'None':
+                m_str = str(motivo).strip()
+                motivos_count[m_str] = motivos_count.get(m_str, 0) + 1
+
+            # Clasificación de Continuidad
+            if req_cont:
+                v_req = str(req_cont).upper()
+                if 'SI' in v_req or 'SÍ' in v_req:
+                    cont_seg_si += 1
+                elif 'NO' in v_req:
+                    cont_seg_no += 1
+
+            # Extracción de Compromisos (Solo si no está vacío)
+            if comp and str(comp).strip() and str(comp).strip() != 'None':
+                texto_psico_compromisos += f"Ficha [{uid_ficha}]: {str(comp).replace(chr(10), ' ')}\n\n"
+
+            # Extracción de Evaluación (Solo si no está vacío)
+            if evalu and str(evalu).strip() and str(evalu).strip() != 'None':
+                texto_psico_evaluacion += f"Ficha [{uid_ficha}]: {str(evalu).replace(chr(10), ' ')}\n\n"
+
+        # Errores
         try:
             res_err_psico = ejecutar("""
-                SELECT id_ficha, detalle_inconsistencias, modulo
-                FROM auditoria_errores_2026
-                WHERE LOWER(TRIM(CAST(usuario_creador AS text))) = LOWER(:usuario)
-                AND modulo IN ('PSICOLOGIA_PRINCIPAL', 'PSICOLOGIA_SEGUIMIENTOS')
-                AND to_date(SUBSTRING(CAST(fecha_creacion AS text), 1, 10), 'YYYY-MM-DD') BETWEEN CAST(:fecha_ini AS DATE) AND CAST(:fecha_fin AS DATE)
-            """, params)
+                                     SELECT id_ficha, detalle_inconsistencias, modulo
+                                     FROM auditoria_errores_2026
+                                     WHERE LOWER(TRIM(CAST(usuario_creador AS text))) = LOWER(:usuario)
+                                       AND modulo IN ('PSICOLOGIA_PRINCIPAL', 'PSICOLOGIA_SEGUIMIENTOS')
+                                       AND to_date(SUBSTRING(CAST(fecha_creacion AS text), 1, 10),
+                                                   'YYYY-MM-DD') BETWEEN CAST(:fecha_ini AS DATE) AND CAST(:fecha_fin AS DATE)
+                                     """, params)
             for idx, r in enumerate(res_err_psico, 1):
                 texto_err_psico += f"{idx}. [{r['modulo']}] Ficha [{r['id_ficha']}]: {r['detalle_inconsistencias']}\n"
-        except: pass
+        except:
+            pass
+
+    # Convertir motivos_count a formato de lista para el frontend
+    motivos_seg_aud = [{"label": k, "total": v} for k, v in
+                       sorted(motivos_count.items(), key=lambda item: item[1], reverse=True)]
 
     data["pcf_psicologia"] = {
         "intervenciones_familiares": fam_psico_count,
         "integrantes": safe_count(q("pcf_psicologia_principal_2026"), params),
         "seguimientos": seg_psico_count,
-        "reporte_familias": texto_psico_fam if texto_psico_fam else (msg_no_psicologo if not es_psicologo else "No hay nuevas intervenciones familiares en estas fechas."),
-        "reporte_seguimientos": texto_psico_seg if texto_psico_seg else (msg_no_psicologo if not es_psicologo else "No hay seguimientos en estas fechas."),
-        "reporte_errores": texto_err_psico if texto_err_psico else (msg_no_psicologo if not es_psicologo else "✅ Excelente. No hay errores de psicología.")
+        "motivos_seguimiento": motivos_seg_aud,
+        "requiere_continuidad_si": cont_seg_si,
+        "requiere_continuidad_no": cont_seg_no,
+        "reporte_familias": texto_psico_fam if texto_psico_fam else (
+            msg_no_psicologo if not es_psicologo else "No hay intervenciones familiares en estas fechas."),
+        "reporte_seguimientos": texto_psico_seg if texto_psico_seg else (
+            msg_no_psicologo if not es_psicologo else "No hay seguimientos en estas fechas."),
+        "reporte_compromisos": texto_psico_compromisos if texto_psico_compromisos else "No hay compromisos registrados en estas fechas o no requerían continuidad.",
+        "reporte_evaluacion": texto_psico_evaluacion if texto_psico_evaluacion else "No hay evaluaciones registradas en estas fechas.",
+        "reporte_errores": texto_err_psico if texto_err_psico else (
+            msg_no_psicologo if not es_psicologo else "✅ Excelente. No hay errores de psicología.")
     }
 
     res_tram_aud = ejecutar("""
-        SELECT SUM(CAST(realizados AS numeric)) as tot, SUM(CAST(efectivos AS numeric)) as res, SUM(CAST(errores AS numeric)) as err 
-        FROM tramites_consolidados_2026 
-        WHERE LOWER(TRIM(CAST(usuario AS text))) = LOWER(:usuario) 
-        AND to_date(SUBSTRING(CAST(fecha AS text), 1, 10), 'YYYY-MM-DD') BETWEEN CAST(:fecha_ini AS DATE) AND CAST(:fecha_fin AS DATE)
-    """, params)
+                            SELECT SUM(CAST(realizados AS numeric)) as tot,
+                                   SUM(CAST(efectivos AS numeric))  as res,
+                                   SUM(CAST(errores AS numeric))    as err
+                            FROM tramites_consolidados_2026
+                            WHERE LOWER(TRIM(CAST(usuario AS text))) = LOWER(:usuario)
+                              AND to_date(SUBSTRING(CAST(fecha AS text), 1, 10), 'YYYY-MM-DD') BETWEEN CAST(:fecha_ini AS DATE) AND CAST(:fecha_fin AS DATE)
+                            """, params)
 
     a_tr_tot = res_tram_aud[0]["tot"] or 0 if res_tram_aud else 0
     a_tr_res = res_tram_aud[0]["res"] or 0 if res_tram_aud else 0
     a_tr_err = res_tram_aud[0]["err"] or 0 if res_tram_aud else 0
 
     res_tramites_textos = ejecutar("""
-        SELECT nombres_realizados, nombres_efectivos 
-        FROM tramites_consolidados_2026 
-        WHERE LOWER(TRIM(CAST(usuario AS text))) = LOWER(:usuario) 
-        AND to_date(SUBSTRING(CAST(fecha AS text), 1, 10), 'YYYY-MM-DD') BETWEEN CAST(:fecha_ini AS DATE) AND CAST(:fecha_fin AS DATE)
-    """, params)
+                                   SELECT nombres_realizados, nombres_efectivos
+                                   FROM tramites_consolidados_2026
+                                   WHERE LOWER(TRIM(CAST(usuario AS text))) = LOWER(:usuario)
+                                     AND to_date(SUBSTRING(CAST(fecha AS text), 1, 10), 'YYYY-MM-DD') BETWEEN CAST(:fecha_ini AS DATE) AND CAST(:fecha_fin AS DATE)
+                                   """, params)
 
     conteo_tramites_aud = {}
     texto_realizados = ""
@@ -480,15 +601,17 @@ def get_auditoria():
             texto_resueltos += f"Registro {c_ef}: {ne.replace('|', ', ')}\n"
             c_ef += 1
 
-    por_tipo_lista_aud = [{"label": k, "total": v} for k, v in sorted(conteo_tramites_aud.items(), key=lambda x: x[1], reverse=True)]
+    por_tipo_lista_aud = [{"label": k, "total": v} for k, v in
+                          sorted(conteo_tramites_aud.items(), key=lambda x: x[1], reverse=True)]
 
     res_err_tr = ejecutar("""
-        SELECT id_ficha, detalle_inconsistencias 
-        FROM auditoria_errores_2026
-        WHERE LOWER(TRIM(CAST(usuario_creador AS text))) = LOWER(:usuario)
-        AND modulo = 'TRAMITES'
-        AND to_date(SUBSTRING(CAST(fecha_creacion AS text), 1, 10), 'YYYY-MM-DD') BETWEEN CAST(:fecha_ini AS DATE) AND CAST(:fecha_fin AS DATE)
-    """, params)
+                          SELECT id_ficha, detalle_inconsistencias
+                          FROM auditoria_errores_2026
+                          WHERE LOWER(TRIM(CAST(usuario_creador AS text))) = LOWER(:usuario)
+                            AND modulo = 'TRAMITES'
+                            AND to_date(SUBSTRING(CAST(fecha_creacion AS text), 1, 10),
+                                        'YYYY-MM-DD') BETWEEN CAST(:fecha_ini AS DATE) AND CAST(:fecha_fin AS DATE)
+                          """, params)
 
     texto_errores_tr = ""
     c_err = 1
@@ -507,12 +630,13 @@ def get_auditoria():
     }
 
     query_errores = text("""
-        SELECT modulo, id_ficha, titulo_ficha, cantidad_errores, detalle_inconsistencias 
-        FROM auditoria_errores_2026
-        WHERE LOWER(TRIM(CAST(usuario_creador AS text))) = LOWER(:usuario)
-        AND to_date(SUBSTRING(CAST(fecha_creacion AS text), 1, 10), 'YYYY-MM-DD') BETWEEN CAST(:fecha_ini AS DATE) AND CAST(:fecha_fin AS DATE)
-        ORDER BY modulo, cantidad_errores DESC
-    """)
+                         SELECT modulo, id_ficha, titulo_ficha, cantidad_errores, detalle_inconsistencias
+                         FROM auditoria_errores_2026
+                         WHERE LOWER(TRIM(CAST(usuario_creador AS text))) = LOWER(:usuario)
+                           AND to_date(SUBSTRING(CAST(fecha_creacion AS text), 1, 10),
+                                       'YYYY-MM-DD') BETWEEN CAST(:fecha_ini AS DATE) AND CAST(:fecha_fin AS DATE)
+                         ORDER BY modulo, cantidad_errores DESC
+                         """)
     lista_errores_texto = []
     try:
         with engine.connect() as conn:
@@ -525,14 +649,18 @@ def get_auditoria():
                     f"--------------------------------------------------"
                 )
                 lista_errores_texto.append(texto)
-    except Exception as e: pass
+    except Exception as e:
+        pass
 
-    data["reporte_errores_texto"] = "\n".join(lista_errores_texto) if lista_errores_texto else "✅ ¡Felicitaciones! No se encontraron errores de auditoría para este encuestador en estas fechas."
+    data["reporte_errores_texto"] = "\n".join(
+        lista_errores_texto) if lista_errores_texto else "✅ ¡Felicitaciones! No se encontraron errores de auditoría para este encuestador en estas fechas."
 
     return jsonify(data)
 
+
 @app.route("/api/health", methods=["GET"])
 def health(): return jsonify({"status": "ok"}), 200
+
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT_INFORMES", 5001))
