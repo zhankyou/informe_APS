@@ -879,7 +879,7 @@
           <div>Encuestador(a) APS</div>
         </div>
         <div class="rp-firma-item">
-          <img src="/static/firma.webp" alt="Firma Vernaza" class="firma-img" />
+          <img src="/firma.webp" alt="Firma Vernaza" class="firma-img" />
           <div style="font-weight:bold;margin-bottom:2pt;">Cristian F. Calentura V.</div>
           <div>Auditoría / Análisis de Datos</div>
         </div>
@@ -894,7 +894,9 @@
 
     document.querySelectorAll('textarea').forEach(el => { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; });
     document.getElementById('seccionImprimible').innerHTML = html;
-    window.print();
+    setTimeout(() => {
+      window.print();
+    }, 800);
   }
 
   ['inputUser','inputInicio','inputFin'].forEach(id => {
