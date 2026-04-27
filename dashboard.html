@@ -139,11 +139,12 @@
       font-size: .78rem; font-weight: 600; cursor: pointer; transition: all .2s;
       height: 38px;
     }
-    .btn-refresh:hover { background: var(--teal-mid); }
+    .btn-refresh:hover:not(:disabled) { background: var(--teal-mid); }
+    .btn-refresh:disabled { opacity: 0.5; cursor: not-allowed; }
 
     /* ── Botón imprimir ──────────────────────────────────────────── */
     .btn-print {
-      display: none; /* Se mostrará tras cargar los datos */
+      display: none;
       align-items: center; gap: .5rem;
       background: linear-gradient(135deg, var(--navy), #163f72);
       color: #fff; border: none;
@@ -294,20 +295,17 @@
     }
 
     /* ═══════════════════════════════════════════════════════════════
-       ESTILOS DE IMPRESIÓN (NUEVO)
+       ESTILOS DE IMPRESIÓN
     ═══════════════════════════════════════════════════════════════ */
     #seccionImprimible { display: none; }
 
     @media print {
-      /* Ocultar toda la interfaz web */
       .sidebar, .topbar, .content, #loadingOverlay { display: none !important; }
       .main { margin-left: 0 !important; width: 100% !important; }
       body  { background: #fff; display: block; }
 
-      /* Mostrar el reporte */
       #seccionImprimible { display: block !important; font-family: Arial, sans-serif; color: #000; font-size: 9pt; }
 
-      /* Membrete */
       .rp-header-inst { border: 1.5px solid #003366; margin-bottom: 12pt; }
       .rp-header-top  { background: #003366; color: #fff; text-align: center; padding: 8pt 12pt; font-size: 8.5pt; font-weight: bold; letter-spacing: .03em; }
       .rp-header-info { display: flex; align-items: center; border-top: 1px solid #003366; padding: 6pt 10pt; gap: 12pt; }
@@ -318,7 +316,6 @@
       .rp-nit-cell    { font-size: 7.5pt; color: #333; text-align: right; min-width: 80pt; }
       .rp-nit-cell strong { display: block; font-size: 10pt; color: #003366; }
 
-      /* Títulos */
       .rp-title-block { text-align: center; margin-bottom: 10pt; padding-bottom: 8pt; border-bottom: 2pt solid #003366; }
       .rp-title-main  { font-size: 13pt; font-weight: bold; color: #003366; letter-spacing: .04em; text-transform: uppercase; }
       .rp-title-sub   { font-size: 8.5pt; color: #555; margin-top: 3pt; font-style: italic; }
@@ -327,7 +324,6 @@
       .rp-id-table td { border: 1px solid #003366; padding: 4pt 8pt; }
       .rp-id-table td:nth-child(odd) { background: #e8f0f8; font-weight: bold; color: #003366; width: 22%; }
 
-      /* Secciones y Tablas */
       .rp-section       { margin-bottom: 12pt; page-break-inside: avoid; }
       .rp-section-title { background: #003366; color: #fff; padding: 4pt 8pt; font-size: 9.5pt; font-weight: bold; letter-spacing: .04em; margin-bottom: 6pt; }
       .rp-sub-title     { background: #dce9f5; color: #003366; padding: 3pt 8pt; font-size: 8.5pt; font-weight: bold; margin-bottom: 5pt; border-left: 3pt solid #003366; }
@@ -345,16 +341,13 @@
       .rp-firma-item { text-align: center; flex: 1; border-top: 1pt solid #333; padding-top: 5pt; font-size: 7.5pt; position: relative; }
       .rp-pie-page   { text-align: center; font-size: 7pt; color: #888; margin-top: 10pt; border-top: 1px solid #ddd; padding-top: 5pt; }
 
-      /* Estilo para la firma */
       .firma-img {
         height: 50px;
         object-fit: contain;
+        filter: invert(1);
+        mix-blend-mode: multiply;
         display: block;
         margin: 0 auto -5px auto;
-        /* Si tu imagen .webp ya tiene fondo transparente, NO necesitas filtros.
-           Si la imagen aún tiene fondo negro, quita los comentarios (/*) de las siguientes dos líneas: */
-        /* filter: invert(1); */
-        /* mix-blend-mode: multiply; */
       }
 
       @page { size: letter portrait; margin: 1.5cm 1.5cm 2cm 1.5cm; }
@@ -400,7 +393,7 @@
       <div class="topbar-meta" id="topbarFecha">Cargando datos...</div>
     </div>
     <div class="topbar-actions">
-      <button class="btn-refresh" onclick="loadDashboard()">↻ Actualizar</button>
+      <button class="btn-refresh" id="btnRefresh" onclick="loadDashboard()">↻ Actualizar</button>
       <button class="btn-print" id="btnPrint" onclick="generarYImprimir()">
         <svg viewBox="0 0 24 24"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>
         Imprimir / PDF
@@ -630,9 +623,20 @@
           <div class="section-sub">Gestión y resolución de trámites realizados</div>
         </div>
       </div>
+
       <div class="cards-row">
+        <div class="stat-card c-purple">
+          <div class="stat-label">Personas con trámite</div>
+          <div class="stat-value loading" id="tr-registros">—</div>
+          <span class="stat-badge badge-info">Registros únicos</span>
+        </div>
+        <div class="stat-card c-navy">
+          <div class="stat-label">Familias intervenidas</div>
+          <div class="stat-value loading" id="tr-familias">—</div>
+          <span class="stat-badge badge-info">Hogares/Familias</span>
+        </div>
         <div class="stat-card c-gold">
-          <div class="stat-label">Total trámites</div>
+          <div class="stat-label">Total trámites gestionados</div>
           <div class="stat-value loading" id="tr-total">—</div>
         </div>
         <div class="stat-card c-green">
@@ -646,6 +650,7 @@
           <span class="stat-badge badge-error">Revisar</span>
         </div>
       </div>
+
       <div class="sub-section" style="margin-top:.5rem;">
         <div class="sub-section-title">Tipo de trámite</div>
         <div class="chart-card" style="box-shadow:none;padding:0;">
@@ -656,20 +661,20 @@
       </div>
     </div>
 
-  </div><div id="seccionImprimible"></div>
+  </div>
 
-</div><div id="loadingOverlay">
+  <div id="seccionImprimible"></div>
+
+</div>
+
+<div id="loadingOverlay">
   <div class="loading-spinner"></div>
   <div class="loading-text">Cargando estadísticas...</div>
 </div>
 
 <script>
-  // ── Configuración ────────────────────────────────────────────────
-  const API_BASE = window.location.protocol === 'file:'
-    ? 'http://127.0.0.1:5001'
-    : window.location.origin;
+  const API_BASE = window.location.protocol === 'file:' ? 'http://127.0.0.1:5001' : window.location.origin;
 
-  // ── Auth guard ────────────────────────────────────────────────────
   const token = localStorage.getItem('informes_token');
   if (!token) { window.location.href = '/login'; }
 
@@ -683,7 +688,6 @@
     window.location.href = '/login';
   }
 
-  // ── Helpers ──────────────────────────────────────────────────────
   function fmt(n) {
     if (n === null || n === undefined) return '0';
     return Number(n).toLocaleString('es-CO');
@@ -699,8 +703,8 @@
   }
 
   let _datosDashboard = null;
+  let isSearching = false; // Bloqueo de peticiones múltiples
 
-  // ── Charts ───────────────────────────────────────────────────────
   const PALETTE = [
     '#00b09b','#0a1f3d','#f0a500','#6c3fc5','#e53935',
     '#1e9c6e','#00d4b8','#f5a623','#8b5cf6','#ef4444',
@@ -744,10 +748,14 @@
     });
   }
 
-  // ── Cargar dashboard ─────────────────────────────────────────────
   async function loadDashboard() {
+    if (isSearching) return;
+
+    isSearching = true;
+    document.getElementById('btnRefresh').disabled = true;
     document.getElementById('loadingOverlay').style.display = 'flex';
     document.getElementById('btnPrint').style.display = 'none';
+
     try {
       const resp = await fetch(`${API_BASE}/api/dashboard`, { headers: headers() });
 
@@ -763,9 +771,11 @@
 
       setVal('d-total', d.desistimientos?.total);
       setVal('d-error', d.desistimientos?.con_error);
+
       setVal('pcc-planes', d.pcc?.planes);
       setVal('pcc-integ',  d.pcc?.integrantes);
       setVal('pcc-error',  d.pcc?.con_error);
+
       setVal('ca-familias',   d.caracterizacion?.familias);
       setVal('ca-individuos', d.caracterizacion?.individuos);
       setVal('ca-sinaseg',    d.caracterizacion?.sin_aseguramiento);
@@ -780,23 +790,28 @@
       const pctCon = d.caracterizacion?.etnia_con_pct || 0;
       const pctSin = d.caracterizacion?.etnia_sin_pct || 0;
       document.getElementById('etnia-fill-bar').style.width = pctCon + '%';
-      document.getElementById('etnia-con-label').textContent =
-        `${pctCon}% con pertenencia étnica (${fmt(d.caracterizacion?.etnia_con_total)})`;
-      document.getElementById('etnia-sin-label').textContent =
-        `${pctSin}% sin pertenencia étnica`;
+      document.getElementById('etnia-con-label').textContent = `${pctCon}% con pertenencia étnica (${fmt(d.caracterizacion?.etnia_con_total)})`;
+      document.getElementById('etnia-sin-label').textContent = `${pctSin}% sin pertenencia étnica`;
 
       const tf = d.caracterizacion?.tipo_familia || [];
       buildChart('chartTipoFamilia', 'doughnut', tf.map(x => x.label), tf.map(x => x.total));
+
       const es = d.caracterizacion?.estrato || [];
       buildChart('chartEstrato', 'bar', es.map(x => x.label), es.map(x => x.total));
+
       const ed = d.caracterizacion?.nivel_educativo || [];
       buildChart('chartEducacion', 'bar', ed.map(x => x.label), ed.map(x => x.total));
 
       setVal('pcf-fam',   d.pcf?.familias_intervenidas);
       setVal('pcf-integ', d.pcf?.integrantes_intervenidos);
+
       setVal('psi-interv', d.pcf_psicologia?.intervenciones_familiares);
       setVal('psi-integ',  d.pcf_psicologia?.integrantes);
       setVal('psi-seg',    d.pcf_psicologia?.seguimientos);
+
+      // Valores de Trámites (Corregidos con los IDs exactos de la UI)
+      setVal('tr-registros', d.tramites?.total_registros);
+      setVal('tr-familias',  d.tramites?.total_familias);
       setVal('tr-total', d.tramites?.total);
       setVal('tr-resol', d.tramites?.resolutivos);
       setVal('tr-error', d.tramites?.con_error);
@@ -808,19 +823,17 @@
 
     } catch (err) {
       console.error('Error cargando dashboard:', err);
-      document.getElementById('topbarFecha').textContent =
-        '⚠️ Error al cargar datos. Verifica la conexión.';
+      document.getElementById('topbarFecha').textContent = '⚠️ Error al cargar datos. Verifica la conexión.';
     } finally {
+      isSearching = false;
+      document.getElementById('btnRefresh').disabled = false;
       document.getElementById('loadingOverlay').style.display = 'none';
     }
   }
 
-  // ── IMPRESIÓN DASHBOARD ───────────────────
   function getChartImage(id) {
     const cnv = document.getElementById(id);
-    if (cnv) {
-      return `<img class="rp-chart-img" src="${cnv.toDataURL('image/png')}" style="max-height:160pt;" alt="Gráfico"/>`;
-    }
+    if (cnv) { return `<img class="rp-chart-img" src="${cnv.toDataURL('image/png')}" style="max-height:160pt;" alt="Gráfico"/>`; }
     return '';
   }
 
@@ -958,6 +971,14 @@
 
       <div class="rp-section" style="page-break-inside: avoid; margin-top: 20px;">
         <div class="rp-section-title">5. GESTIÓN DE TRÁMITES</div>
+        <table class="rp-table" style="margin-bottom:10px;">
+          <tr><th>Indicador</th><th style="width:90pt;text-align:right;">Total</th></tr>
+          <tr><td>Personas con trámite (Registros únicos)</td><td class="td-num">${fmt(d.tramites?.total_registros)}</td></tr>
+          <tr><td>Familias con trámites realizados</td><td class="td-num">${fmt(d.tramites?.total_familias)}</td></tr>
+          <tr><td>Total trámites gestionados</td><td class="td-num">${fmt(d.tramites?.total)}</td></tr>
+          <tr><td>Trámites resolutivos (efectivos)</td><td class="td-num">${fmt(d.tramites?.resolutivos)}</td></tr>
+          <tr class="${(d.tramites?.con_error||0)>0?'error-row':''}"><td>Trámites con error de registro</td><td class="td-num">${fmt(d.tramites?.con_error)}</td></tr>
+        </table>
         <div style="text-align: center;">
            ${getChartImage('chartTramites')}
         </div>
@@ -966,7 +987,7 @@
       <div class="rp-firma">
         <div class="rp-firma-item">
           <img src="/firma.webp" alt="Firma Vernaza" class="firma-img" />
-          <div style="font-weight:bold;margin-bottom:2pt;">Cristian F. Calenutra V.</div>
+          <div style="font-weight:bold;margin-bottom:2pt;">Cristian F. Calentura V.</div>
           <div>Auditoría / Análisis de Datos</div>
         </div>
         <div class="rp-firma-item">
@@ -981,11 +1002,8 @@
       </div>
     `;
 
-    document.querySelectorAll('textarea').forEach(el => { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; });
     document.getElementById('seccionImprimible').innerHTML = html;
-    setTimeout(() => {
-      window.print();
-    }, 800);
+    setTimeout(() => { window.print(); }, 800);
   }
 
   loadDashboard();
