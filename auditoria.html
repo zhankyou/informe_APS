@@ -55,8 +55,8 @@
     .auditoria-filters input{width:100%;border:1.5px solid var(--border);border-radius:8px;padding:.8rem 1rem;font-family:'Sora',sans-serif;font-size:.9rem;color:var(--text);outline:none;transition:border-color .2s;}
     .auditoria-filters input:focus{border-color:var(--teal);}
     .btn-search{background:var(--navy);color:#fff;border:none;padding:.9rem 2rem;border-radius:8px;font-weight:600;font-family:'Sora',sans-serif;cursor:pointer;transition:background .2s;white-space:nowrap;height:46px;}
-    .btn-search:hover{background:var(--teal);}
-    .btn-search:disabled{background:var(--muted);cursor:not-allowed;}
+    .btn-search:hover:not(:disabled){background:var(--teal);}
+    .btn-search:disabled{background:var(--muted);cursor:not-allowed;opacity:0.6;}
 
     /* DROPDOWN PERSONALIZADO */
     .custom-dropdown { position:absolute; top:100%; left:0; right:0; background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow-md); max-height:200px; overflow-y:auto; z-index:1000; display:none; margin-top:4px; }
@@ -126,7 +126,7 @@
       #emptyState, #resultadosAuditoria, #customModal,
       .btn-print, .btn-search, .custom-dropdown { display: none !important; }
 
-      .main { margin-left: 0 !important; }
+      .main { margin-left: 0 !important; width: 100% !important; }
       .content { padding: 0 !important; }
       body { background: #fff; display: block; }
 
@@ -163,7 +163,8 @@
       .rp-table .total-row td { background: #003366 !important; color: #fff !important; font-weight: bold; }
       .rp-table .error-row td { background: #fde8e8 !important; color: #c0392b !important; }
 
-      .rp-chart-img { max-width: 100%; height: auto; margin: 4pt auto; display: block; border: 1px solid #c8d6e8; border-radius: 4pt; }
+      .rp-chart-img { max-width: 100%; height: auto; display: inline-block; border: 1px solid #c8d6e8; border-radius: 4pt; margin: 4pt; }
+      .rp-charts-container { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
 
       .rp-firma { margin-top: 24pt; display: flex; justify-content: space-around; gap: 20pt; page-break-inside: avoid; align-items: flex-end; }
       .rp-firma-item { text-align: center; flex: 1; border-top: 1pt solid #333; padding-top: 5pt; font-size: 7.5pt; position: relative; }
@@ -178,16 +179,13 @@
       .rp-obs-block.obs-green { border-left-color: #14724f; }
       .rp-obs-empty { color: #bbb !important; font-style: italic; }
 
-      /* Estilo para la firma */
       .firma-img {
         height: 50px;
         object-fit: contain;
+        filter: invert(1);
+        mix-blend-mode: multiply;
         display: block;
         margin: 0 auto -5px auto;
-        /* Si tu imagen .webp ya tiene fondo transparente, NO necesitas filtros.
-           Si la imagen aún tiene fondo negro, quita los comentarios (/*) de las siguientes dos líneas: */
-        /* filter: invert(1); */
-        /* mix-blend-mode: multiply; */
       }
 
       @page { size: letter portrait; margin: 1.5cm 1.5cm 2cm 1.5cm; }
@@ -418,11 +416,34 @@
           <div class="section-icon" style="background:#fef7e0;"><svg viewBox="0 0 24 24" fill="#f0a500"><path d="M20 6h-2.18c.07-.44.18-.86.18-1a3 3 0 0 0-6 0c0 .14.11.56.18 1H10c-.36 0-.96.15-.96.96v13c0 .57.39 1.04.96 1.04h10c.57 0 1-.47 1-1.04V6.96c0-.81-.57-.96-1-.96zM14 3a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm2 16H8V7h2v2h4V7h2v12z"/></svg></div>
           <div><div class="section-title">Trámites Realizados</div><div class="section-sub">Gestión documental generada por este encuestador</div></div>
         </div>
+
         <div class="cards-row">
-          <div class="stat-card c-navy"><div class="stat-label">Total trámites</div><div class="stat-value" id="a-tr-tot">0</div></div>
-          <div class="stat-card c-green"><div class="stat-label">Trámites resolutivos</div><div class="stat-value" id="a-tr-res">0</div><span class="stat-badge badge-ok">Resueltos</span></div>
-          <div class="stat-card c-red"><div class="stat-label">Con error de registro</div><div class="stat-value" id="a-tr-err">0</div></div>
+          <div class="stat-card c-purple">
+            <div class="stat-label">Personas con trámite</div>
+            <div class="stat-value loading" id="tr-registros">—</div>
+            <span class="stat-badge badge-info">Registros únicos</span>
+          </div>
+          <div class="stat-card c-navy">
+            <div class="stat-label">Familias intervenidas</div>
+            <div class="stat-value loading" id="tr-familias">—</div>
+            <span class="stat-badge badge-info">Hogares/Familias</span>
+          </div>
+          <div class="stat-card c-gold">
+            <div class="stat-label">Total trámites gestionados</div>
+            <div class="stat-value loading" id="tr-total">—</div>
+          </div>
+          <div class="stat-card c-green">
+            <div class="stat-label">Trámites resolutivos</div>
+            <div class="stat-value loading" id="tr-resol">—</div>
+            <span class="stat-badge badge-ok">Resueltos</span>
+          </div>
+          <div class="stat-card c-red">
+            <div class="stat-label">Con error de registro</div>
+            <div class="stat-value loading" id="tr-error">—</div>
+            <span class="stat-badge badge-error">Revisar</span>
+          </div>
         </div>
+
         <div class="sub-section" style="margin-top:1rem;">
           <div class="sub-section-title">Desglose por tipo de trámite</div>
           <div class="chart-container"><canvas id="chartTramitesAuditoria"></canvas></div>
@@ -457,8 +478,9 @@
 
 <script>
   const API_BASE = window.location.protocol === 'file:' ? 'http://127.0.0.1:5001' : window.location.origin;
+
   const token = localStorage.getItem('informes_token');
-  if (!token) window.location.href = '/login';
+  if (!token) { window.location.href = '/login'; }
 
   const userInfo = JSON.parse(localStorage.getItem('informes_user') || '{}');
   document.getElementById('sidebarNombre').textContent = userInfo.nombre || '—';
@@ -467,6 +489,7 @@
   let todosLosCorreos = [];
   const inputUser = document.getElementById('inputUser');
   const dropdown  = document.getElementById('customDropdown');
+  let isSearching = false; // <-- CANDADO ANTI-DOBLE-CLICK
 
   async function cargarCorreos() {
     try {
@@ -558,6 +581,8 @@
   }
 
   async function buscarAuditoria() {
+    if (isSearching) return; // <-- BLOQUEO: Evita doble peticion al presionar "Enter" rápidamente
+
     const email = document.getElementById('inputUser').value.trim();
     const fi    = document.getElementById('inputInicio').value;
     const ff    = document.getElementById('inputFin').value;
@@ -567,6 +592,7 @@
 
     if (!email||!fi||!ff) { alert('Por favor ingresa el correo y el rango de fechas completo.'); return; }
 
+    isSearching = true; // ACTIVAMOS CANDADO
     btn.disabled = true;
     document.getElementById('loadingOverlay').style.display = 'flex';
     document.getElementById('emptyState').style.display     = 'none';
@@ -632,9 +658,12 @@
         });
       }
 
-      setVal('a-tr-tot',  data.tramites?.total);
-      setVal('a-tr-res',  data.tramites?.resolutivos);
-      setVal('a-tr-err',  data.tramites?.con_error);
+      // VALORES TRÁMITES CORREGIDOS
+      setVal('tr-registros', data.tramites?.total_registros);
+      setVal('tr-familias',  data.tramites?.total_familias);
+      setVal('tr-total',  data.tramites?.total);
+      setVal('tr-resol',  data.tramites?.resolutivos);
+      setVal('tr-error',  data.tramites?.con_error);
 
       const tr = data.tramites?.por_tipo || [];
       renderBarChart('chartTramitesAuditoria', tr.map(x=>x.label), tr.map(x=>x.total));
@@ -661,9 +690,10 @@
 
     } catch(err) {
       console.error(err);
-      alert('Hubo un error de conexión al consultar la auditoría.');
+      alert('La consulta está tomando mucho tiempo o hubo un fallo de red. Por favor, intenta de nuevo.');
       document.getElementById('emptyState').style.display = 'block';
     } finally {
+      isSearching = false; // LIBERAMOS CANDADO
       btn.disabled = false;
       document.getElementById('loadingOverlay').style.display = 'none';
     }
@@ -848,9 +878,10 @@
 
       <div class="rp-section">
         <div class="rp-section-title">6. TRÁMITES Y GESTIONES REALIZADAS</div>
-        <div class="rp-sub-title">6.1 Resumen de Trámites</div>
-        <table class="rp-table">
+        <table class="rp-table" style="margin-bottom:10px;">
           <tr><th>Indicador</th><th style="width:90pt;text-align:right;">Total</th></tr>
+          <tr><td>Personas con trámite (Registros únicos)</td><td class="td-num">${fmt(d.tramites?.total_registros)}</td></tr>
+          <tr><td>Familias con trámites realizados</td><td class="td-num">${fmt(d.tramites?.total_familias)}</td></tr>
           <tr><td>Total trámites gestionados</td><td class="td-num">${fmt(d.tramites?.total)}</td></tr>
           <tr><td>Trámites resolutivos (efectivos)</td><td class="td-num">${fmt(d.tramites?.resolutivos)}</td></tr>
           <tr class="${(d.tramites?.con_error||0)>0?'error-row':''}"><td>Trámites con error de registro</td><td class="td-num">${fmt(d.tramites?.con_error)}</td></tr>
@@ -874,29 +905,21 @@
       </div>
 
       <div class="rp-firma">
-        <div class="rp-firma-item">
-          <div style="font-weight:bold;margin-bottom:2pt;">${_usuarioConsultado}</div>
-          <div>Encuestador(a) APS</div>
-        </div>
+        <div class="rp-firma-item"><div style="font-weight:bold;margin-bottom:2pt;">${_usuarioConsultado}</div><div>Encuestador(a) APS</div></div>
         <div class="rp-firma-item">
           <img src="/firma.webp" alt="Firma Vernaza" class="firma-img" />
-          <div style="font-weight:bold;margin-bottom:2pt;">Cristian F. Calentura V.</div>
-          <div>Auditoría / Análisis de Datos</div>
+          <div style="font-weight:bold;margin-bottom:2pt;">Cristian f. Calentura V.</div>
+          <div>Revisado por</div>
         </div>
-        <div class="rp-firma-item">
-          <div style="font-weight:bold;margin-bottom:2pt;">___________________________</div>
-          <div>Coordinación APS</div>
-        </div>
+        <div class="rp-firma-item"><div style="font-weight:bold;margin-bottom:2pt;">___________________________</div><div>Coordinación APS</div></div>
       </div>
-
       <div class="rp-pie-page">Empresa Social del Estado — Villavicencio · Sistema INFORMES ESE · Generado el ${hoy} · Resolución 763/2025</div>
     `;
 
     document.querySelectorAll('textarea').forEach(el => { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; });
     document.getElementById('seccionImprimible').innerHTML = html;
-    setTimeout(() => {
-      window.print();
-    }, 800);
+
+    setTimeout(() => { window.print(); }, 800);
   }
 
   ['inputUser','inputInicio','inputFin'].forEach(id => {
