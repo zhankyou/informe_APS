@@ -103,13 +103,14 @@ def require_auth(f):
 @app.route("/login")
 def login_page(): return send_from_directory(DIR_BASE, "login.html")
 
-
 @app.route("/dashboard")
 def dashboard_page(): return send_from_directory(DIR_BASE, "dashboard.html")
 
-
 @app.route("/auditoria")
 def auditoria_page(): return send_from_directory(DIR_BASE, "auditoria.html")
+
+@app.route("/firma.webp")
+def firma_page(): return send_from_directory(DIR_BASE, "firma.webp")
 
 
 # ── API ENDPOINTS ──
