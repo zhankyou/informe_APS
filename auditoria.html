@@ -187,6 +187,8 @@
 
       @page { size: letter portrait; margin: 1.5cm 1.5cm 2cm 1.5cm; }
     }
+
+    @media (max-width:768px){.sidebar{width:0;overflow:hidden;}.main{margin-left:0;}.content{padding:1rem;}}
   </style>
 </head>
 <body>
@@ -316,7 +318,6 @@
             </div>
           </div>
         </div>
-
       </div>
       <div class="divider"></div>
 
@@ -450,16 +451,16 @@
           </div>
           <div class="stat-card c-gold">
             <div class="stat-label">Total trámites gestionados</div>
-            <div class="stat-value loading" id="tr-total">—</div>
+            <div class="stat-value loading" id="a-tr-tot">—</div>
           </div>
           <div class="stat-card c-green">
             <div class="stat-label">Trámites resolutivos</div>
-            <div class="stat-value loading" id="tr-resol">—</div>
+            <div class="stat-value loading" id="a-tr-res">—</div>
             <span class="stat-badge badge-ok">Resueltos</span>
           </div>
           <div class="stat-card c-red">
             <div class="stat-label">Con error de registro</div>
-            <div class="stat-value loading" id="tr-error">—</div>
+            <div class="stat-value loading" id="a-tr-err">—</div>
             <span class="stat-badge badge-error">Revisar</span>
           </div>
         </div>
@@ -517,7 +518,7 @@
       if (resp.ok) {
         todosLosCorreos = await resp.json();
       }
-    } catch(e) { console.error('No se pudo cargar la lista de correos', e); }
+    } catch(e) {}
   }
 
   cargarCorreos();
@@ -576,7 +577,7 @@
   function fmt(n) { return Number(n||0).toLocaleString('es-CO'); }
   function setVal(id, v) {
       const el = document.getElementById(id);
-      if(el) { el.textContent = fmt(v); }
+      if(el) { el.textContent = fmt(v); el.classList.remove('loading'); }
   }
 
   function renderList(cid, arr) {
@@ -706,7 +707,6 @@
 
       setValInput('textoErroresGlobal', data.reporte_errores_texto);
 
-      // NUEVO: Detalles PCC
       setValInput('txtPccDetalles', data.pcc?.reporte_detalles);
 
       setValInput('txtPcfRealizados', data.pcf?.reporte_familias);
