@@ -341,11 +341,10 @@
       .rp-firma-item { text-align: center; flex: 1; border-top: 1pt solid #333; padding-top: 5pt; font-size: 7.5pt; position: relative; }
       .rp-pie-page   { text-align: center; font-size: 7pt; color: #888; margin-top: 10pt; border-top: 1px solid #ddd; padding-top: 5pt; }
 
+      /* FIRMA SIN FILTROS PARA QUE NO SE VUELVA INVISIBLE */
       .firma-img {
         height: 50px;
         object-fit: contain;
-        filter: invert(1);
-        mix-blend-mode: multiply;
         display: block;
         margin: 0 auto -5px auto;
       }
@@ -376,6 +375,10 @@
     <a href="/auditoria" class="nav-item">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
       <span class="nav-label">Auditoría</span>
+    </a>
+    <a href="/mapas" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+      <span class="nav-label">Mapas GIS</span>
     </a>
   </div>
 
@@ -508,6 +511,10 @@
             <div class="stat-label">Población étnica</div>
             <div class="stat-value loading" id="ca-etnica">—</div>
           </div>
+          <div class="stat-card c-navy">
+            <div class="stat-label">Con Discapacidad</div>
+            <div class="stat-value loading" id="ca-disc">—</div>
+          </div>
         </div>
       </div>
 
@@ -543,6 +550,11 @@
             <span id="etnia-sin-label">— Sin pertenencia étnica</span>
           </div>
         </div>
+      </div>
+
+      <div class="sub-section" style="margin-top:1rem;">
+        <div class="sub-section-title">Tipos de Discapacidad (Frecuencia)</div>
+        <div class="chart-container"><canvas id="chartDiscapacidad"></canvas></div>
       </div>
 
       <div class="cards-row" style="margin-top:.75rem;">
@@ -705,6 +717,7 @@
   let _datosDashboard = null;
   let isSearching = false; // Bloqueo de peticiones múltiples
 
+  const chartInstances = {};
   const PALETTE = [
     '#00b09b','#0a1f3d','#f0a500','#6c3fc5','#e53935',
     '#1e9c6e','#00d4b8','#f5a623','#8b5cf6','#ef4444',
@@ -714,7 +727,9 @@
   function buildChart(canvasId, type, labels, data, options = {}) {
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
-    return new Chart(ctx, {
+    if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
+
+    chartInstances[canvasId] = new Chart(ctx, {
       type,
       data: {
         labels,
@@ -787,6 +802,8 @@
       setVal('ca-err-fam',    d.caracterizacion?.error_familiar);
       setVal('ca-err-ind',    d.caracterizacion?.error_individual);
 
+      setVal('ca-disc',       d.caracterizacion?.discapacidad_total);
+
       const pctCon = d.caracterizacion?.etnia_con_pct || 0;
       const pctSin = d.caracterizacion?.etnia_sin_pct || 0;
       document.getElementById('etnia-fill-bar').style.width = pctCon + '%';
@@ -802,6 +819,9 @@
       const ed = d.caracterizacion?.nivel_educativo || [];
       buildChart('chartEducacion', 'bar', ed.map(x => x.label), ed.map(x => x.total));
 
+      const disc = d.caracterizacion?.discapacidades_chart || [];
+      buildChart('chartDiscapacidad', 'bar', disc.map(x => x.label), disc.map(x => x.total));
+
       setVal('pcf-fam',   d.pcf?.familias_intervenidas);
       setVal('pcf-integ', d.pcf?.integrantes_intervenidos);
 
@@ -809,7 +829,6 @@
       setVal('psi-integ',  d.pcf_psicologia?.integrantes);
       setVal('psi-seg',    d.pcf_psicologia?.seguimientos);
 
-      // Valores de Trámites (Corregidos con los IDs exactos de la UI)
       setVal('tr-registros', d.tramites?.total_registros);
       setVal('tr-familias',  d.tramites?.total_familias);
       setVal('tr-total', d.tramites?.total);
@@ -823,7 +842,8 @@
 
     } catch (err) {
       console.error('Error cargando dashboard:', err);
-      document.getElementById('topbarFecha').textContent = '⚠️ Error al cargar datos. Verifica la conexión.';
+      alert(`⚠️ Fallo en la consulta:\n\n${err.message}\n\nSi el error persiste, avisa a soporte.`);
+      document.getElementById('topbarFecha').textContent = '⚠️ Error al cargar datos.';
     } finally {
       isSearching = false;
       document.getElementById('btnRefresh').disabled = false;
@@ -843,6 +863,12 @@
     const d = _datosDashboard;
     const ca = d.caracterizacion || {};
     const hoy = new Date().toLocaleDateString('es-CO', { dateStyle:'full' });
+
+    let chartDiscImgTag = '';
+    const cnvDisc = document.getElementById('chartDiscapacidad');
+    if (cnvDisc && (ca.discapacidades_chart || []).length) {
+      chartDiscImgTag = `<div style="text-align:center; margin-top: 10pt;"><div class="rp-sub-title">Frecuencia de Tipos de Discapacidad</div><img class="rp-chart-img" src="${cnvDisc.toDataURL('image/png')}" alt="Gráfico Discapacidades" style="max-height:140pt;"/></div>`;
+    }
 
     const html = `
       <div class="rp-header-inst">
@@ -929,8 +955,11 @@
           <tr><td class="td-label">Menores de 5 años</td><td class="td-num">${fmt(ca.menores_5)}</td></tr>
           <tr><td class="td-label">Adultos mayores (60+)</td><td class="td-num">${fmt(ca.adultos_60)}</td></tr>
           <tr><td class="td-label">Víctimas del conflicto armado</td><td class="td-num">${fmt(ca.victimas_conflicto)}</td></tr>
+          <tr><td class="td-label" style="background:#e6f7f5;">Población con discapacidad</td><td class="td-num" style="background:#e6f7f5;">${fmt(ca.discapacidad_total)}</td></tr>
           <tr><td class="td-label">Población con pertenencia étnica</td><td class="td-num">${fmt(ca.etnia_con_total)} personas (${ca.etnia_con_pct||0}%)</td></tr>
         </table>
+
+        ${chartDiscImgTag}
       </div>
 
       <div class="rp-section">
