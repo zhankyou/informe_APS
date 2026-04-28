@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>INFORMES ESE · Mapas GIS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,400&display=swap" rel="stylesheet"/>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    /* Estilos base (Mismos que auditoría) */
+    :root {
+      --bg:#f0f4fa;--surface:#ffffff;--navy:#0a1f3d;--navy-lt:#122848;
+      --teal:#00b09b;--teal-lt:#e6f7f5;--teal-mid:#b3e8e3;
+      --gold:#f0a500;--gold-lt:#fef7e0;--red:#e53935;--red-lt:#fde8e8;
+      --purple:#6c3fc5;--purple-lt:#ede8fb;--green:#1e9c6e;--green-lt:#e5f7f0;
+      --border:#dde4ef;--text:#1a2840;--muted:#5d7290;
+      --sidebar-w:240px;--radius:14px;
+      --shadow:0 2px 16px rgba(10,31,61,.07);--shadow-md:0 4px 28px rgba(10,31,61,.11);
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html{scroll-behavior:smooth;}
+    body{font-family:'Sora',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;}
+
+    .sidebar{width:var(--sidebar-w);background:var(--navy);height:100vh;position:fixed;left:0;top:0;display:flex;flex-direction:column;padding:1.5rem 0;z-index:100;box-shadow:4px 0 24px rgba(0,0,0,.18);}
+    .sidebar-brand{display:flex;align-items:center;gap:.75rem;padding:0 1.4rem 1.5rem;border-bottom:1px solid rgba(255,255,255,.08);}
+    .brand-logo{width:36px;height:36px;background:linear-gradient(135deg,var(--teal),#00d4b8);border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .brand-logo svg{width:20px;height:20px;fill:#fff;}
+    .brand-name{font-family:'Fraunces',serif;font-size:1rem;color:#fff;}
+    .brand-sub{font-size:.62rem;color:rgba(255,255,255,.4);letter-spacing:.1em;text-transform:uppercase;}
+
+    .nav{flex:1;padding:1.2rem 0;}
+    .nav-item{display:flex;align-items:center;gap:.75rem;padding:.7rem 1.4rem;color:rgba(255,255,255,.55);font-size:.83rem;font-weight:500;cursor:pointer;transition:all .18s;text-decoration:none;margin:.1rem 0;}
+    .nav-item:hover{color:#fff;background:rgba(255,255,255,.06);}
+    .nav-item.active{color:var(--teal);background:rgba(0,176,155,.12);border-right:3px solid var(--teal);}
+    .nav-item svg{width:18px;height:18px;flex-shrink:0;}
+    .nav-section-title{padding:.9rem 1.4rem .3rem;font-size:.62rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.25);}
+
+    .sidebar-user{padding:1rem 1.4rem;border-top:1px solid rgba(255,255,255,.08);}
+    .user-name{font-size:.82rem;color:#fff;font-weight:600;margin-bottom:.15rem;}
+    .user-role{font-size:.68rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.1em;}
+    .btn-logout{margin-top:.75rem;width:100%;background:rgba(229,57,53,.15);border:1px solid rgba(229,57,53,.3);color:#ff8a80;border-radius:8px;padding:.45rem;font-family:'Sora',sans-serif;font-size:.75rem;cursor:pointer;transition:background .2s;}
+
+    .main{margin-left:var(--sidebar-w);flex:1;min-height:100vh;}
+    .topbar{background:var(--surface);padding:1rem 2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:var(--shadow);}
+    .topbar-title{font-family:'Fraunces',serif;font-size:1.1rem;font-weight:700;color:var(--navy);}
+    .topbar-meta{font-size:.75rem;color:var(--muted);}
+    .content{padding:1.75rem 2rem 4rem;}
+
+    .auditoria-filters{display:flex;gap:1rem;margin-bottom:2rem;background:var(--surface);padding:1.5rem;border-radius:var(--radius);box-shadow:var(--shadow);flex-wrap:wrap;align-items:flex-end;}
+    .filter-group{flex:1;min-width:200px; position:relative;}
+    .filter-group label{display:block;font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.45rem;}
+    .auditoria-filters input{width:100%;border:1.5px solid var(--border);border-radius:8px;padding:.8rem 1rem;font-family:'Sora',sans-serif;font-size:.9rem;color:var(--text);outline:none;transition:border-color .2s;}
+    .btn-search{background:var(--navy);color:#fff;border:none;padding:.9rem 2rem;border-radius:8px;font-weight:600;font-family:'Sora',sans-serif;cursor:pointer;transition:background .2s;white-space:nowrap;height:46px;}
+    .btn-search:hover:not(:disabled){background:var(--teal);}
+    .btn-search:disabled{background:var(--muted);cursor:not-allowed;opacity:0.6;}
+
+    .custom-dropdown { position:absolute; top:100%; left:0; right:0; background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow-md); max-height:200px; overflow-y:auto; z-index:1000; display:none; margin-top:4px; }
+    .custom-dropdown-item { padding:.7rem 1rem; font-size:.85rem; color:var(--text); cursor:pointer; transition:background .2s; }
+    .custom-dropdown-item:hover { background:var(--teal-lt); color:var(--teal); }
+
+    .section{margin-bottom:2.5rem;animation:fadeIn .4s ease;}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    .section-header{display:flex;align-items:center;gap:.75rem;margin-bottom:1.1rem;}
+    .section-title{font-family:'Fraunces',serif;font-size:1.1rem;color:var(--navy);}
+
+    .cards-row{display:flex;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;}
+    .stat-card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.2rem 1.4rem;flex:1;min-width:160px;border-top:3px solid transparent;}
+    .stat-card.c-teal{border-top-color:var(--teal)}.stat-card.c-red{border-top-color:var(--red)}.stat-card.c-gold{border-top-color:var(--gold)}
+    .stat-label{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.45rem;}
+    .stat-value{font-family:'Fraunces',serif;font-size:2rem;font-weight:700;color:var(--navy);line-height:1;margin-bottom:.2rem;}
+
+    .sub-section{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.2rem 1.4rem;margin-bottom:1rem;}
+    .sub-section-title{font-size:.73rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem;padding-bottom:.6rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+    .divider{height:1px;background:var(--border);margin:1.8rem 0;}
+
+    /* Contenedores de Mapas */
+    .map-container { width: 100%; height: 350px; border-radius: 8px; border: 1px solid var(--border); z-index: 10; }
+
+    .report-box { width:100%; height:100px; background:#fde8e8; border:1px solid var(--red-lt); color:var(--red); border-radius:8px; padding:.75rem; font-family:monospace; font-size:.8rem; resize:none; outline:none; }
+    .btn-copy-small { padding:.4rem 1rem; font-size:.75rem; border-radius:6px; border:none; color:#fff; background:var(--red); cursor:pointer; font-family:'Sora',sans-serif; font-weight:600; transition:opacity .2s; }
+
+    #loadingOverlay { position:fixed; inset:0; background:rgba(240,244,250,.8); z-index:999; display:none; flex-direction:column; align-items:center; justify-content:center; gap:1rem; }
+    .loading-spinner { width:40px; height:40px; border:3px solid rgba(0,176,155,.2); border-top-color:var(--teal); border-radius:50%; animation:spin .8s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg) } }
+
+  </style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-logo">
+      <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+    </div>
+    <div>
+      <div class="brand-name">INFORMES</div>
+      <div class="brand-sub">ESE 2026</div>
+    </div>
+  </div>
+
+  <div class="nav">
+    <div class="nav-section-title">Módulos</div>
+    <a href="/dashboard" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+      <span class="nav-label">Dashboard</span>
+    </a>
+    <a href="/auditoria" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      <span class="nav-label">Auditoría</span>
+    </a>
+    <a href="/mapas" class="nav-item active">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+      <span class="nav-label">Mapas GIS</span>
+    </a>
+  </div>
+
+  <div class="sidebar-user">
+    <div class="user-name" id="sidebarNombre">Cargando...</div>
+    <div class="user-role" id="sidebarRol">—</div>
+    <button class="btn-logout" onclick="logout()">Cerrar sesión</button>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title">Georreferenciación EBS</div>
+      <div class="topbar-meta">Auditoría perimetral de ubicaciones de Villavicencio</div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <div class="auditoria-filters">
+      <div class="filter-group">
+        <label>Correo del Encuestador</label>
+        <input type="email" id="inputUser" placeholder="Escribe para buscar..." autocomplete="off"/>
+        <div id="customDropdown" class="custom-dropdown"></div>
+      </div>
+      <div class="filter-group">
+        <label>Fecha Inicio</label>
+        <input type="date" id="inputInicio"/>
+      </div>
+      <div class="filter-group">
+        <label>Fecha Fin</label>
+        <input type="date" id="inputFin"/>
+      </div>
+      <button class="btn-search" id="btnBuscar" onclick="buscarMapas()">📍 Cargar Mapas</button>
+    </div>
+
+    <div id="resultadosMapas" style="display:none;">
+
+      <div class="section">
+        <div class="section-title" style="margin-bottom:1rem;">1. Caracterización SI-APS</div>
+        <div class="cards-row">
+          <div class="stat-card c-teal"><div class="stat-label">Puntos Correctos</div><div class="stat-value" id="val-caract-ok">0</div></div>
+          <div class="stat-card c-red"><div class="stat-label">Error: Vacíos o Cero</div><div class="stat-value" id="val-caract-vacios">0</div></div>
+          <div class="stat-card c-gold"><div class="stat-label">Error: Fuera Perímetro</div><div class="stat-value" id="val-caract-fuera">0</div></div>
+        </div>
+        <div class="sub-section">
+          <div class="sub-section-title">Mapa de Cobertura</div>
+          <div id="map-caracterizacion" class="map-container"></div>
+        </div>
+        <div class="sub-section" style="background:#fde8e8;">
+          <div class="sub-section-title" style="color:var(--red); border-color:var(--red-lt);">
+            <span>Consola de Errores (Fichas sin GPS o fuera de Villavicencio)</span>
+            <button class="btn-copy-small" onclick="copiarTexto('txt-err-caract')">📋 Copiar</button>
+          </div>
+          <textarea id="txt-err-caract" class="report-box" readonly></textarea>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title" style="margin-bottom:1rem;">2. Plan Cuidado Comunitario (PCC)</div>
+        <div class="cards-row">
+          <div class="stat-card c-teal"><div class="stat-label">Puntos Correctos</div><div class="stat-value" id="val-pcc-ok">0</div></div>
+          <div class="stat-card c-red"><div class="stat-label">Error: Vacíos o Cero</div><div class="stat-value" id="val-pcc-vacios">0</div></div>
+          <div class="stat-card c-gold"><div class="stat-label">Error: Fuera Perímetro</div><div class="stat-value" id="val-pcc-fuera">0</div></div>
+        </div>
+        <div class="sub-section">
+          <div id="map-pcc" class="map-container"></div>
+        </div>
+        <div class="sub-section" style="background:#fde8e8;">
+          <div class="sub-section-title" style="color:var(--red); border-color:var(--red-lt);">
+            <span>Consola de Errores PCC</span><button class="btn-copy-small" onclick="copiarTexto('txt-err-pcc')">📋 Copiar</button>
+          </div>
+          <textarea id="txt-err-pcc" class="report-box" readonly></textarea>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title" style="margin-bottom:1rem;">3. Plan Cuidado Familiar (PCF General y Psicología)</div>
+        <div class="cards-row">
+          <div class="stat-card c-teal"><div class="stat-label">Puntos Correctos</div><div class="stat-value" id="val-pcf-ok">0</div></div>
+          <div class="stat-card c-red"><div class="stat-label">Error: Vacíos o Cero</div><div class="stat-value" id="val-pcf-vacios">0</div></div>
+          <div class="stat-card c-gold"><div class="stat-label">Error: Fuera Perímetro</div><div class="stat-value" id="val-pcf-fuera">0</div></div>
+        </div>
+        <div class="sub-section"><div id="map-pcf" class="map-container"></div></div>
+        <div class="sub-section" style="background:#fde8e8;">
+          <div class="sub-section-title" style="color:var(--red); border-color:var(--red-lt);"><span>Consola de Errores PCF</span><button class="btn-copy-small" onclick="copiarTexto('txt-err-pcf')">📋 Copiar</button></div>
+          <textarea id="txt-err-pcf" class="report-box" readonly></textarea>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title" style="margin-bottom:1rem;">4. Trámites</div>
+        <div class="cards-row">
+          <div class="stat-card c-teal"><div class="stat-label">Puntos Correctos</div><div class="stat-value" id="val-tram-ok">0</div></div>
+          <div class="stat-card c-red"><div class="stat-label">Error: Vacíos o Cero</div><div class="stat-value" id="val-tram-vacios">0</div></div>
+          <div class="stat-card c-gold"><div class="stat-label">Error: Fuera Perímetro</div><div class="stat-value" id="val-tram-fuera">0</div></div>
+        </div>
+        <div class="sub-section"><div id="map-tramites" class="map-container"></div></div>
+        <div class="sub-section" style="background:#fde8e8;">
+          <div class="sub-section-title" style="color:var(--red); border-color:var(--red-lt);"><span>Consola de Errores Trámites</span><button class="btn-copy-small" onclick="copiarTexto('txt-err-tram')">📋 Copiar</button></div>
+          <textarea id="txt-err-tram" class="report-box" readonly></textarea>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title" style="margin-bottom:1rem;">5. Desistimientos</div>
+        <div class="cards-row">
+          <div class="stat-card c-teal"><div class="stat-label">Puntos Correctos</div><div class="stat-value" id="val-des-ok">0</div></div>
+          <div class="stat-card c-red"><div class="stat-label">Error: Vacíos o Cero</div><div class="stat-value" id="val-des-vacios">0</div></div>
+          <div class="stat-card c-gold"><div class="stat-label">Error: Fuera Perímetro</div><div class="stat-value" id="val-des-fuera">0</div></div>
+        </div>
+        <div class="sub-section"><div id="map-desist" class="map-container"></div></div>
+        <div class="sub-section" style="background:#fde8e8;">
+          <div class="sub-section-title" style="color:var(--red); border-color:var(--red-lt);"><span>Consola de Errores Desistimientos</span><button class="btn-copy-small" onclick="copiarTexto('txt-err-des')">📋 Copiar</button></div>
+          <textarea id="txt-err-des" class="report-box" readonly></textarea>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">Cargando puntos satelitales...</div>
+</div>
+
+<script>
+  const API_BASE = window.location.protocol === 'file:' ? 'http://127.0.0.1:5001' : window.location.origin;
+  const token = localStorage.getItem('informes_token');
+  if (!token) { window.location.href = '/login'; }
+
+  const userInfo = JSON.parse(localStorage.getItem('informes_user') || '{}');
+  document.getElementById('sidebarNombre').textContent = userInfo.nombre || '—';
+  document.getElementById('sidebarRol').textContent    = userInfo.rol   || '—';
+
+  function logout() {
+    localStorage.removeItem('informes_token');
+    window.location.href = '/login';
+  }
+
+  function copiarTexto(id) {
+    navigator.clipboard.writeText(document.getElementById(id).value).then(() => alert("Texto copiado"));
+  }
+
+  // ── DROPDOWN CORREOS ──
+  let todosLosCorreos = [];
+  const inputUser = document.getElementById('inputUser');
+  const dropdown  = document.getElementById('customDropdown');
+  let isSearching = false;
+
+  async function cargarCorreos() {
+    try {
+      const resp = await fetch(`${API_BASE}/api/encuestadores`, { headers:{ 'Authorization':'Bearer '+token } });
+      if (resp.ok) todosLosCorreos = await resp.json();
+    } catch(e) {}
+  }
+  cargarCorreos();
+
+  function filtrarCorreos(query) {
+    dropdown.innerHTML = '';
+    if (!todosLosCorreos.length) return;
+    const filtrados = todosLosCorreos.filter(c => c.toLowerCase().includes(query.toLowerCase()));
+    if (filtrados.length === 0) { dropdown.style.display = 'none'; return; }
+    filtrados.forEach(c => {
+      const div = document.createElement('div');
+      div.className = 'custom-dropdown-item'; div.textContent = c;
+      div.onmousedown = () => { inputUser.value = c; dropdown.style.display = 'none'; };
+      dropdown.appendChild(div);
+    });
+    dropdown.style.display = 'block';
+  }
+  inputUser.addEventListener('input', () => filtrarCorreos(inputUser.value));
+  inputUser.addEventListener('focus', () => filtrarCorreos(inputUser.value));
+  document.addEventListener('click', (e) => { if (e.target !== inputUser && e.target !== dropdown) dropdown.style.display = 'none'; });
+
+  // ── INICIALIZACIÓN DE LEAFLET (MAPAS) ──
+  const mapInstances = {};
+  const markerLayers = {};
+
+  // Coordenadas base de Villavicencio
+  const VILLA_LAT = 4.142;
+  const VILLA_LNG = -73.626;
+
+  function initMaps() {
+    const ids = ['map-caracterizacion', 'map-pcc', 'map-pcf', 'map-tramites', 'map-desist'];
+    ids.forEach(id => {
+      mapInstances[id] = L.map(id).setView([VILLA_LAT, VILLA_LNG], 11);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap &copy; CARTO'
+      }).addTo(mapInstances[id]);
+
+      markerLayers[id] = L.layerGroup().addTo(mapInstances[id]);
+    });
+  }
+
+  initMaps();
+
+  function renderPuntos(mapId, puntos) {
+    const map = mapInstances[mapId];
+    const layer = markerLayers[mapId];
+    layer.clearLayers(); // Limpiar busqueda anterior
+
+    if (!puntos || puntos.length === 0) {
+      map.setView([VILLA_LAT, VILLA_LNG], 11);
+      return;
+    }
+
+    const bounds = [];
+    puntos.forEach(p => {
+      L.circleMarker([p.lat, p.lng], {
+        color: '#00b09b', radius: 6, fillOpacity: 0.8
+      }).bindPopup(`<b>Ficha:</b> ${p.uid}<br><b>Fecha:</b> ${p.fecha}`).addTo(layer);
+      bounds.push([p.lat, p.lng]);
+    });
+
+    map.fitBounds(bounds, { padding: [30, 30] });
+
+    // Si la visualización se acerca demasiado por ser un solo punto
+    if (map.getZoom() > 16) map.setZoom(16);
+  }
+
+  function compilarErrores(vacios, fuera) {
+    let txt = "";
+    if(vacios.length > 0) {
+      txt += "--- ERRORES: GPS VACÍO O EN CERO ---\n";
+      txt += vacios.join("\n") + "\n\n";
+    }
+    if(fuera.length > 0) {
+      txt += "--- ERRORES: COORDENADAS FUERA DE VILLAVICENCIO ---\n";
+      txt += fuera.join("\n") + "\n\n";
+    }
+    return txt || "✅ Excelente. Todos los registros contienen GPS y están dentro del municipio.";
+  }
+
+  // ── BÚSQUEDA ──
+  async function buscarMapas() {
+    if (isSearching) return;
+
+    const email = inputUser.value.trim();
+    const fi    = document.getElementById('inputInicio').value;
+    const ff    = document.getElementById('inputFin').value;
+    const btn   = document.getElementById('btnBuscar');
+    dropdown.style.display = 'none';
+
+    if (!email) { alert('Por favor selecciona un encuestador.'); return; }
+
+    isSearching = true;
+    btn.disabled = true;
+    document.getElementById('loadingOverlay').style.display = 'flex';
+
+    try {
+      const resp = await fetch(`${API_BASE}/api/mapas?usuario=${encodeURIComponent(email)}&fecha_inicio=${fi}&fecha_fin=${ff}`, {
+        headers:{ 'Authorization':'Bearer '+token }
+      });
+      if (resp.status === 401) { logout(); return; }
+
+      const data = await resp.json();
+      document.getElementById('resultadosMapas').style.display = 'block';
+
+      // 1. CARACTERIZACIÓN
+      document.getElementById('val-caract-ok').textContent = data.caracterizacion.totales.ok;
+      document.getElementById('val-caract-vacios').textContent = data.caracterizacion.totales.vacios;
+      document.getElementById('val-caract-fuera').textContent = data.caracterizacion.totales.fuera;
+      renderPuntos('map-caracterizacion', data.caracterizacion.correctos);
+      document.getElementById('txt-err-caract').value = compilarErrores(data.caracterizacion.errores_vacios, data.caracterizacion.errores_fuera);
+
+      // 2. PCC
+      document.getElementById('val-pcc-ok').textContent = data.pcc.totales.ok;
+      document.getElementById('val-pcc-vacios').textContent = data.pcc.totales.vacios;
+      document.getElementById('val-pcc-fuera').textContent = data.pcc.totales.fuera;
+      renderPuntos('map-pcc', data.pcc.correctos);
+      document.getElementById('txt-err-pcc').value = compilarErrores(data.pcc.errores_vacios, data.pcc.errores_fuera);
+
+      // 3. PCF
+      document.getElementById('val-pcf-ok').textContent = data.pcf.totales.ok;
+      document.getElementById('val-pcf-vacios').textContent = data.pcf.totales.vacios;
+      document.getElementById('val-pcf-fuera').textContent = data.pcf.totales.fuera;
+      renderPuntos('map-pcf', data.pcf.correctos);
+      document.getElementById('txt-err-pcf').value = compilarErrores(data.pcf.errores_vacios, data.pcf.errores_fuera);
+
+      // 4. TRAMITES
+      document.getElementById('val-tram-ok').textContent = data.tramites.totales.ok;
+      document.getElementById('val-tram-vacios').textContent = data.tramites.totales.vacios;
+      document.getElementById('val-tram-fuera').textContent = data.tramites.totales.fuera;
+      renderPuntos('map-tramites', data.tramites.correctos);
+      document.getElementById('txt-err-tram').value = compilarErrores(data.tramites.errores_vacios, data.tramites.errores_fuera);
+
+      // 5. DESISTIMIENTOS
+      document.getElementById('val-des-ok').textContent = data.desistimientos.totales.ok;
+      document.getElementById('val-des-vacios').textContent = data.desistimientos.totales.vacios;
+      document.getElementById('val-des-fuera').textContent = data.desistimientos.totales.fuera;
+      renderPuntos('map-desist', data.desistimientos.correctos);
+      document.getElementById('txt-err-des').value = compilarErrores(data.desistimientos.errores_vacios, data.desistimientos.errores_fuera);
+
+      // Redibujar mapas forzadamente (Fix clásico de Leaflet cuando cambia el display)
+      setTimeout(() => {
+        Object.values(mapInstances).forEach(m => m.invalidateSize());
+      }, 300);
+
+    } catch(err) {
+      alert('Ocurrió un error cargando las coordenadas.');
+    } finally {
+      isSearching = false;
+      btn.disabled = false;
+      document.getElementById('loadingOverlay').style.display = 'none';
+    }
+  }
+</script>
+</body>
+</html>
