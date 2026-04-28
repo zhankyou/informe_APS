@@ -182,8 +182,6 @@
       .firma-img {
         height: 50px;
         object-fit: contain;
-        filter: invert(1);
-        mix-blend-mode: multiply;
         display: block;
         margin: 0 auto -5px auto;
       }
@@ -215,6 +213,10 @@
     <a href="/auditoria" class="nav-item active">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
       <span class="nav-label">Auditoría</span>
+    </a>
+    <a href="/mapas" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+      <span class="nav-label">Mapas GIS</span>
     </a>
   </div>
   <div class="sidebar-user">
@@ -323,6 +325,7 @@
             <div class="stat-card c-green"><div class="stat-label">Menores de 5</div><div class="stat-value" id="a-ca-men">0</div></div>
             <div class="stat-card c-purple"><div class="stat-label">Adultos 60+</div><div class="stat-value" id="a-ca-may">0</div></div>
             <div class="stat-card c-gold"><div class="stat-label">Víctimas Conflicto</div><div class="stat-value" id="a-ca-vic">0</div></div>
+            <div class="stat-card c-navy"><div class="stat-label">Con Discapacidad</div><div class="stat-value" id="a-ca-disc">0</div></div>
           </div>
         </div>
         <div class="cards-row" style="margin-top:1rem;">
@@ -342,6 +345,12 @@
             <div class="stat-card c-gold"><div class="stat-label">Sin Pertenencia Étnica</div><div class="stat-value" id="a-etn-sin-pct">0%</div></div>
           </div>
         </div>
+
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Tipos de Discapacidad (Frecuencia)</div>
+          <div class="chart-container"><canvas id="chartDiscapacidadAuditoria"></canvas></div>
+        </div>
+
         <div class="sub-section" style="margin-top:1rem;">
           <div class="sub-section-title">Errores de Registro (Caracterización)</div>
           <div class="cards-row">
@@ -489,7 +498,7 @@
   let todosLosCorreos = [];
   const inputUser = document.getElementById('inputUser');
   const dropdown  = document.getElementById('customDropdown');
-  let isSearching = false; // <-- CANDADO ANTI-DOBLE-CLICK
+  let isSearching = false;
 
   async function cargarCorreos() {
     try {
@@ -520,7 +529,6 @@
 
   inputUser.addEventListener('input', () => filtrarCorreos(inputUser.value));
   inputUser.addEventListener('focus', () => filtrarCorreos(inputUser.value));
-
   document.addEventListener('click', (e) => {
     if (e.target !== inputUser && e.target !== dropdown) { dropdown.style.display = 'none'; }
   });
@@ -555,10 +563,14 @@
   }
 
   function fmt(n) { return Number(n||0).toLocaleString('es-CO'); }
-  function setVal(id, v) { document.getElementById(id).textContent = fmt(v); }
+  function setVal(id, v) {
+      const el = document.getElementById(id);
+      if(el) { el.textContent = fmt(v); }
+  }
 
   function renderList(cid, arr) {
     const c = document.getElementById(cid);
+    if (!c) return;
     c.innerHTML = '';
     if (!arr || !arr.length) { c.innerHTML = '<div style="font-size:.8rem;color:var(--muted);">Sin registros</div>'; return; }
     arr.forEach(i => {
@@ -566,14 +578,15 @@
     });
   }
 
-  let tramitesChart = null;
+  const chartInstances = {};
   const PALETTE = ['#00b09b','#0a1f3d','#f0a500','#6c3fc5','#e53935','#1e9c6e','#06b6d4'];
 
   function renderBarChart(cid, labels, data) {
     const ctx = document.getElementById(cid);
     if (!ctx) return;
-    if (tramitesChart) tramitesChart.destroy();
-    tramitesChart = new Chart(ctx, {
+    if (chartInstances[cid]) chartInstances[cid].destroy();
+
+    chartInstances[cid] = new Chart(ctx, {
       type:'bar',
       data:{ labels, datasets:[{ data, backgroundColor:PALETTE.map(c=>c+'cc'), borderColor:PALETTE, borderWidth:0, borderRadius:6 }] },
       options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ font:{ family:'Sora', size:10 } } }, x:{ ticks:{ font:{ family:'Sora', size:9 } } } } }
@@ -581,7 +594,7 @@
   }
 
   async function buscarAuditoria() {
-    if (isSearching) return; // <-- BLOQUEO: Evita doble peticion al presionar "Enter" rápidamente
+    if (isSearching) return;
 
     const email = document.getElementById('inputUser').value.trim();
     const fi    = document.getElementById('inputInicio').value;
@@ -592,7 +605,7 @@
 
     if (!email||!fi||!ff) { alert('Por favor ingresa el correo y el rango de fechas completo.'); return; }
 
-    isSearching = true; // ACTIVAMOS CANDADO
+    isSearching = true;
     btn.disabled = true;
     document.getElementById('loadingOverlay').style.display = 'flex';
     document.getElementById('emptyState').style.display     = 'none';
@@ -604,6 +617,7 @@
         headers:{ 'Authorization':'Bearer '+token }
       });
       if (resp.status === 401) { logout(); return; }
+
       const data = await resp.json();
       if (data.error) { alert(data.error); document.getElementById('emptyState').style.display='block'; return; }
 
@@ -625,6 +639,8 @@
       setVal('a-ca-err-f', data.caracterizacion?.error_familiar);
       setVal('a-ca-err-i', data.caracterizacion?.error_individual);
 
+      setVal('a-ca-disc',  data.caracterizacion?.discapacidad_total);
+
       renderList('listTipoFamilia',   data.caracterizacion?.tipo_familia);
       renderList('listEstrato',        data.caracterizacion?.estrato);
       renderList('listNivelEducativo', data.caracterizacion?.nivel_educativo);
@@ -632,6 +648,9 @@
       document.getElementById('a-etn-con-pct').textContent = (data.caracterizacion?.etnia_con_pct||0)+'%';
       document.getElementById('a-etn-con-tot').textContent = (data.caracterizacion?.etnia_con_total||0)+' personas';
       document.getElementById('a-etn-sin-pct').textContent = (data.caracterizacion?.etnia_sin_pct||0)+'%';
+
+      const disc = data.caracterizacion?.discapacidades_chart || [];
+      renderBarChart('chartDiscapacidadAuditoria', disc.map(x=>x.label), disc.map(x=>x.total));
 
       setVal('a-pcf-fam', data.pcf?.familias_intervenidas);
       setVal('a-pcf-int', data.pcf?.integrantes_intervenidos);
@@ -644,56 +663,60 @@
       setVal('a-psi-cont-no', data.pcf_psicologia?.requiere_continuidad_no);
 
       const contMotivos = document.getElementById('cardsMotivosSeguimiento');
-      contMotivos.innerHTML = '';
-      const motivos = data.pcf_psicologia?.motivos_seguimiento || [];
-      if (!motivos.length) {
-        contMotivos.innerHTML = '<div style="font-size:0.8rem;color:var(--muted);">Sin motivos registrados</div>';
-      } else {
-        motivos.forEach(m => {
-          contMotivos.innerHTML += `
-            <div class="stat-card c-teal" style="flex:1; min-width:160px;">
-              <div class="stat-label" style="font-size:0.65rem;">${m.label}</div>
-              <div class="stat-value" style="font-size:1.5rem;">${fmt(m.total)}</div>
-            </div>`;
-        });
+      if (contMotivos) {
+        contMotivos.innerHTML = '';
+        const motivos = data.pcf_psicologia?.motivos_seguimiento || [];
+        if (!motivos.length) {
+          contMotivos.innerHTML = '<div style="font-size:0.8rem;color:var(--muted);">Sin motivos registrados</div>';
+        } else {
+          motivos.forEach(m => {
+            contMotivos.innerHTML += `
+              <div class="stat-card c-teal" style="flex:1; min-width:160px;">
+                <div class="stat-label" style="font-size:0.65rem;">${m.label}</div>
+                <div class="stat-value" style="font-size:1.5rem;">${fmt(m.total)}</div>
+              </div>`;
+          });
+        }
       }
 
-      // VALORES TRÁMITES CORREGIDOS
       setVal('tr-registros', data.tramites?.total_registros);
       setVal('tr-familias',  data.tramites?.total_familias);
-      setVal('tr-total',  data.tramites?.total);
-      setVal('tr-resol',  data.tramites?.resolutivos);
-      setVal('tr-error',  data.tramites?.con_error);
+      setVal('a-tr-tot',  data.tramites?.total);
+      setVal('a-tr-res',  data.tramites?.resolutivos);
+      setVal('a-tr-err',  data.tramites?.con_error);
 
       const tr = data.tramites?.por_tipo || [];
       renderBarChart('chartTramitesAuditoria', tr.map(x=>x.label), tr.map(x=>x.total));
 
       const panelErr = document.getElementById('panelErrores');
-      panelErr.style.display = 'block';
-      document.getElementById('textoErroresGlobal').value       = data.reporte_errores_texto;
-      document.getElementById('txtPcfRealizados').value          = data.pcf.reporte_familias;
-      document.getElementById('txtPcfErrores').value             = data.pcf.reporte_errores;
+      if (panelErr) panelErr.style.display = 'block';
 
-      document.getElementById('txtPsicoRealizados').value        = data.pcf_psicologia.reporte_familias;
-      document.getElementById('txtPsicoSeguimientos').value      = data.pcf_psicologia.reporte_seguimientos;
-      document.getElementById('txtPsicoErrores').value           = data.pcf_psicologia.reporte_errores;
-      document.getElementById('txtPsicoCompromisos').value       = data.pcf_psicologia.reporte_compromisos;
-      document.getElementById('txtPsicoEvaluacion').value        = data.pcf_psicologia.reporte_evaluacion;
+      const setValInput = (id, val) => { const e = document.getElementById(id); if(e) e.value = val; };
 
-      document.getElementById('txtTramRealizados').value         = data.tramites.reporte_realizados;
-      document.getElementById('txtTramResueltos').value          = data.tramites.reporte_resueltos;
-      document.getElementById('txtTramErrores').value            = data.tramites.reporte_errores;
+      setValInput('textoErroresGlobal', data.reporte_errores_texto);
+      setValInput('txtPcfRealizados', data.pcf?.reporte_familias);
+      setValInput('txtPcfErrores', data.pcf?.reporte_errores);
+
+      setValInput('txtPsicoRealizados', data.pcf_psicologia?.reporte_familias);
+      setValInput('txtPsicoSeguimientos', data.pcf_psicologia?.reporte_seguimientos);
+      setValInput('txtPsicoErrores', data.pcf_psicologia?.reporte_errores);
+      setValInput('txtPsicoCompromisos', data.pcf_psicologia?.reporte_compromisos);
+      setValInput('txtPsicoEvaluacion', data.pcf_psicologia?.reporte_evaluacion);
+
+      setValInput('txtTramRealizados', data.tramites?.reporte_realizados);
+      setValInput('txtTramResueltos', data.tramites?.reporte_resueltos);
+      setValInput('txtTramErrores', data.tramites?.reporte_errores);
 
       document.getElementById('resultadosAuditoria').style.display = 'block';
       const btnP = document.getElementById('btnPrint');
-      btnP.style.display = 'flex';
+      if(btnP) btnP.style.display = 'flex';
 
     } catch(err) {
       console.error(err);
-      alert('La consulta está tomando mucho tiempo o hubo un fallo de red. Por favor, intenta de nuevo.');
+      alert(`⚠️ Fallo en la consulta:\n\n${err.message}\n\nSi el error es 'Failed to fetch', revisa tu conexión de internet o avisa a soporte.`);
       document.getElementById('emptyState').style.display = 'block';
     } finally {
-      isSearching = false; // LIBERAMOS CANDADO
+      isSearching = false;
       btn.disabled = false;
       document.getElementById('loadingOverlay').style.display = 'none';
     }
@@ -722,6 +745,12 @@
     const cnv = document.getElementById('chartTramitesAuditoria');
     if (cnv && tr.length) {
       chartImgTag = `<img class="rp-chart-img" src="${cnv.toDataURL('image/png')}" alt="Gráfico trámites" style="max-height:160pt;"/>`;
+    }
+
+    let chartDiscImgTag = '';
+    const cnvDisc = document.getElementById('chartDiscapacidadAuditoria');
+    if (cnvDisc && (ca.discapacidades_chart || []).length) {
+      chartDiscImgTag = `<div style="text-align:center; margin-top: 10pt;"><div class="rp-sub-title">Frecuencia de Tipos de Discapacidad</div><img class="rp-chart-img" src="${cnvDisc.toDataURL('image/png')}" alt="Gráfico Discapacidades" style="max-height:140pt;"/></div>`;
     }
 
     const filasSocial = (arr) => arr.length
@@ -804,10 +833,13 @@
           <tr><td>Menores de 5 años</td><td class="td-num">${fmt(ca.menores_5)}</td></tr>
           <tr><td>Adultos mayores (60+)</td><td class="td-num">${fmt(ca.adultos_60)}</td></tr>
           <tr><td>Víctimas del conflicto armado</td><td class="td-num">${fmt(ca.victimas_conflicto)}</td></tr>
+          <tr><td style="background:#e6f7f5;">Población con discapacidad</td><td class="td-num" style="background:#e6f7f5;">${fmt(ca.discapacidad_total)}</td></tr>
           <tr><td>Población étnica identificada</td><td class="td-num">${fmt(ca.poblacion_etnica)}</td></tr>
         </table>
 
-        <div class="rp-sub-title">3.3 Perfil Social del Territorio</div>
+        ${chartDiscImgTag}
+
+        <div class="rp-sub-title" style="margin-top:15pt;">3.3 Perfil Social del Territorio</div>
         <table class="rp-table">
           <tr><th>Variable</th><th style="width:90pt;text-align:right;">Total</th></tr>
           <tr><td colspan="2" style="background:#eaf0f8;font-style:italic;color:#003366;padding:3pt 8pt;font-size:7.5pt;">Tipo de familia</td></tr>
@@ -908,7 +940,7 @@
         <div class="rp-firma-item"><div style="font-weight:bold;margin-bottom:2pt;">${_usuarioConsultado}</div><div>Encuestador(a) APS</div></div>
         <div class="rp-firma-item">
           <img src="/firma.webp" alt="Firma Vernaza" class="firma-img" />
-          <div style="font-weight:bold;margin-bottom:2pt;">Cristian f. Calentura V.</div>
+          <div style="font-weight:bold;margin-bottom:2pt;">C. Vernaza</div>
           <div>Revisado por</div>
         </div>
         <div class="rp-firma-item"><div style="font-weight:bold;margin-bottom:2pt;">___________________________</div><div>Coordinación APS</div></div>
