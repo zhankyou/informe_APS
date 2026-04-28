@@ -58,7 +58,6 @@
     .btn-search:hover:not(:disabled){background:var(--teal);}
     .btn-search:disabled{background:var(--muted);cursor:not-allowed;opacity:0.6;}
 
-    /* DROPDOWN PERSONALIZADO */
     .custom-dropdown { position:absolute; top:100%; left:0; right:0; background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow-md); max-height:200px; overflow-y:auto; z-index:1000; display:none; margin-top:4px; }
     .custom-dropdown-item { padding:.7rem 1rem; font-size:.85rem; color:var(--text); cursor:pointer; transition:background .2s; }
     .custom-dropdown-item:hover { background:var(--teal-lt); color:var(--teal); }
@@ -188,8 +187,6 @@
 
       @page { size: letter portrait; margin: 1.5cm 1.5cm 2cm 1.5cm; }
     }
-
-    @media (max-width:768px){.sidebar{width:0;overflow:hidden;}.main{margin-left:0;}.content{padding:1rem;}}
   </style>
 </head>
 <body>
@@ -306,6 +303,20 @@
           <div class="stat-card c-teal"><div class="stat-label">Integrantes con plan</div><div class="stat-value" id="a-pcc-int">0</div></div>
           <div class="stat-card c-gold"><div class="stat-label">Registros con error</div><div class="stat-value" id="a-pcc-err">0</div><span class="stat-badge badge-warn">Revisar</span></div>
         </div>
+
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Reportes Detallados de Plan Cuidado Comunitario</div>
+          <div style="display:flex;flex-direction:column;gap:1.5rem;">
+            <div>
+              <div class="report-header">
+                <span style="font-size:.85rem;font-weight:bold;color:var(--green);">1. Detalles de Jornada / Actividad</span>
+                <button class="btn-copy-small" style="background:var(--green);" onclick="copiarTexto('txtPccDetalles')">📋 Copiar</button>
+              </div>
+              <textarea id="txtPccDetalles" class="report-box" readonly style="border-color:var(--green-lt);"></textarea>
+            </div>
+          </div>
+        </div>
+
       </div>
       <div class="divider"></div>
 
@@ -694,6 +705,10 @@
       const setValInput = (id, val) => { const e = document.getElementById(id); if(e) e.value = val; };
 
       setValInput('textoErroresGlobal', data.reporte_errores_texto);
+
+      // NUEVO: Detalles PCC
+      setValInput('txtPccDetalles', data.pcc?.reporte_detalles);
+
       setValInput('txtPcfRealizados', data.pcf?.reporte_familias);
       setValInput('txtPcfErrores', data.pcf?.reporte_errores);
 
@@ -815,6 +830,9 @@
             <td class="td-label">Registros con error</td><td class="td-num">${fmt(d.pcc?.con_error)}</td>
           </tr>
         </table>
+
+        <div class="rp-obs-label">Observaciones — Detalles de Jornada / Actividad (PCC)</div>
+        ${getObs('txtPccDetalles','obs-green')}
       </div>
 
       <div class="rp-section">
