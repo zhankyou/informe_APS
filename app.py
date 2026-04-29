@@ -150,7 +150,6 @@ def login():
     nombre_visual = usuario["username"].capitalize()
     token = generar_token(user_id=usuario["id"], correo=usuario["username"], nombre=nombre_visual, rol="Auditor")
 
-    # [LOG] Registro de Login Exitoso
     logger.info(f"🟢 [LOGIN_EXITOSO] El usuario '{nombre_visual}' ha iniciado sesión en el sistema.")
 
     return jsonify({"token": token, "nombre": nombre_visual, "rol": "Auditor"})
@@ -158,7 +157,6 @@ def login():
 
 @app.route("/api/logout", methods=["POST"])
 def logout():
-    # Extraer token para saber quién cerró sesión (opcional pero útil)
     auth = request.headers.get("Authorization", "")
     if auth.startswith("Bearer "):
         payload = verificar_token(auth.split(" ")[1])
@@ -192,7 +190,6 @@ def get_encuestadores():
 @app.route("/api/dashboard", methods=["GET"])
 @require_auth
 def get_dashboard():
-    # [LOG] Registro de actualización de Dashboard
     usuario_req = g.user.get('nombre', 'Desconocido')
     logger.info(f"📊 [DASHBOARD] El usuario '{usuario_req}' está actualizando las estadísticas del Dashboard General.")
 
@@ -346,7 +343,6 @@ def get_auditoria():
 
     if not usuario: return jsonify({"error": "El parámetro 'usuario' es requerido."}), 400
 
-    # [LOG] Registro de Consulta de Auditoría
     logger.info(
         f"🔎 [AUDITORIA] El usuario '{usuario_req}' auditó al encuestador: '{usuario}'. Rango: {fecha_ini} a {fecha_fin}")
 
@@ -453,6 +449,7 @@ def get_auditoria():
                                 AND CAST(created_at AS text) >= :fecha_ini
                                 AND CAST(created_at AS text) <= :fecha_fin_limite
                               """, params)
+
     etnia_data_aud = etnia_comp_aud[0] if etnia_comp_aud else {"sin_etnia": 0, "con_etnia": 0, "total": 0}
     total_etnia_aud = int(etnia_data_aud.get("total") or 1)
     if total_etnia_aud == 0: total_etnia_aud = 1
@@ -479,7 +476,10 @@ def get_auditoria():
         if has_sin:
             if len(items) > 1:
                 errores_dinamicos.append(
-                    f"🛑 MÓDULO: CARACT_INDIVIDUAL\nFicha ID (Hogar/Familia): {r.get('id_ficha', 'N/A')} | Título: Caracterización Individual\nErrores (1): Contradicción en Discapacidad (Seleccionó 'Sin discapacidad' y otra opción)\n--------------------------------------------------"
+                    f"🛑 MÓDULO: CARACT_INDIVIDUAL\n"
+                    f"Ficha ID (Hogar/Familia): {r.get('id_ficha', 'N/A')} | Título: Caracterización Individual\n"
+                    f"Errores (1): Contradicción en Discapacidad (Seleccionó 'Sin discapacidad' y otra opción)\n"
+                    f"--------------------------------------------------"
                 )
         else:
             total_discapacidad_aud += 1
@@ -500,7 +500,8 @@ def get_auditoria():
         "poblacion_etnica": safe_count(q("caracterizacion_si_aps_individual_2026",
                                          "\"116_16_pertenencia_t\" IS NOT NULL AND \"116_16_pertenencia_t\" != '7. Ninguna'"),
                                        params),
-        "discapacidad_total": total_discapacidad_aud, "discapacidades_chart": disc_chart_aud,
+        "discapacidad_total": total_discapacidad_aud,
+        "discapacidades_chart": disc_chart_aud,
         "error_familiar": safe_count(qerr("CARACT_FAMILIAR"), params),
         "error_individual": safe_count(qerr("CARACT_INDIVIDUAL"), params),
         "tipo_familia": tipo_familia_aud, "estrato": estrato_aud, "nivel_educativo": nivel_educativo_aud,
@@ -553,6 +554,7 @@ def get_auditoria():
 
     fam_psico_count = safe_count(
         q("pcf_planes_principal_2026", "TRIM(\"4_3_perfil_profesion\") = 'Profesional Psicología'"), params)
+
     try:
         res_psico_seg = ejecutar("""
                                  SELECT *
@@ -589,6 +591,7 @@ def get_auditoria():
         for idx, r in enumerate(res_psico_seg, 1):
             uid_ficha = r.get('ec5_branch_uuid') or r.get('ec5_uuid') or 'N/A'
             texto_psico_seg += f"Seguimiento {idx}: Ficha [{uid_ficha}] - {str(r.get('created_at', ''))[:10]}\n"
+
             motivo = next((v for k, v in r.items() if k.startswith('128_23_')), None)
             req_cont = next((v for k, v in r.items() if k.startswith('130_25_')), None)
             comp = next((v for k, v in r.items() if k.startswith('131_26_')), None)
@@ -605,10 +608,10 @@ def get_auditoria():
                 elif 'NO' in v_req:
                     cont_seg_no += 1
 
-            if comp and str(comp).strip() and str(
-                comp).strip() != 'None': texto_psico_compromisos += f"Ficha [{uid_ficha}]: {str(comp).replace(chr(10), ' ')}\n\n"
-            if evalu and str(evalu).strip() and str(
-                evalu).strip() != 'None': texto_psico_evaluacion += f"Ficha [{uid_ficha}]: {str(evalu).replace(chr(10), ' ')}\n\n"
+            if comp and str(comp).strip() and str(comp).strip() != 'None':
+                texto_psico_compromisos += f"Ficha [{uid_ficha}]: {str(comp).replace(chr(10), ' ')}\n\n"
+            if evalu and str(evalu).strip() and str(evalu).strip() != 'None':
+                texto_psico_evaluacion += f"Ficha [{uid_ficha}]: {str(evalu).replace(chr(10), ' ')}\n\n"
 
         try:
             res_err_psico = ejecutar("""
@@ -641,6 +644,7 @@ def get_auditoria():
             msg_no_psicologo if not es_psicologo else "✅ Excelente. No hay errores.")
     }
 
+    # ================= TRÁMITES AUDITORÍA =================
     res_tram_aud = ejecutar("""
                             SELECT SUM(CAST(realizados AS numeric)) as tot,
                                    SUM(CAST(efectivos AS numeric))  as res,
@@ -669,8 +673,8 @@ def get_auditoria():
         if nr and "Ningún" not in nr and nr != 'None':
             texto_realizados += f"Registro {c_re}: {nr.replace('|', ', ')}\n"
             c_re += 1
-            for item in (x.strip() for x in nr.split("|") if x.strip()): conteo_tramites_aud[
-                item] = conteo_tramites_aud.get(item, 0) + 1
+            for item in (x.strip() for x in nr.split("|") if x.strip()):
+                conteo_tramites_aud[item] = conteo_tramites_aud.get(item, 0) + 1
         if ne and "Ningún" not in ne and ne != 'None':
             texto_resueltos += f"Registro {c_ef}: {ne.replace('|', ', ')}\n"
             c_ef += 1
@@ -706,6 +710,22 @@ def get_auditoria():
                             """
     tr_fam_res_aud = ejecutar(tr_familias_query_aud, params)
 
+    # --- NUEVO CORREGIDO: OBSERVACIONES ADICIONALES DE TRÁMITES CON TITLE ---
+    res_obs_tramites = ejecutar("""
+                                SELECT title, "150_describe_aqu_el_" as obs
+                                FROM tramites_aps_2026
+                                WHERE LOWER(TRIM(CAST(created_by AS text))) = LOWER(:usuario)
+                                  AND CAST(created_at AS text) >= :fecha_ini
+                                  AND CAST(created_at AS text) <= :fecha_fin_limite
+                                """, params)
+
+    texto_obs_tramites = ""
+    for idx, r in enumerate(res_obs_tramites, 1):
+        titulo = str(r.get("title", "Sin Título"))
+        obs = str(r.get("obs", "")).replace('\n', ' ')
+        if not obs or obs == 'None': obs = "Sin observaciones registradas."
+        texto_obs_tramites += f"{idx}. Ficha {titulo}: {obs}\n\n"
+
     data["tramites"] = {
         "total": a_tr_tot, "resolutivos": a_tr_res, "con_error": a_tr_err,
         "por_tipo": [{"label": k, "total": v} for k, v in
@@ -714,7 +734,8 @@ def get_auditoria():
         "total_familias": tr_fam_res_aud[0]["total"] if tr_fam_res_aud else 0,
         "reporte_realizados": texto_realizados if texto_realizados else "No hay trámites realizados en estas fechas.",
         "reporte_resueltos": texto_resueltos if texto_resueltos else "No hay trámites resueltos en estas fechas.",
-        "reporte_errores": texto_errores_tr if texto_errores_tr else "✅ Excelente. No hay trámites con errores."
+        "reporte_errores": texto_errores_tr if texto_errores_tr else "✅ Excelente. No hay trámites con errores.",
+        "reporte_observaciones": texto_obs_tramites.strip() if texto_obs_tramites else "No hay observaciones de trámites en estas fechas."
     }
 
     query_errores = text("""
@@ -750,7 +771,6 @@ def get_mapas():
 
     if not usuario: return jsonify({"error": "El parámetro 'usuario' es requerido."}), 400
 
-    # [LOG] Registro de Mapas GIS
     logger.info(
         f"📍 [MAPAS GIS] El usuario '{usuario_req}' solicitó las coordenadas de: '{usuario}'. Rango: {fecha_ini} a {fecha_fin}")
 
@@ -811,7 +831,6 @@ def get_mapas():
             respuesta[cfg['key']] = {"correctos": [], "errores_vacios": [], "errores_fuera": [],
                                      "totales": {"ok": 0, "vacios": 0, "fuera": 0}}
 
-    # [LOG] Aviso de peticiones en Mapas
     total_coord = sum(r['totales']['ok'] for r in respuesta.values())
     if total_coord > 0:
         logger.info(
