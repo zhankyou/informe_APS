@@ -58,6 +58,7 @@
     .btn-search:hover:not(:disabled){background:var(--teal);}
     .btn-search:disabled{background:var(--muted);cursor:not-allowed;opacity:0.6;}
 
+    /* DROPDOWN PERSONALIZADO */
     .custom-dropdown { position:absolute; top:100%; left:0; right:0; background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow-md); max-height:200px; overflow-y:auto; z-index:1000; display:none; margin-top:4px; }
     .custom-dropdown-item { padding:.7rem 1rem; font-size:.85rem; color:var(--text); cursor:pointer; transition:background .2s; }
     .custom-dropdown-item:hover { background:var(--teal-lt); color:var(--teal); }
@@ -176,6 +177,7 @@
       .rp-obs-block.obs-teal  { border-left-color: #00806e; }
       .rp-obs-block.obs-purple{ border-left-color: #5b35a3; }
       .rp-obs-block.obs-green { border-left-color: #14724f; }
+      .rp-obs-block.obs-gold  { border-left-color: #f0a500; }
       .rp-obs-empty { color: #bbb !important; font-style: italic; }
 
       .firma-img {
@@ -357,7 +359,7 @@
             <div class="stat-card c-gold"><div class="stat-label">Sin Pertenencia Étnica</div><div class="stat-value" id="a-etn-sin-pct">0%</div></div>
           </div>
         </div>
-
+        
         <div class="sub-section" style="margin-top:1rem;">
           <div class="sub-section-title">Tipos de Discapacidad (Frecuencia)</div>
           <div class="chart-container"><canvas id="chartDiscapacidadAuditoria"></canvas></div>
@@ -437,7 +439,7 @@
           <div class="section-icon" style="background:#fef7e0;"><svg viewBox="0 0 24 24" fill="#f0a500"><path d="M20 6h-2.18c.07-.44.18-.86.18-1a3 3 0 0 0-6 0c0 .14.11.56.18 1H10c-.36 0-.96.15-.96.96v13c0 .57.39 1.04.96 1.04h10c.57 0 1-.47 1-1.04V6.96c0-.81-.57-.96-1-.96zM14 3a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm2 16H8V7h2v2h4V7h2v12z"/></svg></div>
           <div><div class="section-title">Trámites Realizados</div><div class="section-sub">Gestión documental generada por este encuestador</div></div>
         </div>
-
+        
         <div class="cards-row">
           <div class="stat-card c-purple">
             <div class="stat-label">Personas con trámite</div>
@@ -475,6 +477,15 @@
             <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--navy);">1. Trámites Realizados</span><button class="btn-copy-small" style="background:var(--navy);" onclick="copiarTexto('txtTramRealizados')">📋 Copiar</button></div><textarea id="txtTramRealizados" class="report-box" readonly></textarea></div>
             <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--green);">2. Trámites Resueltos</span><button class="btn-copy-small" style="background:var(--green);" onclick="copiarTexto('txtTramResueltos')">📋 Copiar</button></div><textarea id="txtTramResueltos" class="report-box" style="border-color:var(--green-lt);" readonly></textarea></div>
             <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--red);">3. Trámites con Errores</span><button class="btn-copy-small" style="background:var(--red);" onclick="copiarTexto('txtTramErrores')">📋 Copiar</button></div><textarea id="txtTramErrores" class="report-box" style="background:#fde8e8;border-color:var(--red-lt);color:var(--red);" readonly></textarea></div>
+            
+            <div>
+              <div class="report-header">
+                <span style="font-size:.85rem;font-weight:bold;color:var(--gold);">4. Observaciones Trámites Adicionales</span>
+                <button class="btn-copy-small" style="background:var(--gold);" onclick="copiarTexto('txtTramObservaciones')">📋 Copiar</button>
+              </div>
+              <textarea id="txtTramObservaciones" class="report-box" style="border-color:var(--gold-lt);" readonly></textarea>
+            </div>
+            
           </div>
         </div>
       </div>
@@ -721,6 +732,9 @@
       setValInput('txtTramRealizados', data.tramites?.reporte_realizados);
       setValInput('txtTramResueltos', data.tramites?.reporte_resueltos);
       setValInput('txtTramErrores', data.tramites?.reporte_errores);
+      
+      // NUEVO: Observaciones de Trámites
+      setValInput('txtTramObservaciones', data.tramites?.reporte_observaciones);
 
       document.getElementById('resultadosAuditoria').style.display = 'block';
       const btnP = document.getElementById('btnPrint');
@@ -952,13 +966,15 @@
         ${getObs('txtTramResueltos','obs-green')}
         <div class="rp-obs-label">Observaciones — Trámites con Errores</div>
         ${getObs('txtTramErrores','obs-error')}
+        <div class="rp-obs-label">Observaciones — Trámites Adicionales</div>
+        ${getObs('txtTramObservaciones','obs-gold')}
       </div>
 
       <div class="rp-firma">
         <div class="rp-firma-item"><div style="font-weight:bold;margin-bottom:2pt;">${_usuarioConsultado}</div><div>Encuestador(a) APS</div></div>
         <div class="rp-firma-item">
           <img src="/firma.webp" alt="Firma Vernaza" class="firma-img" />
-          <div style="font-weight:bold;margin-bottom:2pt;">Cristian F. Calentura V.</div>
+          <div style="font-weight:bold;margin-bottom:2pt;">C. Vernaza</div>
           <div>Revisado por</div>
         </div>
         <div class="rp-firma-item"><div style="font-weight:bold;margin-bottom:2pt;">___________________________</div><div>Coordinación APS</div></div>
