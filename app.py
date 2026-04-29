@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Backend API – Módulo INFORMES (Dashboard + Auditoría + Mapas)
+Backend API – Módulo INFORMES (Dashboard + Auditoría + Mapas + Logs)
 Framework  : Flask + SQLAlchemy + PyJWT
 """
 
@@ -22,7 +22,6 @@ logger = logging.getLogger("INFORMES_API")
 SECRET_KEY = os.getenv("SECRET_KEY", "informes-aps-ese-2026-secret-key-cambiar")
 TOKEN_HOURS = 8
 
-# Ajuste para Render: Todos los archivos en la misma carpeta raíz
 DIR_BASE = os.path.dirname(os.path.abspath(__file__))
 
 app = Flask(__name__, static_folder=DIR_BASE)
@@ -151,12 +150,20 @@ def login():
     nombre_visual = usuario["username"].capitalize()
     token = generar_token(user_id=usuario["id"], correo=usuario["username"], nombre=nombre_visual, rol="Auditor")
 
+    # [LOG] Registro de Login Exitoso
+    logger.info(f"🟢 [LOGIN_EXITOSO] El usuario '{nombre_visual}' ha iniciado sesión en el sistema.")
+
     return jsonify({"token": token, "nombre": nombre_visual, "rol": "Auditor"})
 
 
-# Ruta para cerrar sesión de manera limpia (Corrige el error 404 de consola)
 @app.route("/api/logout", methods=["POST"])
 def logout():
+    # Extraer token para saber quién cerró sesión (opcional pero útil)
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        payload = verificar_token(auth.split(" ")[1])
+        if payload:
+            logger.info(f"🔴 [LOGOUT] El usuario '{payload.get('nombre', 'Desconocido')}' cerró sesión.")
     return jsonify({"status": "Cierre de sesión exitoso"}), 200
 
 
@@ -175,17 +182,20 @@ def get_encuestadores():
                           FROM pcf_planes_principal_2026
                           UNION
                           SELECT created_by
-                          FROM desistimiento_aps_2026) AS todas_las_tablas
+                          FROM desistimiento_aps_2026) AS tbl
                     WHERE created_by IS NOT NULL
                       AND created_by != ''
                     """)
-    correos = [r["correo"] for r in rows if r["correo"]]
-    return jsonify(correos)
+    return jsonify([r["correo"] for r in rows if r["correo"]])
 
 
 @app.route("/api/dashboard", methods=["GET"])
 @require_auth
 def get_dashboard():
+    # [LOG] Registro de actualización de Dashboard
+    usuario_req = g.user.get('nombre', 'Desconocido')
+    logger.info(f"📊 [DASHBOARD] El usuario '{usuario_req}' está actualizando las estadísticas del Dashboard General.")
+
     data = {}
     data["desistimientos"] = {
         "total": safe_count("SELECT COUNT(*) FROM desistimiento_aps_2026"),
@@ -196,22 +206,20 @@ def get_dashboard():
         "integrantes": safe_count("SELECT COUNT(*) FROM pcc_integrantes_2026"),
         "con_error": safe_count("SELECT COUNT(*) FROM auditoria_errores_2026 WHERE modulo LIKE 'PCC%'"),
     }
-
     query_edades = """
                    WITH fechas_limpias \
                             AS (SELECT to_date(SUBSTRING(CAST(created_at AS text), 1, 10), 'YYYY-MM-DD') as f_crea, \
                                        TRIM(CAST("107_7_fecha_de_nacim" AS text))                        as f_nac_raw \
                                 FROM caracterizacion_si_aps_individual_2026 \
-                                WHERE "107_7_fecha_de_nacim" IS NOT NULL),
+                                WHERE "107_7_fecha_de_nacim" IS NOT NULL), \
                         edades AS (SELECT f_crea, \
                                           CASE \
                                               WHEN f_nac_raw ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN to_date(LEFT(f_nac_raw, 10), 'YYYY-MM-DD') \
                                               WHEN f_nac_raw ~ '^[0-9]{2}/[0-9]{2}/[0-9]{4}' THEN to_date(LEFT(f_nac_raw, 10), 'DD/MM/YYYY') \
-                                              ELSE NULL \
-                                              END as f_nac \
+                                              ELSE NULL END as f_nac \
                                    FROM fechas_limpias)
                    SELECT COUNT(*) FILTER (WHERE EXTRACT(YEAR FROM AGE(f_crea, f_nac)) < 5) as menores, COUNT(*) FILTER (WHERE EXTRACT(YEAR FROM AGE(f_crea, f_nac)) >= 60) as mayores
-                   FROM edades
+                   FROM edades \
                    WHERE f_nac IS NOT NULL \
                    """
     res_edades = ejecutar(query_edades)
@@ -237,16 +245,12 @@ def get_dashboard():
     for r in res_disc:
         texto = str(r["disc"])
         if not texto or texto == 'None': continue
-
         items = [x.strip() for x in texto.split(",")]
         has_sin = any("Sin discapacidad" in x for x in items)
-
         if not has_sin:
             total_discapacidad += 1
             for item in items:
-                if item:
-                    conteo_disc[item] = conteo_disc.get(item, 0) + 1
-
+                if item: conteo_disc[item] = conteo_disc.get(item, 0) + 1
     disc_chart = [{"label": k, "total": v} for k, v in sorted(conteo_disc.items(), key=lambda x: x[1], reverse=True)]
 
     data["caracterizacion"] = {
@@ -257,14 +261,12 @@ def get_dashboard():
             "SELECT COUNT(DISTINCT ec5_branch_owner_uuid) FROM caracterizacion_si_aps_individual_2026 WHERE \"113_13_rgimen_de_afi\" = '5. No afiliado'"),
         "gestantes": safe_count(
             "SELECT COUNT(*) FROM caracterizacion_si_aps_individual_2026 WHERE \"109_9_se_encuentra_e\" = '1. SI'"),
-        "menores_5": menores_5,
-        "adultos_60": adultos_60,
+        "menores_5": menores_5, "adultos_60": adultos_60,
         "victimas_conflicto": safe_count(
             "SELECT COUNT(*) FROM caracterizacion_si_aps_familiar_2026 WHERE \"78_52_familia_vctima\" = '1. SI'"),
         "poblacion_etnica": safe_count(
             "SELECT COUNT(*) FROM caracterizacion_si_aps_individual_2026 WHERE \"116_16_pertenencia_t\" IS NOT NULL AND \"116_16_pertenencia_t\" != '7. Ninguna'"),
-        "discapacidad_total": total_discapacidad,
-        "discapacidades_chart": disc_chart,
+        "discapacidad_total": total_discapacidad, "discapacidades_chart": disc_chart,
         "tipo_familia": safe_group(
             "SELECT \"64_41_tipo_de_famili\", COUNT(*) as total FROM caracterizacion_si_aps_familiar_2026 WHERE \"64_41_tipo_de_famili\" IS NOT NULL GROUP BY 1 ORDER BY 2 DESC"),
         "estrato": safe_group(
@@ -290,7 +292,6 @@ def get_dashboard():
         "seguimientos": safe_count("SELECT COUNT(*) FROM pcf_psicologia_seguimientos_2026"),
     }
 
-    # ================= TRÁMITES DASHBOARD =================
     res_tramites = ejecutar(
         "SELECT SUM(CAST(realizados AS numeric)) as tot, SUM(CAST(efectivos AS numeric)) as res, SUM(CAST(errores AS numeric)) as err FROM tramites_consolidados_2026")
     tr_tot = res_tramites[0]["tot"] or 0 if res_tramites else 0
@@ -306,16 +307,14 @@ def get_dashboard():
             items = texto.split("|")
             for item in items:
                 val = item.strip()
-                if val:
-                    conteo_tramites[val] = conteo_tramites.get(val, 0) + 1
+                if val: conteo_tramites[val] = conteo_tramites.get(val, 0) + 1
     por_tipo_lista = [{"label": k, "total": v} for k, v in
                       sorted(conteo_tramites.items(), key=lambda x: x[1], reverse=True)]
 
     tr_registros = safe_count("SELECT COUNT(*) FROM tramites_aps_2026")
     tr_familias_query = """
                         SELECT COUNT(DISTINCT
-                                     COALESCE("7_4_territorio", '') ||
-                                     COALESCE("8_5_microterritorio", '') ||
+                                     COALESCE("7_4_territorio", '') || COALESCE("8_5_microterritorio", '') ||
                                      CASE \
                                          WHEN "3_2_cdigo_hogar" = 'No Aplica' OR "3_2_cdigo_hogar" IS NULL \
                                              THEN COALESCE("4_21_cdigo_hogar", '') \
@@ -324,19 +323,15 @@ def get_dashboard():
                                          WHEN "5_3_cdigo_familia" = 'No Aplica' OR "5_3_cdigo_familia" IS NULL \
                                              THEN COALESCE("6_31_cdigo_familia", '') \
                                          ELSE "5_3_cdigo_familia" END
-                               ) as total
+                               ) as total \
                         FROM tramites_aps_2026 \
                         """
     tr_fam_res = ejecutar(tr_familias_query)
     tr_familias = tr_fam_res[0]["total"] if tr_fam_res else 0
 
     data["tramites"] = {
-        "total": tr_tot,
-        "resolutivos": tr_res,
-        "con_error": tr_err,
-        "por_tipo": por_tipo_lista,
-        "total_registros": tr_registros,
-        "total_familias": tr_familias
+        "total": tr_tot, "resolutivos": tr_res, "con_error": tr_err, "por_tipo": por_tipo_lista,
+        "total_registros": tr_registros, "total_familias": tr_familias
     }
     return jsonify(data)
 
@@ -344,11 +339,16 @@ def get_dashboard():
 @app.route("/api/auditoria", methods=["GET"])
 @require_auth
 def get_auditoria():
+    usuario_req = g.user.get('nombre', 'Desconocido')
     usuario = request.args.get("usuario", "").strip()
     fecha_ini = request.args.get("fecha_inicio", "").strip()
     fecha_fin = request.args.get("fecha_fin", "").strip()
 
     if not usuario: return jsonify({"error": "El parámetro 'usuario' es requerido."}), 400
+
+    # [LOG] Registro de Consulta de Auditoría
+    logger.info(
+        f"🔎 [AUDITORIA] El usuario '{usuario_req}' auditó al encuestador: '{usuario}'. Rango: {fecha_ini} a {fecha_fin}")
 
     fecha_fin_limite = (fecha_fin or "2099-12-31") + "T23:59:59"
     params = {"usuario": usuario, "fecha_ini": fecha_ini or "2000-01-01", "fecha_fin_limite": fecha_fin_limite}
@@ -376,9 +376,7 @@ def get_auditoria():
     data["desistimientos"] = {"total": safe_count(q("desistimiento_aps_2026"), params),
                               "con_error": safe_count(qerr("DESISTIMIENTOS"), params)}
 
-    # ── PCC (Modificado para extraer detalles de jornada) ──
     pcc_planes_count = safe_count(q("pcc_principal_2026"), params)
-
     texto_pcc_detalles = ""
     if pcc_planes_count > 0:
         try:
@@ -393,15 +391,13 @@ def get_auditoria():
                 uid_ficha = r.get('ec5_uuid', 'N/A')
                 fecha = str(r.get('created_at', ''))[:10]
                 detalle = str(r.get("20_14_detalles_jorna", "")).replace('\n', ' ')
-                if not detalle or detalle == 'None':
-                    detalle = "Sin detalles registrados."
+                if not detalle or detalle == 'None': detalle = "Sin detalles registrados."
                 texto_pcc_detalles += f"Plan {idx} [{uid_ficha}] - {fecha}: {detalle}\n\n"
-        except Exception as e:
+        except:
             pass
 
     data["pcc"] = {
-        "planes": pcc_planes_count,
-        "integrantes": safe_count(q("pcc_integrantes_2026"), params),
+        "planes": pcc_planes_count, "integrantes": safe_count(q("pcc_integrantes_2026"), params),
         "con_error": safe_count(qerr("PCC_PRINCIPAL"), params),
         "reporte_detalles": texto_pcc_detalles.strip() if texto_pcc_detalles else "No hay detalles de planes comunitarios registrados en estas fechas."
     }
@@ -457,7 +453,6 @@ def get_auditoria():
                                 AND CAST(created_at AS text) >= :fecha_ini
                                 AND CAST(created_at AS text) <= :fecha_fin_limite
                               """, params)
-
     etnia_data_aud = etnia_comp_aud[0] if etnia_comp_aud else {"sin_etnia": 0, "con_etnia": 0, "total": 0}
     total_etnia_aud = int(etnia_data_aud.get("total") or 1)
     if total_etnia_aud == 0: total_etnia_aud = 1
@@ -484,10 +479,7 @@ def get_auditoria():
         if has_sin:
             if len(items) > 1:
                 errores_dinamicos.append(
-                    f"🛑 MÓDULO: CARACT_INDIVIDUAL\n"
-                    f"Ficha ID (Hogar/Familia): {r.get('id_ficha', 'N/A')} | Título: Caracterización Individual\n"
-                    f"Errores (1): Contradicción en Discapacidad (Seleccionó 'Sin discapacidad' y otra opción)\n"
-                    f"--------------------------------------------------"
+                    f"🛑 MÓDULO: CARACT_INDIVIDUAL\nFicha ID (Hogar/Familia): {r.get('id_ficha', 'N/A')} | Título: Caracterización Individual\nErrores (1): Contradicción en Discapacidad (Seleccionó 'Sin discapacidad' y otra opción)\n--------------------------------------------------"
                 )
         else:
             total_discapacidad_aud += 1
@@ -508,8 +500,7 @@ def get_auditoria():
         "poblacion_etnica": safe_count(q("caracterizacion_si_aps_individual_2026",
                                          "\"116_16_pertenencia_t\" IS NOT NULL AND \"116_16_pertenencia_t\" != '7. Ninguna'"),
                                        params),
-        "discapacidad_total": total_discapacidad_aud,
-        "discapacidades_chart": disc_chart_aud,
+        "discapacidad_total": total_discapacidad_aud, "discapacidades_chart": disc_chart_aud,
         "error_familiar": safe_count(qerr("CARACT_FAMILIAR"), params),
         "error_individual": safe_count(qerr("CARACT_INDIVIDUAL"), params),
         "tipo_familia": tipo_familia_aud, "estrato": estrato_aud, "nivel_educativo": nivel_educativo_aud,
@@ -562,7 +553,6 @@ def get_auditoria():
 
     fam_psico_count = safe_count(
         q("pcf_planes_principal_2026", "TRIM(\"4_3_perfil_profesion\") = 'Profesional Psicología'"), params)
-
     try:
         res_psico_seg = ejecutar("""
                                  SELECT *
@@ -599,7 +589,6 @@ def get_auditoria():
         for idx, r in enumerate(res_psico_seg, 1):
             uid_ficha = r.get('ec5_branch_uuid') or r.get('ec5_uuid') or 'N/A'
             texto_psico_seg += f"Seguimiento {idx}: Ficha [{uid_ficha}] - {str(r.get('created_at', ''))[:10]}\n"
-
             motivo = next((v for k, v in r.items() if k.startswith('128_23_')), None)
             req_cont = next((v for k, v in r.items() if k.startswith('130_25_')), None)
             comp = next((v for k, v in r.items() if k.startswith('131_26_')), None)
@@ -616,10 +605,10 @@ def get_auditoria():
                 elif 'NO' in v_req:
                     cont_seg_no += 1
 
-            if comp and str(comp).strip() and str(comp).strip() != 'None':
-                texto_psico_compromisos += f"Ficha [{uid_ficha}]: {str(comp).replace(chr(10), ' ')}\n\n"
-            if evalu and str(evalu).strip() and str(evalu).strip() != 'None':
-                texto_psico_evaluacion += f"Ficha [{uid_ficha}]: {str(evalu).replace(chr(10), ' ')}\n\n"
+            if comp and str(comp).strip() and str(
+                comp).strip() != 'None': texto_psico_compromisos += f"Ficha [{uid_ficha}]: {str(comp).replace(chr(10), ' ')}\n\n"
+            if evalu and str(evalu).strip() and str(
+                evalu).strip() != 'None': texto_psico_evaluacion += f"Ficha [{uid_ficha}]: {str(evalu).replace(chr(10), ' ')}\n\n"
 
         try:
             res_err_psico = ejecutar("""
@@ -652,7 +641,6 @@ def get_auditoria():
             msg_no_psicologo if not es_psicologo else "✅ Excelente. No hay errores.")
     }
 
-    # ================= TRÁMITES AUDITORÍA =================
     res_tram_aud = ejecutar("""
                             SELECT SUM(CAST(realizados AS numeric)) as tot,
                                    SUM(CAST(efectivos AS numeric))  as res,
@@ -681,8 +669,8 @@ def get_auditoria():
         if nr and "Ningún" not in nr and nr != 'None':
             texto_realizados += f"Registro {c_re}: {nr.replace('|', ', ')}\n"
             c_re += 1
-            for item in (x.strip() for x in nr.split("|") if x.strip()):
-                conteo_tramites_aud[item] = conteo_tramites_aud.get(item, 0) + 1
+            for item in (x.strip() for x in nr.split("|") if x.strip()): conteo_tramites_aud[
+                item] = conteo_tramites_aud.get(item, 0) + 1
         if ne and "Ningún" not in ne and ne != 'None':
             texto_resueltos += f"Registro {c_ef}: {ne.replace('|', ', ')}\n"
             c_ef += 1
@@ -755,11 +743,16 @@ def get_auditoria():
 @app.route("/api/mapas", methods=["GET"])
 @require_auth
 def get_mapas():
+    usuario_req = g.user.get('nombre', 'Desconocido')
     usuario = request.args.get("usuario", "").strip()
     fecha_ini = request.args.get("fecha_inicio", "").strip()
     fecha_fin = request.args.get("fecha_fin", "").strip()
 
     if not usuario: return jsonify({"error": "El parámetro 'usuario' es requerido."}), 400
+
+    # [LOG] Registro de Mapas GIS
+    logger.info(
+        f"📍 [MAPAS GIS] El usuario '{usuario_req}' solicitó las coordenadas de: '{usuario}'. Rango: {fecha_ini} a {fecha_fin}")
 
     fecha_fin_limite = (fecha_fin or "2099-12-31") + "T23:59:59"
     params = {"usuario": usuario, "fecha_ini": fecha_ini or "2000-01-01", "fecha_fin_limite": fecha_fin_limite}
@@ -817,6 +810,14 @@ def get_mapas():
         except:
             respuesta[cfg['key']] = {"correctos": [], "errores_vacios": [], "errores_fuera": [],
                                      "totales": {"ok": 0, "vacios": 0, "fuera": 0}}
+
+    # [LOG] Aviso de peticiones en Mapas
+    total_coord = sum(r['totales']['ok'] for r in respuesta.values())
+    if total_coord > 0:
+        logger.info(
+            f"✅ [MAPAS GIS] Georreferenciación de '{usuario}' exitosa. {total_coord} puntos válidos renderizados.")
+    else:
+        logger.warning(f"⚠️ [MAPAS GIS] Georreferenciación de '{usuario}' sin puntos válidos en el mapa.")
 
     return jsonify(respuesta)
 
