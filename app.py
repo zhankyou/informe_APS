@@ -1,24 +1,20 @@
 # -*- coding: utf-8 -*-
 """
-Backend API – Módulo INFORMES (Dashboard + Auditoría + Mapas + Logs + Excel Export + SIHOS)
-Framework  : Flask + SQLAlchemy + PyJWT + OpenPyXL
+Backend API – Módulo INFORMES (Dashboard + Auditoría + Mapas + Logs + SIHOS)
+Framework  : Flask + SQLAlchemy + PyJWT
 """
 
 import os
 import logging
 import datetime
-import io
 from functools import wraps
 from collections import Counter
 import jwt
-from flask import Flask, jsonify, request, send_from_directory, g, send_file
+from flask import Flask, jsonify, request, send_from_directory, g
 from flask_cors import CORS
 from sqlalchemy import create_engine, text
 from werkzeug.security import check_password_hash
 from dotenv import load_dotenv
-
-from openpyxl import Workbook
-from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s | [%(levelname)s] | %(message)s')
@@ -209,7 +205,7 @@ def get_encuestadores():
     return jsonify([r["correo"] for r in rows if r["correo"]])
 
 
-# ── FUNCION TRADUCTORA DE FECHAS (NUEVA LÓGICA ROBUSTA) ──
+# ── FUNCION TRADUCTORA DE FECHAS ──
 def get_date_filter(col_name):
     return f"""
     (CASE 
@@ -237,7 +233,6 @@ def get_dashboard():
 
     logger.info(f"📊 [DASHBOARD] El usuario '{usuario_req}' actualizando. Rango: {fecha_ini} a {fecha_fin}")
 
-    # SOLUCIÓN: Agregada la variable f_fin para que get_date_filter no falle
     f_ini = fecha_ini or "2000-01-01"
     f_fin = fecha_fin or "2099-12-31"
     f_fin_limite = f"{fecha_fin}T23:59:59" if fecha_fin else "2099-12-31T23:59:59"
@@ -258,7 +253,6 @@ def get_dashboard():
             params),
     }
 
-    # SOLUCIÓN: COUNT(*) en lugar de COUNT(b.ec5_uuid)
     query_pcc_int = f"""
         SELECT COUNT(*) FROM pcc_integrantes_2026 b
         JOIN pcc_principal_2026 p ON b.ec5_branch_owner_uuid = p.ec5_uuid
@@ -362,7 +356,6 @@ def get_dashboard():
             params),
     }
 
-    # SOLUCIÓN: COUNT(*) en lugar de COUNT(b.ec5_uuid)
     query_pcf_int = f"""
         SELECT COUNT(*) FROM pcf_planes_integrantes_2026 b
         JOIN pcf_planes_principal_2026 p ON b.ec5_branch_owner_uuid = p.ec5_uuid
@@ -428,7 +421,6 @@ def get_auditoria_data(usuario: str, fecha_ini: str, fecha_fin: str) -> dict:
     f_fin = fecha_fin or "2099-12-31"
     f_fin_limite = f"{fecha_fin}T23:59:59" if fecha_fin else "2099-12-31T23:59:59"
 
-    # SOLUCIÓN: Agregar f_fin a params
     params = {"usuario": usuario, "fecha_ini": f_ini, "fecha_fin_limite": f_fin_limite, "f_ini": f_ini, "f_fin": f_fin}
 
     def q(table, extra_where=""):
@@ -472,7 +464,6 @@ def get_auditoria_data(usuario: str, fecha_ini: str, fecha_fin: str) -> dict:
     data["desistimientos"] = {"total": safe_count(q("desistimiento_aps_2026"), params),
                               "con_error": safe_count(qerr("DESISTIMIENTOS"), params)}
 
-    # SOLUCIÓN: COUNT(*) en lugar de COUNT(b.ec5_uuid)
     query_pcc_int = """
                     SELECT COUNT(*) \
                     FROM pcc_integrantes_2026 b \
@@ -667,7 +658,6 @@ def get_auditoria_data(usuario: str, fecha_ini: str, fecha_fin: str) -> dict:
     except:
         pass
 
-    # SOLUCIÓN: COUNT(*) en lugar de COUNT(b.ec5_uuid)
     query_pcf_int = """
                     SELECT COUNT(*) \
                     FROM pcf_planes_integrantes_2026 b \
@@ -1005,99 +995,7 @@ def get_mapas():
 @app.route("/api/exportar_excel", methods=["GET"])
 @require_auth
 def exportar_excel():
-    usuario_req = g.user.get('nombre', 'Desconocido')
-    usuario = request.args.get("usuario", "").strip()
-    fecha_ini = request.args.get("fecha_inicio", "").strip()
-    fecha_fin = request.args.get("fecha_fin", "").strip()
-
-    logger.info(f"💾 [EXPORTAR] El usuario '{usuario_req}' generó un Excel para '{usuario}'.")
-
-    data = get_auditoria_data(usuario, fecha_ini, fecha_fin)
-
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Reporte Auditoria"
-
-    ws.page_setup.paperSize = ws.PAPERSIZE_LETTER
-    ws.page_setup.orientation = ws.ORIENTATION_PORTRAIT
-    ws.page_margins.left = 0.5
-    ws.page_margins.right = 0.5
-    ws.page_margins.top = 0.75
-    ws.page_margins.bottom = 0.75
-
-    header_fill = PatternFill(start_color="0A1F3D", end_color="0A1F3D", fill_type="solid")
-    white_font = Font(color="FFFFFF", bold=True)
-    border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'),
-                    bottom=Side(style='thin'))
-
-    ws.merge_cells('A1:C1')
-    ws['A1'] = "REPORTE DE AUDITORÍA APS 2026"
-    ws['A1'].font = Font(size=14, bold=True)
-    ws['A1'].alignment = Alignment(horizontal="center")
-
-    ws['A3'] = "Encuestador:";
-    ws['B3'] = data.get('encuestador_nombre', '')
-    ws['A4'] = "Correo:";
-    ws['B4'] = usuario
-    ws['A5'] = "Perfil:";
-    ws['B5'] = data.get('encuestador_perfil', '')
-    ws['A6'] = "Periodo:";
-    ws['B6'] = f"{fecha_ini} a {fecha_fin}"
-
-    def agregar_seccion(titulo, fila_inicio, info_dict):
-        ws.cell(row=fila_inicio, column=1, value=titulo).font = Font(bold=True)
-        ws.cell(row=fila_inicio, column=1).fill = header_fill
-        ws.cell(row=fila_inicio, column=1).font = white_font
-        ws.merge_cells(start_row=fila_inicio, start_column=1, end_row=fila_inicio, end_column=2)
-
-        curr = fila_inicio + 1
-        for k, v in info_dict.items():
-            ws.cell(row=curr, column=1, value=str(k).capitalize().replace('_', ' '))
-            ws.cell(row=curr, column=2, value=str(v))
-            ws.cell(row=curr, column=1).border = border
-            ws.cell(row=curr, column=2).border = border
-            curr += 1
-        return curr + 1
-
-    f = 8
-    f = agregar_seccion("DESISTIMIENTOS", f, data['desistimientos'])
-    f = agregar_seccion("PLAN CUIDADO COMUNITARIO", f,
-                        {"Planes": data['pcc']['planes'], "Integrantes": data['pcc']['integrantes'],
-                         "Errores": data['pcc']['con_error']})
-
-    caract = data['caracterizacion']
-    dict_caract = {
-        "Familias": caract['familias'], "Individuos": caract['individuos'],
-        "Gestantes": caract['gestantes'], "Menores 5": caract['menores_5'], "Adultos 60": caract['adultos_60'],
-        "Discapacidad Total": caract['discapacidad_total'], "Poblacion Etnica": caract['poblacion_etnica'],
-        "Errores Familiares": caract['error_familiar'], "Errores Individuales": caract['error_individual']
-    }
-    f = agregar_seccion("CARACTERIZACIÓN", f, dict_caract)
-
-    dict_pcf = {"Familias Intervenidas": data['pcf']['familias_intervenidas'],
-                "Integrantes": data['pcf']['integrantes_intervenidos']}
-    f = agregar_seccion("PLAN CUIDADO FAMILIAR", f, dict_pcf)
-
-    dict_psico = {"Familias Intervenidas": data['pcf_psicologia']['intervenciones_familiares'],
-                  "Integrantes": data['pcf_psicologia']['integrantes'],
-                  "Seguimientos": data['pcf_psicologia']['seguimientos']}
-    f = agregar_seccion("PSICOLOGÍA", f, dict_psico)
-
-    tramites = data['tramites']
-    dict_tramites = {"Total": tramites['total'], "Resolutivos": tramites['resolutivos'],
-                     "Con Error": tramites['con_error'], "Familias Impactadas": tramites['total_familias']}
-    f = agregar_seccion("TRÁMITES", f, dict_tramites)
-
-    ws.column_dimensions['A'].width = 35
-    ws.column_dimensions['B'].width = 50
-
-    output = io.BytesIO()
-    wb.save(output)
-    output.seek(0)
-
-    filename = f"Informe_{usuario}_{fecha_ini}.xlsx"
-    return send_file(output, as_attachment=True, download_name=filename,
-                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    pass  # Eliminado por solicitud de aligerar servidor
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1122,7 +1020,6 @@ def get_sihos_analytics():
 
     logger.info(f"🏥 [SIHOS] Auditando a: '{profesional or 'TODA LA SEDE APS'}'.")
 
-    # SOLUCIÓN: Agregada la variable f_fin a params
     f_ini = fecha_ini or "2000-01-01"
     f_fin = fecha_fin or "2099-12-31"
     f_fin_limite = f"{fecha_fin}T23:59:59" if fecha_fin else "2099-12-31T23:59:59"
@@ -1140,7 +1037,7 @@ def get_sihos_analytics():
         prof_filter_aps = "AND LOWER(TRIM(\"5_4_nombre_del_profe\")) LIKE LOWER(:prof_like)"
         params["prof_like"] = prof_like
 
-    # 1. Traer data de SIHOS
+    # 1. Traer data de SIHOS aplicando el LIKE
     query_sihos = f"""
         WITH fechas_limpias AS (
             SELECT administradora, tipo_contrato, genero, actividad_suministro, 
@@ -1224,20 +1121,14 @@ def get_sihos_analytics():
         predominante = d_info["edades"].most_common(1)[0][0] if d_info["edades"] else "Sin Datos"
         diagnosticos_list.append({"label": d_name, "total": d_info["total"], "grupo_etario": predominante})
 
-    # SOLUCIÓN: COUNT(*) en lugar de COUNT(b.ec5_uuid)
     query_cruce = f"""
         SELECT COUNT(*) as campo_total
-        FROM pcf_planes_integrantes_2026 b
-        JOIN pcf_planes_principal_2026 p ON b.ec5_branch_owner_uuid = p.ec5_uuid
-        WHERE {get_date_filter('p.created_at')}
+        FROM pcf_planes_principal_2026
+        WHERE {get_date_filter('created_at')}
           {prof_filter_aps}
     """
     res_cruce = ejecutar(query_cruce, params)
     atenciones_campo_aps = res_cruce[0]["campo_total"] if res_cruce else 0
-
-    if total_atenciones == 0 and atenciones_campo_aps == 0 and profesional:
-        return jsonify({
-                           "error": f"No se encontraron facturaciones en SIHOS ni reportes en campo para {profesional} en estas fechas."}), 404
 
     def format_counter(counter_obj):
         return [{"label": k, "total": v} for k, v in sorted(counter_obj.items(), key=lambda x: x[1], reverse=True)]
