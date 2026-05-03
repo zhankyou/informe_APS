@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>INFORMES ESE · SIHOS Clínica</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,400&display=swap" rel="stylesheet"/>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+  <style>
+    /* ═══════════════════════════════════════════════════════════════
+       ESTILOS BASE
+    ═══════════════════════════════════════════════════════════════ */
+    :root {
+      --bg:#f0f4fa;--surface:#ffffff;--navy:#0a1f3d;--navy-lt:#122848;
+      --teal:#00b09b;--teal-lt:#e6f7f5;--teal-mid:#b3e8e3;
+      --gold:#f0a500;--gold-lt:#fef7e0;--red:#e53935;--red-lt:#fde8e8;
+      --purple:#6c3fc5;--purple-lt:#ede8fb;--green:#1e9c6e;--green-lt:#e5f7f0;
+      --border:#dde4ef;--text:#1a2840;--muted:#5d7290;
+      --sidebar-w:240px;--radius:14px;
+      --shadow:0 2px 16px rgba(10,31,61,.07);--shadow-md:0 4px 28px rgba(10,31,61,.11);
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html{scroll-behavior:smooth;}
+    body{font-family:'Sora',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;}
+
+    /* Sidebar */
+    .sidebar{width:var(--sidebar-w);background:var(--navy);height:100vh;position:fixed;left:0;top:0;display:flex;flex-direction:column;padding:1.5rem 0;z-index:100;box-shadow:4px 0 24px rgba(0,0,0,.18);}
+    .sidebar-brand{display:flex;align-items:center;gap:.75rem;padding:0 1.4rem 1.5rem;border-bottom:1px solid rgba(255,255,255,.08);}
+    .brand-logo{width:36px;height:36px;background:linear-gradient(135deg,var(--teal),#00d4b8);border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .brand-logo svg{width:20px;height:20px;fill:#fff;}
+    .brand-name{font-family:'Fraunces',serif;font-size:1rem;color:#fff;}
+    .brand-sub{font-size:.62rem;color:rgba(255,255,255,.4);letter-spacing:.1em;text-transform:uppercase;}
+
+    .nav{flex:1;padding:1.2rem 0;}
+    .nav-item{display:flex;align-items:center;gap:.75rem;padding:.7rem 1.4rem;color:rgba(255,255,255,.55);font-size:.83rem;font-weight:500;cursor:pointer;transition:all .18s;text-decoration:none;margin:.1rem 0;}
+    .nav-item:hover{color:#fff;background:rgba(255,255,255,.06);}
+    .nav-item.active{color:var(--teal);background:rgba(0,176,155,.12);border-right:3px solid var(--teal);}
+    .nav-item svg{width:18px;height:18px;flex-shrink:0;}
+    .nav-section-title{padding:.9rem 1.4rem .3rem;font-size:.62rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.25);}
+
+    .sidebar-user{padding:1rem 1.4rem;border-top:1px solid rgba(255,255,255,.08);}
+    .user-name{font-size:.82rem;color:#fff;font-weight:600;margin-bottom:.15rem;}
+    .user-role{font-size:.68rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.1em;}
+    .btn-logout{margin-top:.75rem;width:100%;background:rgba(229,57,53,.15);border:1px solid rgba(229,57,53,.3);color:#ff8a80;border-radius:8px;padding:.45rem;font-family:'Sora',sans-serif;font-size:.75rem;cursor:pointer;transition:background .2s;}
+    .btn-logout:hover{background:rgba(229,57,53,.25);}
+
+    /* Main y Topbar */
+    .main{margin-left:var(--sidebar-w);flex:1;min-height:100vh;}
+    .topbar{background:var(--surface);padding:1rem 2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:var(--shadow);}
+    .topbar-title{font-family:'Fraunces',serif;font-size:1.1rem;font-weight:700;color:var(--navy);}
+    .topbar-meta{font-size:.75rem;color:var(--muted);}
+    .content{padding:1.75rem 2rem 4rem;}
+
+    /* Filtros (Modificados para SIHOS) */
+    .auditoria-filters{display:flex;gap:1rem;margin-bottom:2rem;background:var(--surface);padding:1.5rem;border-radius:var(--radius);box-shadow:var(--shadow);flex-wrap:wrap;align-items:flex-end;}
+    .filter-group{flex:1;min-width:200px; position:relative;}
+    .filter-group label{display:block;font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.45rem;}
+    .auditoria-filters input{width:100%;border:1.5px solid var(--border);border-radius:8px;padding:.8rem 1rem;font-family:'Sora',sans-serif;font-size:.9rem;color:var(--text);outline:none;transition:border-color .2s;}
+    .auditoria-filters input:focus{border-color:var(--teal);}
+    .btn-search{background:var(--navy);color:#fff;border:none;padding:.9rem 2rem;border-radius:8px;font-weight:600;font-family:'Sora',sans-serif;cursor:pointer;transition:background .2s;white-space:nowrap;height:46px;}
+    .btn-search:hover:not(:disabled){background:var(--teal);}
+    .btn-search:disabled{background:var(--muted);cursor:not-allowed;opacity:0.6;}
+
+    .custom-dropdown { position:absolute; top:100%; left:0; right:0; background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow-md); max-height:200px; overflow-y:auto; z-index:1000; display:none; margin-top:4px; }
+    .custom-dropdown-item { padding:.7rem 1rem; font-size:.85rem; color:var(--text); cursor:pointer; transition:background .2s; text-transform: uppercase;}
+    .custom-dropdown-item:hover { background:var(--teal-lt); color:var(--teal); }
+    .custom-dropdown::-webkit-scrollbar { width:6px; }
+    .custom-dropdown::-webkit-scrollbar-track { background:transparent; }
+    .custom-dropdown::-webkit-scrollbar-thumb { background:var(--border); border-radius:10px; }
+
+    /* Tarjetas y Estructura */
+    .section{margin-bottom:2.5rem;animation:fadeIn .4s ease;}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    .section-header{display:flex;align-items:center;gap:.75rem;margin-bottom:1.1rem;}
+    .section-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .section-icon svg{width:20px;height:20px;}
+    .section-title{font-family:'Fraunces',serif;font-size:1.1rem;color:var(--navy);}
+    .section-sub{font-size:.75rem;color:var(--muted);}
+
+    .cards-row{display:flex;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;}
+    .stat-card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.2rem 1.4rem;flex:1;min-width:160px;border-top:3px solid transparent;}
+    .stat-card.c-teal{border-top-color:var(--teal)}.stat-card.c-gold{border-top-color:var(--gold)}.stat-card.c-red{border-top-color:var(--red)}.stat-card.c-purple{border-top-color:var(--purple)}.stat-card.c-green{border-top-color:var(--green)}.stat-card.c-navy{border-top-color:var(--navy)}
+    .stat-label{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.45rem;}
+    .stat-value{font-family:'Fraunces',serif;font-size:2rem;font-weight:700;color:var(--navy);line-height:1;margin-bottom:.2rem;}
+    .stat-badge{display:inline-block;padding:.15rem .55rem;border-radius:20px;font-size:.68rem;font-weight:600;}
+    .badge-error{background:var(--red-lt);color:var(--red)}.badge-ok{background:var(--green-lt);color:var(--green)}.badge-warn{background:var(--gold-lt);color:var(--gold)}.badge-info{background:var(--teal-lt);color:var(--teal)}.badge-purple{background:var(--purple-lt);color:var(--purple)}
+
+    .sub-section{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.2rem 1.4rem;margin-bottom:1rem;}
+    .sub-section-title{font-size:.73rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem;padding-bottom:.6rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+    .chart-container{position:relative;height:220px;}
+    .divider{height:1px;background:var(--border);margin:1.8rem 0;}
+
+    /* Listas y Tablas en HTML */
+    .diag-table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.8rem; }
+    .diag-table th { background: var(--navy); color: #fff; padding: 0.6rem; text-align: left; border-radius: 4px 4px 0 0; }
+    .diag-table td { padding: 0.6rem; border-bottom: 1px solid var(--border); color: var(--text); }
+    .diag-table tr:hover { background: var(--teal-lt); }
+
+    /* Indicadores de Texto */
+    .indicador-box { background: var(--surface); border-left: 4px solid var(--teal); padding: 1rem 1.2rem; border-radius: 0 8px 8px 0; margin-bottom: 1rem; box-shadow: var(--shadow); }
+    .indicador-title { font-weight: 700; font-size: 0.85rem; color: var(--navy); margin-bottom: 0.3rem; }
+    .indicador-desc { font-size: 0.8rem; color: var(--muted); line-height: 1.5; }
+
+    #loadingOverlay{position:fixed;inset:0;background:rgba(240,244,250,.8);z-index:999;display:none;flex-direction:column;align-items:center;justify-content:center;gap:1rem;}
+    .loading-spinner{width:40px;height:40px;border:3px solid rgba(0,176,155,.2);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .loading-text{font-size:.85rem;color:var(--muted);}
+    .empty-state{text-align:center;padding:4rem 2rem;color:var(--muted);}
+    .empty-state svg{width:60px;margin-bottom:1rem;opacity:.4;}
+
+    @media (max-width:768px){.sidebar{width:0;overflow:hidden;}.main{margin-left:0;}.content{padding:1rem;}}
+  </style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-logo"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg></div>
+    <div><div class="brand-name">INFORMES</div><div class="brand-sub">ESE 2026</div></div>
+  </div>
+  <div class="nav">
+    <div class="nav-section-title">Módulos</div>
+    <a href="/dashboard" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+      <span class="nav-label">Dashboard</span>
+    </a>
+    <a href="/auditoria" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      <span class="nav-label">Auditoría</span>
+    </a>
+    <a href="/sihos" class="nav-item active">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+      <span class="nav-label">SIHOS Clínica</span>
+    </a>
+    <a href="/mapas" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+      <span class="nav-label">Mapas GIS</span>
+    </a>
+    <a href="/informes" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+      <span class="nav-label">Informes</span>
+    </a>
+  </div>
+  <div class="sidebar-user">
+    <div class="user-name" id="sidebarNombre">Cargando...</div>
+    <div class="user-role" id="sidebarRol">—</div>
+    <button class="btn-logout" onclick="logout()">Cerrar sesión</button>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title" style="text-transform:uppercase;">SIHOS vs. Campo (EpiCollect)</div>
+      <div class="topbar-meta">Análisis comparativo de facturación clínica e intervenciones de campo</div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <div class="auditoria-filters">
+      <div class="filter-group">
+        <label>Nombre del Profesional</label>
+        <input type="text" id="inputProf" placeholder="Buscar por nombre (Ej. JUAN PEREZ)..." autocomplete="off"/>
+        <div id="customDropdown" class="custom-dropdown"></div>
+      </div>
+      <div class="filter-group">
+        <label>Fecha Inicio</label>
+        <input type="date" id="inputInicio"/>
+      </div>
+      <div class="filter-group">
+        <label>Fecha Fin</label>
+        <input type="date" id="inputFin"/>
+      </div>
+      <button class="btn-search" id="btnBuscar" onclick="buscarSihos()">📊 Consultar SIHOS</button>
+    </div>
+
+    <div id="emptyState" class="empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+      </svg>
+      <p>Busca un profesional de la salud por su nombre para analizar sus registros clínicos (SIHOS) y compararlos con su trabajo de campo (APS).</p>
+    </div>
+
+    <div id="resultadosSihos" style="display:none;">
+
+      <div class="section">
+        <div class="section-header">
+          <div class="section-icon" style="background:var(--purple-lt);"><svg viewBox="0 0 24 24" fill="var(--purple)"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></div>
+          <div>
+            <div class="section-title" id="lbl-nombre" style="text-transform: capitalize;">NOMBRE DEL PROFESIONAL</div>
+            <div class="section-sub" id="lbl-especialidad" style="text-transform: capitalize;">Especialidad</div>
+          </div>
+        </div>
+
+        <div class="cards-row">
+          <div class="stat-card c-purple">
+            <div class="stat-label">Atenciones en Campo (EpiCollect)</div>
+            <div class="stat-value" id="val-campo">0</div>
+            <span class="stat-badge badge-purple">Integrantes Intervenidos</span>
+          </div>
+          <div class="stat-card c-teal">
+            <div class="stat-label">Facturaciones Clínicas (SIHOS)</div>
+            <div class="stat-value" id="val-sihos">0</div>
+            <span class="stat-badge badge-info">Sede APS</span>
+          </div>
+        </div>
+
+        <div class="sub-section" style="background:#f8fafc; border:1px solid var(--border);">
+          <div class="sub-section-title">Análisis de Desempeño Profesional</div>
+
+          <div class="indicador-box" style="border-left-color:var(--purple);">
+            <div class="indicador-title">Cumplimiento de RIAS (Rutas Integrales de Atención en Salud)</div>
+            <div class="indicador-desc">
+              El profesional registró <b><span id="txt-rias">0</span></b> atenciones vinculadas a Promoción y Prevención (PyP).
+              <br><br>
+              <i>* Este indicador cruza las atenciones de campo con la facturación de código PyP. Un volumen alto de atenciones de campo pero baja facturación RIAS en SIHOS indica un problema de canalización o registro de oportunidad.</i>
+            </div>
+          </div>
+
+          <div class="indicador-box" style="border-left-color:var(--teal);">
+            <div class="indicador-title">Distribución por Especialidad RIAS</div>
+            <div class="indicador-desc">
+              - Promoción y Mantenimiento — Medicina: <b><span id="txt-pyp-med">0</span></b> atenciones.<br>
+              - Promoción y Mantenimiento — Enfermería: <b><span id="txt-pyp-enf">0</span></b> atenciones.<br>
+              - Consultas de Salud Mental / Psicología: <b><span id="txt-salud-mental">0</span></b> atenciones.
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="divider"></div>
+
+      <div class="section">
+        <div class="section-header">
+          <div class="section-icon" style="background:var(--green-lt);"><svg viewBox="0 0 24 24" fill="var(--green)"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></div>
+          <div><div class="section-title">Demografía de Atenciones SIHOS</div><div class="section-sub">A quién atiende el profesional</div></div>
+        </div>
+
+        <div style="display:flex; flex-wrap:wrap; gap:1rem;">
+          <div class="sub-section" style="flex:1; min-width:300px;">
+            <div class="sub-section-title">Distribución por Género</div>
+            <div class="chart-container"><canvas id="chartGenero"></canvas></div>
+          </div>
+          <div class="sub-section" style="flex:1; min-width:300px;">
+            <div class="sub-section-title">Atenciones por Curso de Vida (Edades)</div>
+            <div class="chart-container"><canvas id="chartCursoVida"></canvas></div>
+          </div>
+        </div>
+      </div>
+      <div class="divider"></div>
+
+      <div class="section">
+        <div class="section-header">
+          <div class="section-icon" style="background:var(--gold-lt);"><svg viewBox="0 0 24 24" fill="var(--gold)"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9v-2h2v2zm0-4H9V7h2v5z"/></svg></div>
+          <div><div class="section-title">Perfil Administrativo (Facturación)</div><div class="section-sub">EPS impactadas y Tipo de Contrato</div></div>
+        </div>
+
+        <div style="display:flex; flex-wrap:wrap; gap:1rem;">
+          <div class="sub-section" style="flex:2; min-width:300px;">
+            <div class="sub-section-title">Atenciones por Administradora (EPS)</div>
+            <div class="chart-container"><canvas id="chartEps"></canvas></div>
+          </div>
+          <div class="sub-section" style="flex:1; min-width:250px;">
+            <div class="sub-section-title">Tipo de Contrato</div>
+            <div class="chart-container"><canvas id="chartContrato"></canvas></div>
+          </div>
+        </div>
+      </div>
+      <div class="divider"></div>
+
+      <div class="section">
+        <div class="section-header">
+          <div class="section-icon" style="background:var(--red-lt);"><svg viewBox="0 0 24 24" fill="var(--red)"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></div>
+          <div><div class="section-title">Perfil Epidemiológico Clínico</div><div class="section-sub">Diagnósticos y Finalidad de consulta</div></div>
+        </div>
+
+        <div style="display:flex; flex-wrap:wrap; gap:1rem;">
+          <div class="sub-section" style="flex:1; min-width:300px;">
+            <div class="sub-section-title">Finalidad de la Atención</div>
+            <div class="chart-container"><canvas id="chartFinalidad"></canvas></div>
+          </div>
+          <div class="sub-section" style="flex:1; min-width:300px;">
+            <div class="sub-section-title">Tipo de Servicio</div>
+            <div class="chart-container"><canvas id="chartServicio"></canvas></div>
+          </div>
+        </div>
+
+        <div class="sub-section">
+          <div class="sub-section-title">Enfermedades y Condiciones de Salud Prevalentes (Top 10 CIE-10)</div>
+          <div class="indicador-desc" style="margin-bottom:1rem;">
+            Listado de los códigos diagnósticos (CIE-10) reportados con mayor frecuencia por este profesional. Esto permite identificar la carga de morbilidad que se está canalizando y facturando desde el territorio.
+          </div>
+          <table class="diag-table" id="tablaDiagnosticos">
+            <thead><tr><th>Código CIE-10 / Diagnóstico</th><th style="width:100px;text-align:right;">N° Casos</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">Analizando SIHOS y APS (Esto puede tardar)...</div>
+</div>
+
+<script>
+  // Blindaje de variable de entorno para funcionamiento local o en la nube
+  const API_BASE = window.location.protocol === 'file:' ? 'http://127.0.0.1:5001' : window.location.origin;
+
+  const token = localStorage.getItem('informes_token');
+  if (!token) { window.location.href = '/login'; }
+
+  const userInfo = JSON.parse(localStorage.getItem('informes_user') || '{}');
+  document.getElementById('sidebarNombre').textContent = userInfo.nombre || '—';
+  document.getElementById('sidebarRol').textContent    = userInfo.rol   || '—';
+
+  function logout() {
+    localStorage.removeItem('informes_token');
+    window.location.href = '/login';
+  }
+
+  function fmt(n) { return Number(n||0).toLocaleString('es-CO'); }
+
+  // ── BUSCADOR DE NOMBRES ──
+  let todosLosNombres = [];
+  const inputProf = document.getElementById('inputProf');
+  const dropdown  = document.getElementById('customDropdown');
+  let isSearching = false;
+
+  async function cargarNombres() {
+    try {
+      const resp = await fetch(`${API_BASE}/api/profesionales_sihos`, { headers:{ 'Authorization':'Bearer '+token } });
+      if (resp.ok) todosLosNombres = await resp.json();
+    } catch(e) {}
+  }
+  cargarNombres();
+
+  function filtrarNombres(query) {
+    dropdown.innerHTML = '';
+    if (!todosLosNombres.length) return;
+    const filtrados = todosLosNombres.filter(c => c.toLowerCase().includes(query.toLowerCase()));
+    if (filtrados.length === 0) { dropdown.style.display = 'none'; return; }
+    filtrados.forEach(c => {
+      const div = document.createElement('div');
+      div.className = 'custom-dropdown-item'; div.textContent = c;
+      div.onmousedown = () => { inputProf.value = c; dropdown.style.display = 'none'; };
+      dropdown.appendChild(div);
+    });
+    dropdown.style.display = 'block';
+  }
+
+  if(inputProf) {
+    inputProf.addEventListener('input', () => filtrarNombres(inputProf.value));
+    inputProf.addEventListener('focus', () => filtrarNombres(inputProf.value));
+  }
+
+  document.addEventListener('click', (e) => {
+    if (e.target !== inputProf && e.target !== dropdown && dropdown) {
+        dropdown.style.display = 'none';
+    }
+  });
+
+  // ── GRÁFICOS ──
+  const chartInstances = {};
+  const PALETTE = ['#00b09b','#0a1f3d','#f0a500','#6c3fc5','#e53935','#1e9c6e','#06b6d4'];
+
+  function buildChart(cid, type, labels, data) {
+    const ctx = document.getElementById(cid);
+    if (!ctx) return;
+    if (chartInstances[cid]) chartInstances[cid].destroy();
+
+    chartInstances[cid] = new Chart(ctx, {
+      type: type,
+      data:{ labels, datasets:[{ data, backgroundColor: type==='doughnut'?PALETTE:PALETTE.map(c=>c+'cc'), borderColor:PALETTE, borderWidth:0, borderRadius: type==='bar'?4:0 }] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display: type==='doughnut', position:'right', labels:{font:{family:'Sora', size:10}} } }, scales: type==='bar'?{ y:{ beginAtZero:true, ticks:{ font:{ family:'Sora', size:10 } } }, x:{ ticks:{ font:{ family:'Sora', size:9 }, maxRotation:20 } } }:{} }
+    });
+  }
+
+  function renderTable(cid, arr) {
+    const tableEl = document.getElementById(cid);
+    if(!tableEl) return;
+    const tb = tableEl.querySelector('tbody');
+    tb.innerHTML = '';
+    if(!arr || arr.length === 0) {
+      tb.innerHTML = '<tr><td colspan="2" style="text-align:center;color:#888;">Sin diagnósticos en este periodo</td></tr>';
+      return;
+    }
+    arr.forEach(i => {
+      tb.innerHTML += `<tr><td style="font-weight:600;">${i.label}</td><td style="text-align:right; font-family:monospace; font-size:1rem;">${fmt(i.total)}</td></tr>`;
+    });
+  }
+
+  // ── CONSULTAR ──
+  async function buscarSihos() {
+    if (isSearching) return;
+
+    if(!inputProf) return;
+    const nombre = inputProf.value.trim();
+    const fi = document.getElementById('inputInicio').value;
+    const ff = document.getElementById('inputFin').value;
+    const btn = document.getElementById('btnBuscar');
+
+    if(dropdown) dropdown.style.display = 'none';
+
+    if (!nombre||!fi||!ff) { alert('Por favor, completa el nombre del profesional y las fechas de inicio y fin.'); return; }
+
+    isSearching = true;
+    if(btn) btn.disabled = true;
+    document.getElementById('loadingOverlay').style.display = 'flex';
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('resultadosSihos').style.display = 'none';
+
+    try {
+      const resp = await fetch(`${API_BASE}/api/sihos?profesional=${encodeURIComponent(nombre)}&fecha_inicio=${fi}&fecha_fin=${ff}`, { headers: {'Authorization':'Bearer '+token} });
+
+      if (resp.status === 401) { logout(); return; }
+
+      const data = await resp.json();
+      if (data.error) {
+          alert(data.error);
+          document.getElementById('emptyState').style.display='block';
+          return;
+      }
+
+      // 1. Textos base
+      document.getElementById('lbl-nombre').textContent = data.profesional.toUpperCase();
+      document.getElementById('lbl-especialidad').textContent = data.especialidad.toUpperCase();
+
+      document.getElementById('val-sihos').textContent = fmt(data.resumen.total_facturaciones);
+      document.getElementById('val-campo').textContent = fmt(data.indicadores.campo_epi_collect);
+
+      document.getElementById('txt-rias').textContent = fmt(data.indicadores.total_rias);
+      document.getElementById('txt-pyp-med').textContent = fmt(data.indicadores.pyp_medicina);
+      document.getElementById('txt-pyp-enf').textContent = fmt(data.indicadores.pyp_enfermeria);
+      document.getElementById('txt-salud-mental').textContent = fmt(data.indicadores.salud_mental);
+
+      // 2. Gráficos Demografía
+      buildChart('chartGenero', 'doughnut', data.demografia.genero.map(x=>x.label), data.demografia.genero.map(x=>x.total));
+      buildChart('chartCursoVida', 'bar', data.demografia.curso_vida.map(x=>x.label), data.demografia.curso_vida.map(x=>x.total));
+
+      // 3. Gráficos Administrativo
+      buildChart('chartEps', 'bar', data.administrativo.eps.map(x=>x.label), data.administrativo.eps.map(x=>x.total));
+      buildChart('chartContrato', 'doughnut', data.administrativo.contrato.map(x=>x.label), data.administrativo.contrato.map(x=>x.total));
+
+      // 4. Gráficos Clínico
+      buildChart('chartFinalidad', 'bar', data.clinico.finalidad.map(x=>x.label), data.clinico.finalidad.map(x=>x.total));
+      buildChart('chartServicio', 'doughnut', data.clinico.tipo_servicio.map(x=>x.label), data.clinico.tipo_servicio.map(x=>x.total));
+
+      // Tabla Diagnósticos
+      renderTable('tablaDiagnosticos', data.clinico.diagnosticos);
+
+      document.getElementById('resultadosSihos').style.display = 'block';
+
+    } catch(err) {
+      console.error(err);
+      alert(`⚠️ Fallo de conexión o de servidor. Revisa si el backend de Python está ejecutándose.`);
+      document.getElementById('emptyState').style.display = 'block';
+    } finally {
+      isSearching = false;
+      if(btn) btn.disabled = false;
+      document.getElementById('loadingOverlay').style.display = 'none';
+    }
+  }
+
+  // Evento "Enter" en los inputs
+  ['inputProf','inputInicio','inputFin'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) {
+        el.addEventListener('keydown', e => { if(e.key==='Enter') buscarSihos(); });
+    }
+  });
+</script>
+</body>
+</html>
