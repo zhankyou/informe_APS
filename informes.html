@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>INFORMES ESE · Informes Oficiales</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,400&display=swap" rel="stylesheet"/>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    /* ═══════════════════════════════════════════════════════════════
+       ESTILOS BASE E INTERFAZ DE USUARIO
+    ═══════════════════════════════════════════════════════════════ */
+    :root {
+      --bg:#f0f4fa;--surface:#ffffff;--navy:#0a1f3d;--navy-lt:#122848;
+      --teal:#00b09b;--teal-lt:#e6f7f5;--teal-mid:#b3e8e3;
+      --gold:#f0a500;--gold-lt:#fef7e0;--red:#e53935;--red-lt:#fde8e8;
+      --purple:#6c3fc5;--purple-lt:#ede8fb;--green:#1e9c6e;--green-lt:#e5f7f0;
+      --border:#dde4ef;--text:#1a2840;--muted:#5d7290;
+      --sidebar-w:240px;--radius:14px;
+      --shadow:0 2px 16px rgba(10,31,61,.07);--shadow-md:0 4px 28px rgba(10,31,61,.11);
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html{scroll-behavior:smooth;}
+    body{font-family:'Sora',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;}
+
+    /* Sidebar */
+    .sidebar{width:var(--sidebar-w);background:var(--navy);height:100vh;position:fixed;left:0;top:0;display:flex;flex-direction:column;padding:1.5rem 0;z-index:100;box-shadow:4px 0 24px rgba(0,0,0,.18);}
+    .sidebar-brand{display:flex;align-items:center;gap:.75rem;padding:0 1.4rem 1.5rem;border-bottom:1px solid rgba(255,255,255,.08);}
+    .brand-logo{width:36px;height:36px;background:linear-gradient(135deg,var(--teal),#00d4b8);border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .brand-logo svg{width:20px;height:20px;fill:#fff;}
+    .brand-name{font-family:'Fraunces',serif;font-size:1rem;color:#fff;}
+    .brand-sub{font-size:.62rem;color:rgba(255,255,255,.4);letter-spacing:.1em;text-transform:uppercase;}
+
+    .nav{flex:1;padding:1.2rem 0;}
+    .nav-item{display:flex;align-items:center;gap:.75rem;padding:.7rem 1.4rem;color:rgba(255,255,255,.55);font-size:.83rem;font-weight:500;cursor:pointer;transition:all .18s;text-decoration:none;margin:.1rem 0;}
+    .nav-item:hover{color:#fff;background:rgba(255,255,255,.06);}
+    .nav-item.active{color:var(--teal);background:rgba(0,176,155,.12);border-right:3px solid var(--teal);}
+    .nav-item svg{width:18px;height:18px;flex-shrink:0;}
+    .nav-section-title{padding:.9rem 1.4rem .3rem;font-size:.62rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.25);}
+
+    .sidebar-user{padding:1rem 1.4rem;border-top:1px solid rgba(255,255,255,.08);}
+    .user-name{font-size:.82rem;color:#fff;font-weight:600;margin-bottom:.15rem;}
+    .user-role{font-size:.68rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.1em;}
+    .btn-logout{margin-top:.75rem;width:100%;background:rgba(229,57,53,.15);border:1px solid rgba(229,57,53,.3);color:#ff8a80;border-radius:8px;padding:.45rem;font-family:'Sora',sans-serif;font-size:.75rem;cursor:pointer;transition:background .2s;}
+    .btn-logout:hover{background:rgba(229,57,53,.25);}
+
+    /* Main y Topbar */
+    .main{margin-left:var(--sidebar-w);flex:1;min-height:100vh;}
+    .topbar{background:var(--surface);padding:1rem 2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:var(--shadow);}
+    .topbar-title{font-family:'Fraunces',serif;font-size:1.1rem;font-weight:700;color:var(--navy);}
+    .topbar-meta{font-size:.75rem;color:var(--muted);}
+    .topbar-actions{display:flex;gap:.65rem;align-items:center;}
+    .content{padding:1.75rem 2rem 4rem;}
+
+    .btn-action{background:var(--navy);color:#fff;border:none;padding:.6rem 1.2rem;border-radius:8px;font-weight:600;font-family:'Sora',sans-serif;cursor:pointer;display:none;align-items:center;gap:8px;font-size:.85rem;box-shadow:0 2px 10px rgba(10,31,61,.2);transition:opacity .2s, transform .1s;}
+    .btn-action:hover{opacity:.9;}
+    .btn-action:active{transform:scale(.97);}
+    .btn-excel{background:#1e9c6e;color:#fff;}
+    .btn-action svg{width:16px;height:16px;fill:currentColor;}
+
+    /* Filtros y Búsqueda */
+    .auditoria-filters{display:flex;gap:1rem;margin-bottom:2rem;background:var(--surface);padding:1.5rem;border-radius:var(--radius);box-shadow:var(--shadow);flex-wrap:wrap;align-items:flex-end;}
+    .filter-group{flex:1;min-width:200px; position:relative;}
+    .filter-group label{display:block;font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.45rem;}
+    .auditoria-filters input{width:100%;border:1.5px solid var(--border);border-radius:8px;padding:.8rem 1rem;font-family:'Sora',sans-serif;font-size:.9rem;color:var(--text);outline:none;transition:border-color .2s;}
+    .auditoria-filters input:focus{border-color:var(--teal);}
+    .btn-search{background:var(--navy);color:#fff;border:none;padding:.9rem 2rem;border-radius:8px;font-weight:600;font-family:'Sora',sans-serif;cursor:pointer;transition:background .2s;white-space:nowrap;height:46px;}
+
+    /* Dropdown */
+    .custom-dropdown { position:absolute; top:100%; left:0; right:0; background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow-md); max-height:200px; overflow-y:auto; z-index:1000; display:none; margin-top:4px; }
+    .custom-dropdown-item { padding:.7rem 1rem; font-size:.85rem; color:var(--text); cursor:pointer; transition:background .2s; }
+    .custom-dropdown-item:hover { background:var(--teal-lt); color:var(--teal); }
+
+    /* Estados y Carga */
+    #loadingOverlay{position:fixed;inset:0;background:rgba(240,244,250,.8);z-index:999;display:none;flex-direction:column;align-items:center;justify-content:center;gap:1rem;}
+    .loading-spinner{width:40px;height:40px;border:3px solid rgba(0,176,155,.2);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .loading-text{font-size:.85rem;color:var(--muted);}
+    .empty-state{text-align:center;padding:4rem 2rem;color:var(--muted);}
+    .empty-state svg{width:60px;margin-bottom:1rem;opacity:.4;}
+
+    /* ═══════════════════════════════════════════════════════════════
+       ESTILOS DEL DOCUMENTO TIPO OFICIO (PREVISUALIZACIÓN Y PDF)
+    ═══════════════════════════════════════════════════════════════ */
+    .report-paper {
+      background: #fff; max-width: 850px; margin: 0 auto; padding: 3rem 4rem;
+      border-radius: 4px; box-shadow: var(--shadow-md);
+      font-family: Arial, sans-serif; color: #000; font-size: 9pt; display: none;
+    }
+
+    .rp-header-inst { border: 1.5px solid #003366; margin-bottom: 12pt; }
+    .rp-header-top { background: #003366; color: #fff; text-align: center; padding: 8pt 12pt; font-size: 8.5pt; font-weight: bold; letter-spacing: .03em; }
+    .rp-header-info { display: flex; align-items: center; border-top: 1px solid #003366; padding: 6pt 10pt; justify-content: space-between; }
+    .rp-address-cell { flex: 1; font-size: 7.5pt; color: #333; line-height: 1.6; text-align: center; border-left: 1px solid #ccc; border-right: 1px solid #ccc; padding: 0 10pt; }
+
+    .rp-title-block { text-align: center; margin-bottom: 10pt; padding-bottom: 8pt; border-bottom: 2pt solid #003366; }
+    .rp-title-main { font-size: 13pt; font-weight: bold; color: #003366; letter-spacing: .04em; text-transform: uppercase; }
+    .rp-title-sub { font-size: 8.5pt; color: #555; margin-top: 3pt; font-style: italic; }
+
+    .rp-id-table { width: 100%; border-collapse: collapse; margin-bottom: 12pt; font-size: 8.5pt; }
+    .rp-id-table td { border: 1px solid #003366; padding: 4pt 8pt; }
+    .rp-id-table td:nth-child(odd) { background: #e8f0f8; font-weight: bold; color: #003366; width: 22%; }
+
+    /* PAGINACIÓN: Evitar cortes en impresión */
+    .rp-section { margin-bottom: 12pt; page-break-inside: avoid !important; }
+    .rp-section-title { background: #003366; color: #fff; padding: 4pt 8pt; font-size: 9.5pt; font-weight: bold; letter-spacing: .04em; margin-bottom: 6pt; text-transform: uppercase;}
+
+    /* ── ESTILOS DE TABLAS DE INDICADORES (Diseño Azul Oficial) ── */
+    .rp-sub-title-indicador { font-size: 10pt; font-weight: bold; color: #1a5276; margin-bottom: 5pt; page-break-inside: avoid !important;}
+    .ind-desc { font-size: 8pt; color: #444; margin-bottom: 6pt; line-height: 1.4; page-break-inside: avoid !important;}
+
+    .ind-table { width: 100%; border-collapse: collapse; margin-bottom: 15pt; font-size: 8pt; font-family: Arial, sans-serif; page-break-inside: avoid !important; }
+    .ind-table th { background: #1a5276; color: #ffffff; padding: 6pt; text-align: center; border: 1px solid #85c1e9; font-weight: bold; }
+    .ind-table td { padding: 6pt; border: 1px solid #85c1e9; color: #111; vertical-align: middle; }
+    .ind-table tr:nth-child(even) td { background: #ebf5fb; }
+    .ind-table .ind-strong { font-weight: bold; }
+    .ind-table .ind-result { text-align: center; font-weight: bold; font-size: 9.5pt; color: #1a5276; }
+
+    /* Tablas Antiguas Generales */
+    .rp-table { width: 100%; border-collapse: collapse; margin-bottom: 8pt; font-size: 8.5pt; page-break-inside: avoid !important; }
+    .rp-table th { background: #003366; color: #fff; padding: 4pt 8pt; text-align: left; font-size: 8pt; }
+    .rp-table td { border: 1px solid #c8d6e8; padding: 4pt 8pt; color: #222; }
+    .rp-table tr:nth-child(even) td { background: #f0f6fb; }
+    .rp-table .td-num { text-align: right; font-weight: bold; color: #003366; width: 80pt; }
+
+    /* Mapas y Gráficos */
+    .rp-charts-container { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; height: 180px; position:relative; page-break-inside: avoid !important; margin-bottom: 10pt;}
+    .map-container { width: 100%; height: 320px; border: 1px solid #c8d6e8; border-radius: 4px; margin-bottom: 8pt; z-index: 1; page-break-inside: avoid !important; }
+
+    /* Contenedor gráfico + leyenda para evitar recortes */
+    .chart-box { display: flex; align-items: center; gap: 15px; margin-bottom: 10px; page-break-inside: avoid !important; }
+    .donut-wrapper { width: 130px; height: 130px; position: relative; flex-shrink: 0; }
+    .legend-wrapper { flex: 1; }
+    .mini-legend-table { width: 100%; border-collapse: collapse; font-size: 7.5pt; border: none; }
+    .mini-legend-table td { padding: 3px; color: #333; border: none !important; background: transparent !important; }
+    .mini-legend-table tr:nth-child(even) td { background: transparent !important; }
+
+    /* Cajas Editables (Novedad) */
+    [contenteditable="true"] { outline: none; border-bottom: 1px dashed #ccc; transition: all 0.3s ease; padding: 2px 4px; border-radius: 2px;}
+    [contenteditable="true"]:hover, [contenteditable="true"]:focus { background: rgba(0, 176, 155, 0.08); border-bottom-color: var(--teal); }
+    .edit-hint { font-size: 7.5pt; color: var(--teal); font-weight: bold; font-style: normal; margin-left: 5px;}
+
+    /* Firmas */
+    .rp-firma { margin-top: 24pt; display: flex; justify-content: space-around; gap: 20pt; page-break-inside: avoid !important; align-items: flex-end; }
+    .rp-firma-item { text-align: center; flex: 1; border-top: 1pt solid #333; padding-top: 5pt; font-size: 7.5pt; position: relative; }
+    .firma-img { height: 50px; object-fit: contain; display: block; margin: 0 auto -5px auto; }
+    .rp-pie-page { text-align: center; font-size: 7pt; color: #888; margin-top: 10pt; border-top: 1px solid #ddd; padding-top: 5pt; }
+
+    /* Cajas de observaciones (Auditoría) */
+    .rp-obs-wrapper { margin: 6pt 0 10pt; page-break-inside: avoid !important; }
+    .rp-obs-label { font-size: 7.5pt; font-weight: bold; color: #003366; margin-bottom: 3pt; text-transform: uppercase; }
+    .rp-obs-block { background: #f8fafc; border: 1px solid #c8d6e8; border-left: 3pt solid #003366; padding: 5pt 8pt; font-size: 7.5pt; color: #333; white-space: pre-wrap; line-height: 1.55; border-radius: 2pt; font-family: 'Courier New', monospace;}
+    .obs-error { border-left-color: #c0392b; background: #fdf6f6; color: #7a2020; }
+
+    @media print {
+      .sidebar, .topbar, .auditoria-filters, #loadingOverlay, .empty-state { display: none !important; }
+      .main { margin-left: 0 !important; width: 100% !important; }
+      .content { padding: 0 !important; }
+      body { background: #fff; display: block; }
+      .report-paper { box-shadow: none; padding: 0; margin: 0; width: 100%; max-width: none; }
+      @page { size: letter portrait; margin: 1.5cm; }
+      /* Quitar guías de edición al imprimir */
+      [contenteditable="true"] { border: none !important; background: transparent !important; padding: 0; }
+      .edit-hint { display: none !important; }
+    }
+
+    @media (max-width:768px){.sidebar{width:0;overflow:hidden;}.main{margin-left:0;}.content{padding:1rem;}}
+  </style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-logo"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg></div>
+    <div><div class="brand-name">INFORMES</div><div class="brand-sub">ESE 2026</div></div>
+  </div>
+  <div class="nav">
+    <div class="nav-section-title">Módulos</div>
+    <a href="/dashboard" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+      <span class="nav-label">Dashboard</span>
+    </a>
+    <a href="/auditoria" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      <span class="nav-label">Auditoría</span>
+    </a>
+    <a href="/sihos" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+      <span class="nav-label">SIHOS Clínica</span>
+    </a>
+    <a href="/mapas" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+      <span class="nav-label">Mapas GIS</span>
+    </a>
+    <a href="/informes" class="nav-item active">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+      <span class="nav-label">Informes</span>
+    </a>
+  </div>
+  <div class="sidebar-user">
+    <div class="user-name" id="sidebarNombre">Cargando...</div>
+    <div class="user-role" id="sidebarRol">—</div>
+    <button class="btn-logout" onclick="logout()">Cerrar sesión</button>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title">Generación de Informes Oficiales</div>
+      <div class="topbar-meta">Integración 360°: EpiCollect (Campo), Mapas GIS y SIHOS (Clínica)</div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn-action btn-excel" id="btnExport" onclick="descargarExcel()">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 14h-3v3h-2v-3H8v-2h3v-3h2v3h3v2zm-3-7V3.5L18.5 9H13z"/></svg>
+        Descargar Excel
+      </button>
+      <button class="btn-action" id="btnPrint" onclick="window.print()">
+        <svg viewBox="0 0 24 24"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>
+        Imprimir PDF
+      </button>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="auditoria-filters">
+      <div class="filter-group">
+        <label>Correo del Encuestador</label>
+        <input type="email" id="inputUser" placeholder="Escribe para buscar..." autocomplete="off"/>
+        <div id="customDropdown" class="custom-dropdown"></div>
+      </div>
+      <div class="filter-group">
+        <label>Fecha Inicio</label>
+        <input type="date" id="inputInicio"/>
+      </div>
+      <div class="filter-group">
+        <label>Fecha Fin</label>
+        <input type="date" id="inputFin"/>
+      </div>
+      <button class="btn-search" id="btnBuscar" onclick="generarInforme()">📑 Generar Informe Global</button>
+    </div>
+
+    <div id="emptyState" class="empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+        <line x1="16" y1="13" x2="8" y2="13"></line>
+        <line x1="16" y1="17" x2="8" y2="17"></line>
+        <polyline points="10 9 9 9 8 9"></polyline>
+      </svg>
+      <p>Selecciona un encuestador para generar un reporte integral que cruza variables sociodemográficas, geográficas (Mapas) y facturación (SIHOS).</p>
+    </div>
+
+    <div id="reportPreview" class="report-paper"></div>
+
+  </div>
+</div>
+
+<div id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">Cruzando datos con SIHOS, EpiCollect y Leaflet...</div>
+</div>
+
+<script>
+  const API_BASE = window.location.protocol === 'file:' ? 'http://127.0.0.1:5001' : window.location.origin;
+  const token = localStorage.getItem('informes_token');
+  if (!token) { window.location.href = '/login'; }
+
+  const userInfo = JSON.parse(localStorage.getItem('informes_user') || '{}');
+  document.getElementById('sidebarNombre').textContent = userInfo.nombre || '—';
+  document.getElementById('sidebarRol').textContent    = userInfo.rol   || '—';
+
+  let todosLosCorreos = [];
+  const inputUser = document.getElementById('inputUser');
+  const dropdown  = document.getElementById('customDropdown');
+  let isSearching = false;
+
+  async function cargarCorreos() {
+    try {
+      const resp = await fetch(`${API_BASE}/api/encuestadores`, { headers:{ 'Authorization':'Bearer '+token } });
+      if (resp.ok) todosLosCorreos = await resp.json();
+    } catch(e) {}
+  }
+  cargarCorreos();
+
+  function filtrarCorreos(query) {
+    dropdown.innerHTML = '';
+    if (!todosLosCorreos.length) return;
+    const filtrados = todosLosCorreos.filter(c => c.toLowerCase().includes(query.toLowerCase()));
+    if (filtrados.length === 0) { dropdown.style.display = 'none'; return; }
+    filtrados.forEach(c => {
+      const div = document.createElement('div');
+      div.className = 'custom-dropdown-item'; div.textContent = c;
+      div.onmousedown = () => { inputUser.value = c; dropdown.style.display = 'none'; };
+      dropdown.appendChild(div);
+    });
+    dropdown.style.display = 'block';
+  }
+  inputUser.addEventListener('input', () => filtrarCorreos(inputUser.value));
+  inputUser.addEventListener('focus', () => filtrarCorreos(inputUser.value));
+  document.addEventListener('click', (e) => { if (e.target !== inputUser && e.target !== dropdown) dropdown.style.display = 'none'; });
+
+  function logout() {
+    localStorage.removeItem('informes_token');
+    window.location.href = '/login';
+  }
+
+  function fmt(n) { return Number(n||0).toLocaleString('es-CO'); }
+
+  function headers() {
+    return { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+  }
+
+  const PALETTE = ['#0a1f3d', '#00b09b', '#f0a500', '#6c3fc5', '#e53935', '#1e9c6e', '#06b6d4'];
+  const chartInstances = {};
+
+  function buildPrintChart(cid, labels, data) {
+    const ctx = document.getElementById(cid);
+    if (!ctx) return;
+    if (chartInstances[cid]) chartInstances[cid].destroy();
+    chartInstances[cid] = new Chart(ctx, {
+      type: 'doughnut',
+      data: { labels, datasets:[{ data, backgroundColor: PALETTE, borderColor: '#fff', borderWidth: 1 }] },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display: false } } }
+    });
+  }
+
+  function getMiniTable(labels, data) {
+    let tbody = '';
+    labels.forEach((lbl, idx) => {
+      let c = PALETTE[idx % PALETTE.length];
+      tbody += `<tr>
+        <td style="width:12px; padding:3px;"><div style="width:10px; height:10px; background:${c};"></div></td>
+        <td style="font-size:7.5pt; padding:3px;">${lbl}</td>
+        <td style="font-size:7.5pt; font-weight:bold; text-align:right; padding:3px;">${fmt(data[idx])}</td>
+      </tr>`;
+    });
+    return `<table class="mini-legend-table">${tbody}</table>`;
+  }
+
+  function descargarExcel() {
+    const email = document.getElementById('inputUser').value.trim();
+    const fi    = document.getElementById('inputInicio').value;
+    const ff    = document.getElementById('inputFin').value;
+    if (!email||!fi||!ff) { alert('Por favor genera el informe primero.'); return; }
+    window.location.href = `${API_BASE}/api/exportar_excel?usuario=${encodeURIComponent(email)}&fecha_inicio=${fi}&fecha_fin=${ff}&token=${token}`;
+  }
+
+  async function generarInforme() {
+    if (isSearching) return;
+
+    const email = document.getElementById('inputUser').value.trim();
+    const fi    = document.getElementById('inputInicio').value;
+    const ff    = document.getElementById('inputFin').value;
+    const btn   = document.getElementById('btnBuscar');
+
+    dropdown.style.display = 'none';
+
+    if (!email||!fi||!ff) { alert('Por favor ingresa el correo y el rango de fechas completo.'); return; }
+
+    isSearching = true;
+    btn.disabled = true;
+    document.getElementById('loadingOverlay').style.display = 'flex';
+    document.getElementById('emptyState').style.display     = 'none';
+    document.getElementById('reportPreview').style.display  = 'none';
+    document.getElementById('btnPrint').style.display       = 'none';
+    document.getElementById('btnExport').style.display      = 'none';
+
+    try {
+      const [respAud, respMapas] = await Promise.all([
+        fetch(`${API_BASE}/api/auditoria?usuario=${encodeURIComponent(email)}&fecha_inicio=${fi}&fecha_fin=${ff}`, { headers: headers() }),
+        fetch(`${API_BASE}/api/mapas?usuario=${encodeURIComponent(email)}&fecha_inicio=${fi}&fecha_fin=${ff}`, { headers: headers() })
+      ]);
+
+      if (respAud.status === 401 || respMapas.status === 401) { logout(); return; }
+
+      const d = await respAud.json();
+      const m = await respMapas.json();
+
+      if (d.error) { alert(d.error); document.getElementById('emptyState').style.display='block'; return; }
+
+      let s = null;
+      if (d.encuestador_nombre && d.encuestador_nombre !== 'Sin registro de nombre') {
+        try {
+          const respSihos = await fetch(`${API_BASE}/api/sihos?profesional=${encodeURIComponent(d.encuestador_nombre)}&fecha_inicio=${fi}&fecha_fin=${ff}`, { headers: headers() });
+          if (respSihos.ok) {
+            const dataSihos = await respSihos.json();
+            if(!dataSihos.error) s = dataSihos;
+          }
+        } catch(e) { console.warn("No se pudo cargar SIHOS", e); }
+      }
+
+      renderHtmlReport(d, m, s, email, `${fi} al ${ff}`);
+
+    } catch(err) {
+      alert(`⚠️ Fallo en la consulta:\n\n${err.message}`);
+      document.getElementById('emptyState').style.display = 'block';
+    } finally {
+      isSearching = false;
+      btn.disabled = false;
+      document.getElementById('loadingOverlay').style.display = 'none';
+    }
+  }
+
+  function renderHtmlReport(d, m, s, usuarioConsultado, rangoFechas) {
+    const ca = d.caracterizacion || {};
+    const tr = d.tramites || {};
+
+    const famCaract = ca.familias || 0;
+    const indCaract = ca.individuos || 0;
+    const tramRes = tr.resolutivos || 0;
+    const tramTotal = tr.total || 0;
+    const totalRias = s ? s.indicadores.total_rias : 0;
+    const interRias = s ? (s.indicadores.pyp_medicina + s.indicadores.pyp_enfermeria) : 0;
+    const integrantesIntervenidos = d.pcf?.integrantes_intervenidos || 0;
+    const famIntervenidas = d.pcf?.familias_intervenidas || 0;
+
+    const pctCanalizacion = famCaract > 0 ? Math.min(100, (tramRes / famCaract * 100)).toFixed(1) : '0.0';
+    const pctIntersectorial = famCaract > 0 ? Math.min(100, ((tramTotal - tramRes) / famCaract * 100)).toFixed(1) : '0.0';
+    const pctRiasPre = indCaract > 0 ? Math.min(100, (totalRias / indCaract * 100)).toFixed(1) : '0.0';
+    const pctRiasPost = integrantesIntervenidos > 0 ? Math.min(100, (interRias / integrantesIntervenidos * 100)).toFixed(1) : '0.0';
+
+    const nombreEncuestador = d.encuestador_nombre && d.encuestador_nombre !== 'Sin registro de nombre' ? d.encuestador_nombre : usuarioConsultado;
+    const perfilEncuestador = d.encuestador_perfil && d.encuestador_perfil !== 'Sin registro de perfil' ? d.encuestador_perfil : 'Encuestador(a) APS';
+
+    function getObs(v, colorClass='') {
+      const val = v ? v.trim() : '';
+      const cls = 'rp-obs-block' + (colorClass ? ' ' + colorClass : '') + (val ? '' : ' rp-obs-empty');
+      const txt = val ? val.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : 'Sin observaciones registradas.';
+      return `<div class="rp-obs-wrapper"><div class="${cls}">${txt}</div></div>`;
+    }
+
+    const hoy = new Date().toLocaleDateString('es-CO', { dateStyle:'full' });
+
+    let filasDiagnosticos = '';
+    if (s && s.clinico && s.clinico.diagnosticos && s.clinico.diagnosticos.length > 0) {
+      s.clinico.diagnosticos.slice(0, 7).forEach(diag => {
+        let accion = "Valoración integral y seguimiento en APS.";
+        let lbl = diag.label.toUpperCase();
+
+        if(lbl.includes("ANTICONCEPCION") || lbl.includes("PROCREACION") || lbl.includes("EMBARAZO")) accion = "Asesoría en planificación familiar y métodos.";
+        else if(lbl.includes("VIH") || lbl.includes("SÍFILIS") || lbl.includes("INFECCION")) accion = "Asesoría, tamizaje e inicio de ruta de atención.";
+        else if(lbl.includes("HIPERTENSION") || lbl.includes("DIABETES") || lbl.includes("GLICEMIA")) accion = "Control de crónicos y adherencia a tratamiento.";
+        else if(lbl.includes("DESNUTRICION") || lbl.includes("NUTRICIONAL")) accion = "Remisión a programa de recuperación nutricional.";
+        else if(lbl.includes("DENTAL") || lbl.includes("CARIES")) accion = "Canalización a servicios de odontología.";
+        else if(lbl.includes("ANSIEDAD") || lbl.includes("DEPRESION")) accion = "Ruta de atención en salud mental activada.";
+
+        let etario = ((diag.grupo_etario) || 'Sin Datos').replace(/^\d+\.\s*/, '');
+        filasDiagnosticos += `<tr><td class="ind-strong" style="font-size:7pt;">${diag.label}</td><td class="ind-result">${fmt(diag.total)}</td><td style="font-size:7.5pt; text-align:center;">${etario}</td><td style="font-size:7.5pt;">${accion}</td></tr>`;
+      });
+    } else {
+      filasDiagnosticos = `<tr><td colspan="4" style="text-align:center; height:30pt; color:#888;">No hay diagnósticos clínicos facturados (SIHOS) en este periodo.</td></tr>`;
+    }
+
+    let noAsegurados = ca.sin_aseguramiento || 0;
+    let descVigilancia = (s && s.indicadores.total_rias > 0) ? "Búsqueda activa y cerco epidemiológico de condiciones identificadas en territorio." : "Monitoreo continuo de eventos de interés en salud pública sin alertas críticas.";
+    let descAseguramiento = noAsegurados > 0 ? `Se identificaron ${noAsegurados} personas sin afiliación activa. Se inició canalización para afiliación al SGSSS.` : "Verificación y actualización de derechos en salud mediante las encuestas de caracterización.";
+    let descUrgencias = tramRes > 0 ? `Se priorizaron y resolvieron ${tramRes} casos con requerimientos de atención o urgencia.` : "No se reportaron activaciones de ruta de emergencia vital durante las visitas.";
+    let descOtras = famIntervenidas > 0 ? `Se abordaron ${famIntervenidas} familias con intervenciones orientadas a mitigar riesgos psicosociales.` : "Articulación comunitaria para el control de determinantes sociales de la salud.";
+
+    const mapTitles = {'caracterizacion': 'Caracterización SI-APS'};
+    let mapasHtml = ""; let mapasActivos = [];
+    for (const [key, title] of Object.entries(mapTitles)) {
+       if(m[key] && m[key].totales && m[key].totales.ok > 0) {
+          mapasHtml += `
+            <div class="rp-sub-title-indicador" style="margin-top:10pt;">Mapa de Cobertura: ${title}</div>
+            <div id="print-map-${key}" class="map-container"></div>
+          `;
+          mapasActivos.push(key);
+       }
+    }
+
+    let seccionMapasCompleta = "";
+    if (mapasHtml !== "") {
+       seccionMapasCompleta = `
+         <div class="rp-section">
+           <div class="rp-section-title" style="background:#1e9c6e;">9. GEORREFERENCIACIÓN Y MAPAS DE COBERTURA</div>
+           <div class="ind-desc">Posicionamiento satelital de los registros efectivos en el periodo auditado. Solo se muestran los módulos con coordenadas válidas registradas.</div>
+           ${mapasHtml}
+         </div>
+       `;
+    }
+
+    let graficosHtml = '';
+    if(s && s.resumen.total_facturaciones > 0) {
+      let tableGen = getMiniTable(s.demografia.genero.map(x=>x.label), s.demografia.genero.map(x=>x.total));
+      let tableSrv = getMiniTable(s.clinico.tipo_servicio.map(x=>x.label), s.clinico.tipo_servicio.map(x=>x.total));
+
+      graficosHtml = `
+        <div class="rp-section">
+          <div class="rp-section-title" style="background:#0a1f3d;">8. ANÁLISIS DE FACTURACIÓN CLÍNICA (SIHOS)</div>
+          <table class="rp-table">
+            <tr><th>Indicador Clínico</th><th style="width:90pt;text-align:right;">Cantidad</th></tr>
+            <tr><td>Total Facturaciones / Atenciones Médicas</td><td class="td-num">${fmt(s.resumen.total_facturaciones)}</td></tr>
+            <tr><td>Consultas Promoción y Mantenimiento (Medicina)</td><td class="td-num">${fmt(s.indicadores.pyp_medicina)}</td></tr>
+            <tr><td>Consultas Promoción y Mantenimiento (Enfermería)</td><td class="td-num">${fmt(s.indicadores.pyp_enfermeria)}</td></tr>
+            <tr><td>Consultas de Salud Mental y Psicología</td><td class="td-num">${fmt(s.indicadores.salud_mental)}</td></tr>
+            <tr class="total-row"><td>TOTAL CUMPLIMIENTO RIAS (Sede APS)</td><td class="td-num">${fmt(s.indicadores.total_rias)}</td></tr>
+          </table>
+
+          <div style="display:flex; justify-content:space-between; gap:20pt; margin-top:15pt;">
+            <div style="flex:1;">
+              <div class="rp-sub-title-indicador">Distribución por Género</div>
+              <div class="chart-box">
+                <div class="rp-charts-container"><canvas id="printChartGenero"></canvas></div>
+                <div style="flex:1;">${tableGen}</div>
+              </div>
+            </div>
+            <div style="flex:1;">
+              <div class="rp-sub-title-indicador">Tipo de Servicio</div>
+              <div class="chart-box">
+                <div class="rp-charts-container"><canvas id="printChartServicio"></canvas></div>
+                <div style="flex:1;">${tableSrv}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    const html = `
+      <div class="rp-header-inst">
+        <div class="rp-header-top">MINISTERIO DE SALUD Y PROTECCIÓN SOCIAL &nbsp;·&nbsp; EMPRESA SOCIAL DEL ESTADO — VILLAVICENCIO &nbsp;·&nbsp; EQUIPOS BÁSICOS DE SALUD — EBS</div>
+        <div class="rp-header-info">
+          <div style="text-align: center; width: 100px; padding-right: 10pt;">
+            <img src="/logo-ese.png" alt="ESE Villavicencio" style="max-width: 100%; height: 65px; object-fit: contain;" onerror="this.style.display='none'"/>
+          </div>
+          <div class="rp-address-cell">
+            Carrera 42 N° 33–24 Barzal Alto, Villavicencio — Meta<br/>
+            Conmutador: (098) 6614100<br/>
+            NIT: 822.002.459 - Res. 763/2025<br/>
+            <span style="font-size:6.5pt;color:#888;">Sistema INFORMES ESE</span>
+          </div>
+          <div style="text-align: center; width: 140px; padding-left: 10pt;">
+            <img src="/logo-aps.png" alt="Atención Primaria en Salud" style="max-width: 100%; height: 55px; object-fit: contain;" onerror="this.style.display='none'"/>
+          </div>
+        </div>
+      </div>
+
+      <div class="rp-title-block">
+        <div class="rp-title-main">Reporte Integral de Auditoría e Indicadores APS</div>
+        <div class="rp-title-sub">Cruce Analítico: Intervenciones de Campo (EpiCollect) vs. Facturación Clínica (SIHOS)</div>
+      </div>
+
+      <table class="rp-id-table">
+        <tr><td style="width: 15%;">Profesional:</td><td style="text-transform: capitalize; font-weight: bold; width: 35%;">${nombreEncuestador}</td><td style="width: 15%;">Período consultado:</td><td style="width: 35%;">${rangoFechas}</td></tr>
+        <tr><td>Generado por:</td><td style="text-transform: capitalize;">${userInfo.nombre||'—'}</td><td>Fecha de generación:</td><td>${hoy}</td></tr>
+      </table>
+
+      <div class="rp-section">
+        <div class="rp-section-title">1. DESISTIMIENTOS Y PLAN CUIDADO COMUNITARIO</div>
+        <table class="rp-table">
+          <tr><th>Indicador de Campo</th><th style="width:90pt;text-align:right;">Valor</th></tr>
+          <tr><td class="td-label">Total Desistimientos Registrados</td><td class="td-num">${fmt(d.desistimientos?.total)}</td></tr>
+          <tr><td class="td-label">Planes Comunitarios (PCC) Realizados</td><td class="td-num">${fmt(d.pcc?.planes)}</td></tr>
+          <tr><td class="td-label">Integrantes Afectados en PCC</td><td class="td-num">${fmt(d.pcc?.integrantes)}</td></tr>
+        </table>
+      </div>
+
+      <div class="rp-section">
+        <div class="rp-section-title">2. CARACTERIZACIÓN SI-APS 2026</div>
+        <table class="rp-table">
+          <tr><th>Dato de Campo</th><th style="width:90pt;text-align:right;">Total período</th></tr>
+          <tr><td>Familias / Hogares caracterizados</td><td class="td-num">${fmt(ca.familias)}</td></tr>
+          <tr><td>Personas / Integrantes caracterizados</td><td class="td-num">${fmt(ca.individuos)}</td></tr>
+          <tr><td>Gestantes Identificadas</td><td class="td-num">${fmt(ca.gestantes)}</td></tr>
+          <tr><td>Población identificada sin aseguramiento en salud</td><td class="td-num">${fmt(noAsegurados)}</td></tr>
+          <tr><td style="background:#e6f7f5;">Población con discapacidad identificada</td><td class="td-num" style="background:#e6f7f5;">${fmt(ca.discapacidad_total)}</td></tr>
+        </table>
+      </div>
+
+      <div class="rp-section">
+        <div class="rp-section-title">3. PLAN CUIDADO FAMILIAR (General y Psicología)</div>
+        <table class="rp-table">
+          <tr><th>Indicador de Campo</th><th style="width:90pt;text-align:right;">Total período</th></tr>
+          <tr><td>Familias intervenidas (General)</td><td class="td-num">${fmt(famIntervenidas)}</td></tr>
+          <tr><td>Integrantes intervenidos (General)</td><td class="td-num">${fmt(integrantesIntervenidos)}</td></tr>
+          <tr><td>Intervenciones familiares (Psicología)</td><td class="td-num">${fmt(d.pcf_psicologia?.intervenciones_familiares)}</td></tr>
+          <tr><td>Seguimientos psicológicos realizados</td><td class="td-num">${fmt(d.pcf_psicologia?.seguimientos)}</td></tr>
+        </table>
+      </div>
+
+      <div class="rp-section">
+        <div class="rp-section-title">4. TRÁMITES Y GESTIONES REALIZADAS</div>
+        <table class="rp-table">
+          <tr><th>Indicador de Campo</th><th style="width:90pt;text-align:right;">Total</th></tr>
+          <tr><td>Familias con trámites realizados</td><td class="td-num">${fmt(d.tramites?.total_familias)}</td></tr>
+          <tr><td>Total trámites gestionados</td><td class="td-num">${fmt(tramTotal)}</td></tr>
+          <tr><td>Trámites resolutivos (efectivos)</td><td class="td-num">${fmt(tramRes)}</td></tr>
+        </table>
+      </div>
+
+      <div class="rp-section">
+        <div class="rp-section-title">5. TABLAS DE INDICADORES Y CANALIZACIÓN</div>
+        <div class="rp-sub-title-indicador">5.1 Porcentaje de canalizaciones a servicios de salud</div>
+        <table class="ind-table">
+          <thead><tr><th>Indicador</th><th>Fórmula de cálculo</th><th>Unidad</th><th>Resultado</th></tr></thead>
+          <tbody><tr><td class="ind-strong">% canalizaciones a servicios de salud</td><td>N° de familias canalizadas a servicios de salud / N° total de familias caracterizadas × 100</td><td>Porcentaje (%)</td><td class="ind-result">${pctCanalizacion}%</td></tr></tbody>
+        </table>
+        <div class="rp-sub-title-indicador">5.2 Porcentaje de canalizaciones a otros sectores (intersectorial)</div>
+        <table class="ind-table">
+          <thead><tr><th>Indicador</th><th>Fórmula de cálculo</th><th>Unidad</th><th>Resultado</th></tr></thead>
+          <tbody><tr><td class="ind-strong">% canalizaciones intersectoriales</td><td>N° de familias canalizadas a otros sectores / N° total de familias caracterizadas × 100</td><td>Porcentaje (%)</td><td class="ind-result">${pctIntersectorial}%</td></tr></tbody>
+        </table>
+        <div class="rp-sub-title-indicador">5.3 Cumplimiento de RIAS — PRE intervención APS</div>
+        <table class="ind-table">
+          <thead><tr><th>Indicador</th><th>Fórmula de cálculo</th><th>Unidad</th><th>Resultado</th></tr></thead>
+          <tbody><tr><td class="ind-strong">% cumplimiento RIAS (PRE intervención)</td><td>N° de personas que cumplen con la RIAS según R3280 en la primera visita / N° total de personas caracterizadas × 100</td><td>Porcentaje (%)</td><td class="ind-result">${pctRiasPre}%</td></tr></tbody>
+        </table>
+        <div class="rp-sub-title-indicador">5.4 Cumplimiento de RIAS — POST intervención APS</div>
+        <table class="ind-table">
+          <thead><tr><th>Indicador</th><th>Fórmula de cálculo</th><th>Unidad</th><th>Resultado</th></tr></thead>
+          <tbody><tr><td class="ind-strong">% cumplimiento RIAS (POST intervención)</td><td>N° de personas que cumplen con la RIAS según R3280 en el seguimiento / N° total de personas intervenidas × 100</td><td>Porcentaje (%)</td><td class="ind-result">${pctRiasPost}%</td></tr></tbody>
+        </table>
+      </div>
+
+      <div class="rp-section">
+        <div class="rp-sub-title-indicador">6. Enfermedades y Condiciones de Salud Prevalentes (Datos SIHOS)</div>
+        <div class="ind-desc">Condiciones de salud identificadas y/o atendidas durante el período en el territorio. Extraído de los diagnósticos CIE-10 facturados (Lineamiento EBS, sección 5.2.2).</div>
+        <table class="ind-table">
+          <thead><tr><th>Condición / Diagnóstico (CIE-10)</th><th style="width:50pt;">N° Casos</th><th>Grupo etario predominante</th><th>Acciones realizadas por equipo APS</th></tr></thead>
+          <tbody>${filasDiagnosticos}</tbody>
+        </table>
+      </div>
+
+      <div class="rp-section">
+        <div class="rp-sub-title-indicador">7. Novedades del Territorio</div>
+        <div class="ind-desc">Relación de novedades relevantes identificadas durante el periodo y las acciones desplegadas en territorio.</div>
+        <table class="ind-table">
+          <thead><tr><th style="width:30%;">Tipo de novedad</th><th>Descripción y acciones realizadas</th></tr></thead>
+          <tbody>
+            <tr><td class="ind-strong">Vigilancia epidemiológica</td><td style="height:25pt; font-size:7.5pt;">${descVigilancia}</td></tr>
+            <tr><td class="ind-strong">Aseguramiento en Salud</td><td style="height:25pt; font-size:7.5pt;">${descAseguramiento}</td></tr>
+            <tr><td class="ind-strong">Urgencias atendidas</td><td style="height:25pt; font-size:7.5pt;">${descUrgencias}</td></tr>
+            <tr><td class="ind-strong">Otras novedades sociales</td><td style="height:25pt; font-size:7.5pt;">${descOtras}</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      ${graficosHtml}
+
+      ${seccionMapasCompleta}
+
+      <div class="rp-section">
+        <div class="rp-section-title" style="background:#7b1a18;">10. INCONSISTENCIAS Y CALIDAD DEL DATO (EPI-COLLECT)</div>
+        <div class="ind-desc" style="font-weight:bold; color:#7b1a18; margin-top:5pt;">Consolidado de errores de digitación durante el trabajo de campo:</div>
+        <div class="rp-obs-wrapper">
+          <div class="rp-obs-block obs-error">${d.reporte_errores_texto ? d.reporte_errores_texto.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '✅ Excelente. Sin errores de auditoría registrados en este periodo.'}</div>
+        </div>
+      </div>
+
+      <div class="rp-section">
+        <div class="rp-section-title" style="background:#003366;">11. AVANCES Y LOGROS DEL PERIODO (NODO PRIMARIO)</div>
+        <div class="ind-desc">Resuma en máximo 4 puntos los avances más significativos del EBS en el territorio durante el período reportado. <span class="edit-hint">(Haga clic en los renglones para escribir)</span></div>
+        <div class="rp-obs-wrapper">
+          <ul style="margin: 0; padding-left: 20px; font-size: 8pt; color: #333;" contenteditable="true">
+            <li style="margin-bottom: 5px;">Avance 1: [Escriba aquí el avance 1...]</li>
+            <li style="margin-bottom: 5px;">Avance 2: [Escriba aquí el avance 2...]</li>
+            <li style="margin-bottom: 5px;">Avance 3: [Escriba aquí el avance 3...]</li>
+            <li style="margin-bottom: 5px;">Avance 4: [Escriba aquí el avance 4...]</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="rp-section">
+        <div class="rp-section-title" style="background:#003366;">12. OTROS INDICADORES (EN CASO DE APLICAR)</div>
+        <div class="ind-desc">Se centran en la capacidad del profesional para identificar problemas y asegurar que el paciente entre al sistema de salud. <span class="edit-hint">(Haga clic en los recuadros para escribir)</span></div>
+
+        <div class="rp-sub-title-indicador" style="margin-top: 10px;">Tasa de captación de riesgo en salud mental:</div>
+        <div class="ind-desc" style="font-style: italic;">Proporción de personas identificadas con riesgo (por ejemplo, mediante la aplicación de la escala SRQ o ASSIST) que son canalizadas efectivamente a servicios especializados.</div>
+        <div class="rp-obs-wrapper">
+           <div class="rp-obs-block" contenteditable="true" style="min-height: 40px;">[Ingrese aquí los resultados y el análisis de la tasa de captación...]</div>
+        </div>
+
+        <div class="rp-sub-title-indicador" style="margin-top: 10px;">Seguimiento a casos de violencia (VBG y maltrato infantil):</div>
+        <div class="ind-desc" style="font-style: italic;">Porcentaje de casos de violencia detectados en territorio que cuentan con activación de ruta y seguimiento mensual por parte del EBS.</div>
+        <div class="rp-obs-wrapper">
+           <div class="rp-obs-block" contenteditable="true" style="min-height: 40px;">[Ingrese aquí los resultados y el análisis de seguimiento a casos de violencia...]</div>
+        </div>
+      </div>
+
+      <div class="rp-firma">
+        <div class="rp-firma-item">
+          <div style="font-weight:bold;margin-bottom:2pt;text-transform: capitalize;">${nombreEncuestador}</div>
+          <div style="text-transform: capitalize;">${perfilEncuestador}</div>
+        </div>
+        <div class="rp-firma-item">
+          <img src="/firma.webp" alt="Firma Vernaza" class="firma-img" onerror="this.style.display='none'"/>
+          <div style="font-weight:bold;margin-bottom:2pt;">Cristian F. Calentura V.</div>
+          <div>Auditoría / Análisis de Datos</div>
+        </div>
+        <div class="rp-firma-item">
+          <div style="font-weight:bold;margin-bottom:2pt;">___________________________</div>
+          <div>Coordinación General APS</div>
+        </div>
+      </div>
+      <div class="rp-pie-page">Empresa Social del Estado — Villavicencio · Sistema INFORMES ESE · Generado el ${hoy} · Resolución 763/2025</div>
+    `;
+
+    document.getElementById('reportPreview').innerHTML = html;
+    document.getElementById('reportPreview').style.display = 'block';
+    document.getElementById('btnPrint').style.display = 'flex';
+    document.getElementById('btnExport').style.display = 'flex';
+
+    if (s && s.resumen.total_facturaciones > 0) {
+      buildPrintChart('printChartGenero', s.demografia.genero.map(x=>x.label), s.demografia.genero.map(x=>x.total));
+      buildPrintChart('printChartServicio', s.clinico.tipo_servicio.map(x=>x.label), s.clinico.tipo_servicio.map(x=>x.total));
+    }
+
+    const VILLA_LAT = 4.142; const VILLA_LNG = -73.626;
+    mapasActivos.forEach(key => {
+      const mapDiv = document.getElementById(`print-map-${key}`);
+      if(mapDiv) {
+        const map = L.map(mapDiv.id, { zoomControl: false, attributionControl: false }).setView([VILLA_LAT, VILLA_LNG], 11);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
+        const bounds = [];
+        m[key].correctos.forEach(p => {
+          L.circleMarker([p.lat, p.lng], { color: '#00b09b', radius: 4, fillOpacity: 0.8, stroke: false }).addTo(map);
+          bounds.push([p.lat, p.lng]);
+        });
+        if (bounds.length > 0) {
+          map.fitBounds(bounds, { padding: [20, 20] });
+          if (map.getZoom() > 16) map.setZoom(16);
+        }
+      }
+    });
+  }
+
+  ['inputUser','inputInicio','inputFin'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => { if(e.key==='Enter') generarInforme(); });
+  });
+</script>
+</body>
+</html>
