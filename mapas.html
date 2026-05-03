@@ -46,7 +46,7 @@
 
     .main{margin-left:var(--sidebar-w);flex:1;min-height:100vh;}
     .topbar{background:var(--surface);padding:1rem 2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:var(--shadow);}
-    .topbar-title{font-family:'Fraunces',serif;font-size:1.1rem;font-weight:700;color:var(--navy);}
+    .topbar-title{font-family:'Fraunces',serif;font-size:1.1rem;font-weight:700;color:var(--navy);text-transform: capitalize;}
     .topbar-meta{font-size:.75rem;color:var(--muted);}
     .content{padding:1.75rem 2rem 4rem;}
 
@@ -75,7 +75,6 @@
 
     .sub-section{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.2rem 1.4rem;margin-bottom:1rem;}
     .sub-section-title{font-size:.73rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem;padding-bottom:.6rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
-    .divider{height:1px;background:var(--border);margin:1.8rem 0;}
 
     /* Contenedores de Mapas */
     .map-container { width: 100%; height: 350px; border-radius: 8px; border: 1px solid var(--border); z-index: 10; }
@@ -93,31 +92,17 @@
 
 <nav class="sidebar">
   <div class="sidebar-brand">
-    <div class="brand-logo">
-      <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
-    </div>
-    <div>
-      <div class="brand-name">INFORMES</div>
-      <div class="brand-sub">ESE 2026</div>
-    </div>
+    <div class="brand-logo"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg></div>
+    <div><div class="brand-name">INFORMES</div><div class="brand-sub">ESE 2026</div></div>
   </div>
-
   <div class="nav">
     <div class="nav-section-title">Módulos</div>
-    <a href="/dashboard" class="nav-item">
-      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
-      <span class="nav-label">Dashboard</span>
-    </a>
-    <a href="/auditoria" class="nav-item">
-      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-      <span class="nav-label">Auditoría</span>
-    </a>
-    <a href="/mapas" class="nav-item active">
-      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-      <span class="nav-label">Mapas GIS</span>
-    </a>
+    <a href="/dashboard" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg><span class="nav-label">Dashboard</span></a>
+    <a href="/auditoria" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg><span class="nav-label">Auditoría</span></a>
+    <a href="/sihos" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg><span class="nav-label">SIHOS Clínica</span></a>
+    <a href="/mapas" class="nav-item active"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg><span class="nav-label">Mapas GIS</span></a>
+    <a href="/informes" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg><span class="nav-label">Informes</span></a>
   </div>
-
   <div class="sidebar-user">
     <div class="user-name" id="sidebarNombre">Cargando...</div>
     <div class="user-role" id="sidebarRol">—</div>
@@ -128,8 +113,8 @@
 <div class="main">
   <div class="topbar">
     <div>
-      <div class="topbar-title">Georreferenciación EBS</div>
-      <div class="topbar-meta">Auditoría perimetral de ubicaciones de Villavicencio</div>
+      <div class="topbar-title" id="topbarTitle">Georreferenciación EBS</div>
+      <div class="topbar-meta" id="topbarMeta">Auditoría perimetral de ubicaciones de Villavicencio</div>
     </div>
   </div>
 
@@ -317,7 +302,7 @@
   function renderPuntos(mapId, puntos) {
     const map = mapInstances[mapId];
     const layer = markerLayers[mapId];
-    layer.clearLayers(); // Limpiar busqueda anterior
+    layer.clearLayers();
 
     if (!puntos || puntos.length === 0) {
       map.setView([VILLA_LAT, VILLA_LNG], 11);
@@ -334,7 +319,6 @@
 
     map.fitBounds(bounds, { padding: [30, 30] });
 
-    // Si la visualización se acerca demasiado por ser un solo punto
     if (map.getZoom() > 16) map.setZoom(16);
   }
 
@@ -376,6 +360,13 @@
       const data = await resp.json();
       document.getElementById('resultadosMapas').style.display = 'block';
 
+      // --- NUEVO: Mostrar el nombre y perfil del encuestador en el Header ---
+      const nom = data.encuestador_nombre && data.encuestador_nombre !== 'Sin registro de nombre' ? data.encuestador_nombre : email;
+      const perf = data.encuestador_perfil ? data.encuestador_perfil.toUpperCase() : 'PERFIL DESCONOCIDO';
+
+      document.getElementById('topbarTitle').textContent = nom;
+      document.getElementById('topbarMeta').textContent = perf;
+
       // 1. CARACTERIZACIÓN
       document.getElementById('val-caract-ok').textContent = data.caracterizacion.totales.ok;
       document.getElementById('val-caract-vacios').textContent = data.caracterizacion.totales.vacios;
@@ -411,7 +402,6 @@
       renderPuntos('map-desist', data.desistimientos.correctos);
       document.getElementById('txt-err-des').value = compilarErrores(data.desistimientos.errores_vacios, data.desistimientos.errores_fuera);
 
-      // Redibujar mapas forzadamente (Fix clásico de Leaflet cuando cambia el display)
       setTimeout(() => {
         Object.values(mapInstances).forEach(m => m.invalidateSize());
       }, 300);
@@ -424,6 +414,10 @@
       document.getElementById('loadingOverlay').style.display = 'none';
     }
   }
+
+  ['inputUser','inputInicio','inputFin'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => { if(e.key==='Enter') buscarMapas(); });
+  });
 </script>
 </body>
 </html>
