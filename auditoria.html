@@ -44,9 +44,8 @@
 
     .main{margin-left:var(--sidebar-w);flex:1;min-height:100vh;}
     .topbar{background:var(--surface);padding:1rem 2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:var(--shadow);}
-    .topbar-title{font-family:'Fraunces',serif;font-size:1.1rem;font-weight:700;color:var(--navy);}
+    .topbar-title{font-family:'Fraunces',serif;font-size:1.1rem;font-weight:700;color:var(--navy);text-transform: capitalize;}
     .topbar-meta{font-size:.75rem;color:var(--muted);}
-    .topbar-actions{display:flex;gap:.65rem;align-items:center;}
     .content{padding:1.75rem 2rem 4rem;}
 
     .auditoria-filters{display:flex;gap:1rem;margin-bottom:2rem;background:var(--surface);padding:1.5rem;border-radius:var(--radius);box-shadow:var(--shadow);flex-wrap:wrap;align-items:flex-end;}
@@ -58,19 +57,12 @@
     .btn-search:hover:not(:disabled){background:var(--teal);}
     .btn-search:disabled{background:var(--muted);cursor:not-allowed;opacity:0.6;}
 
-    /* DROPDOWN PERSONALIZADO */
     .custom-dropdown { position:absolute; top:100%; left:0; right:0; background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow-md); max-height:200px; overflow-y:auto; z-index:1000; display:none; margin-top:4px; }
     .custom-dropdown-item { padding:.7rem 1rem; font-size:.85rem; color:var(--text); cursor:pointer; transition:background .2s; }
     .custom-dropdown-item:hover { background:var(--teal-lt); color:var(--teal); }
     .custom-dropdown::-webkit-scrollbar { width:6px; }
     .custom-dropdown::-webkit-scrollbar-track { background:transparent; }
     .custom-dropdown::-webkit-scrollbar-thumb { background:var(--border); border-radius:10px; }
-    .custom-dropdown::-webkit-scrollbar-thumb:hover { background:var(--muted); }
-
-    .btn-print{ display:none; align-items:center;gap:.5rem; background:linear-gradient(135deg,var(--navy),#163f72); color:#fff;border:none; padding:.55rem 1.1rem;border-radius:8px; font-family:'Sora',sans-serif;font-size:.8rem;font-weight:600; cursor:pointer;transition:opacity .2s,transform .1s; box-shadow:0 2px 10px rgba(10,31,61,.2); }
-    .btn-print:hover{opacity:.9;}
-    .btn-print:active{transform:scale(.97);}
-    .btn-print svg{width:16px;height:16px;fill:currentColor;}
 
     .section{margin-bottom:2.5rem;animation:fadeIn .4s ease;}
     @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
@@ -116,80 +108,6 @@
     .btn-copy-small{padding:.4rem 1rem;font-size:.75rem;border-radius:6px;border:none;color:#fff;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;transition:opacity .2s;}
     .btn-copy-small:hover{opacity:.85;}
 
-    /* ═══════════════════════════════════════════════════════════════
-       SECCIÓN IMPRIMIBLE
-    ═══════════════════════════════════════════════════════════════ */
-    #seccionImprimible { display: none; }
-
-    @media print {
-      .sidebar, .topbar, .auditoria-filters, #loadingOverlay,
-      #emptyState, #resultadosAuditoria, #customModal,
-      .btn-print, .btn-search, .custom-dropdown { display: none !important; }
-
-      .main { margin-left: 0 !important; width: 100% !important; }
-      .content { padding: 0 !important; }
-      body { background: #fff; display: block; }
-
-      #seccionImprimible { display: block !important; font-family: Arial, sans-serif; color: #000; font-size: 9pt; }
-
-      .rp-header-inst { border: 1.5px solid #003366; margin-bottom: 12pt; }
-      .rp-header-top { background: #003366; color: #fff; text-align: center; padding: 8pt 12pt; font-size: 8.5pt; font-weight: bold; letter-spacing: .03em; }
-      .rp-header-info { display: flex; align-items: center; border-top: 1px solid #003366; padding: 6pt 10pt; gap: 12pt; }
-      .rp-logo-cell { text-align: center; min-width: 90pt; font-size: 7pt; color: #003366; font-weight: bold; border-right: 1px solid #ccc; padding-right: 12pt; }
-      .rp-logo-circle { width: 44pt; height: 44pt; border-radius: 50%; background: #003366; display: flex; align-items: center; justify-content: center; margin: 0 auto 3pt; }
-      .rp-logo-circle svg { width: 28pt; height: 28pt; fill: #fff; }
-      .rp-address-cell { flex: 1; font-size: 7.5pt; color: #333; line-height: 1.6; border-right: 1px solid #ccc; padding: 0 12pt; }
-      .rp-nit-cell { font-size: 7.5pt; color: #333; text-align: right; min-width: 80pt; }
-      .rp-nit-cell strong { display: block; font-size: 10pt; color: #003366; }
-
-      .rp-title-block { text-align: center; margin-bottom: 10pt; padding-bottom: 8pt; border-bottom: 2pt solid #003366; }
-      .rp-title-main { font-size: 13pt; font-weight: bold; color: #003366; letter-spacing: .04em; text-transform: uppercase; }
-      .rp-title-sub { font-size: 8.5pt; color: #555; margin-top: 3pt; font-style: italic; }
-
-      .rp-id-table { width: 100%; border-collapse: collapse; margin-bottom: 12pt; font-size: 8.5pt; }
-      .rp-id-table td { border: 1px solid #003366; padding: 4pt 8pt; }
-      .rp-id-table td:nth-child(odd) { background: #e8f0f8; font-weight: bold; color: #003366; width: 22%; }
-
-      .rp-section { margin-bottom: 12pt; page-break-inside: avoid; }
-      .rp-section-title { background: #003366; color: #fff; padding: 4pt 8pt; font-size: 9.5pt; font-weight: bold; letter-spacing: .04em; margin-bottom: 6pt; }
-      .rp-sub-title { background: #dce9f5; color: #003366; padding: 3pt 8pt; font-size: 8.5pt; font-weight: bold; margin-bottom: 5pt; border-left: 3pt solid #003366; }
-
-      .rp-table { width: 100%; border-collapse: collapse; margin-bottom: 8pt; font-size: 8.5pt; }
-      .rp-table th { background: #003366; color: #fff; padding: 4pt 8pt; text-align: left; font-size: 8pt; }
-      .rp-table td { border: 1px solid #c8d6e8; padding: 4pt 8pt; color: #222; }
-      .rp-table tr:nth-child(even) td { background: #f0f6fb; }
-      .rp-table .td-num { text-align: right; font-weight: bold; color: #003366; width: 80pt; }
-      .rp-table .td-label { color: #333; }
-      .rp-table .total-row td { background: #003366 !important; color: #fff !important; font-weight: bold; }
-      .rp-table .error-row td { background: #fde8e8 !important; color: #c0392b !important; }
-
-      .rp-chart-img { max-width: 100%; height: auto; display: inline-block; border: 1px solid #c8d6e8; border-radius: 4pt; margin: 4pt; }
-      .rp-charts-container { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
-
-      .rp-firma { margin-top: 24pt; display: flex; justify-content: space-around; gap: 20pt; page-break-inside: avoid; align-items: flex-end; }
-      .rp-firma-item { text-align: center; flex: 1; border-top: 1pt solid #333; padding-top: 5pt; font-size: 7.5pt; position: relative; }
-      .rp-pie-page { text-align: center; font-size: 7pt; color: #888; margin-top: 10pt; border-top: 1px solid #ddd; padding-top: 5pt; }
-
-      .rp-obs-wrapper { margin: 6pt 0 10pt; }
-      .rp-obs-label { font-size: 7.5pt; font-weight: bold; color: #003366; margin-bottom: 3pt; text-transform: uppercase; letter-spacing: .04em; }
-      .rp-obs-block { background: #f8fafc; border: 1px solid #c8d6e8; border-left: 3pt solid #003366; padding: 5pt 8pt; font-size: 7.5pt; color: #333; white-space: pre-wrap; line-height: 1.55; border-radius: 2pt; font-family: 'Courier New', monospace; }
-      .rp-obs-block.obs-error { border-left-color: #c0392b; background: #fdf6f6; color: #7a2020; }
-      .rp-obs-block.obs-teal  { border-left-color: #00806e; }
-      .rp-obs-block.obs-purple{ border-left-color: #5b35a3; }
-      .rp-obs-block.obs-green { border-left-color: #14724f; }
-      .rp-obs-block.obs-gold  { border-left-color: #f0a500; }
-      .rp-obs-empty { color: #bbb !important; font-style: italic; }
-
-      .firma-img {
-        height: 50px;
-        object-fit: contain;
-        display: block;
-        margin: 0 auto -5px auto;
-      }
-
-      @page { size: letter portrait; margin: 1.5cm 1.5cm 2cm 1.5cm; }
-    }
-
     @media (max-width:768px){.sidebar{width:0;overflow:hidden;}.main{margin-left:0;}.content{padding:1rem;}}
   </style>
 </head>
@@ -197,28 +115,16 @@
 
 <nav class="sidebar">
   <div class="sidebar-brand">
-    <div class="brand-logo">
-      <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
-    </div>
-    <div>
-      <div class="brand-name">INFORMES</div>
-      <div class="brand-sub">ESE 2026</div>
-    </div>
+    <div class="brand-logo"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg></div>
+    <div><div class="brand-name">INFORMES</div><div class="brand-sub">ESE 2026</div></div>
   </div>
   <div class="nav">
     <div class="nav-section-title">Módulos</div>
-    <a href="/dashboard" class="nav-item">
-      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
-      <span class="nav-label">Dashboard</span>
-    </a>
-    <a href="/auditoria" class="nav-item active">
-      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-      <span class="nav-label">Auditoría</span>
-    </a>
-    <a href="/mapas" class="nav-item">
-      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-      <span class="nav-label">Mapas GIS</span>
-    </a>
+    <a href="/dashboard" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg><span class="nav-label">Dashboard</span></a>
+    <a href="/auditoria" class="nav-item active"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg><span class="nav-label">Auditoría</span></a>
+    <a href="/sihos" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg><span class="nav-label">SIHOS Clínica</span></a>
+    <a href="/mapas" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg><span class="nav-label">Mapas GIS</span></a>
+    <a href="/informes" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg><span class="nav-label">Informes</span></a>
   </div>
   <div class="sidebar-user">
     <div class="user-name" id="sidebarNombre">Cargando...</div>
@@ -230,14 +136,8 @@
 <div class="main">
   <div class="topbar">
     <div>
-      <div class="topbar-title">Auditoría de Encuestadores</div>
-      <div class="topbar-meta" id="topbarFecha">Rastreo de registros creados por usuario</div>
-    </div>
-    <div class="topbar-actions">
-      <button class="btn-print" id="btnPrint" onclick="generarYImprimir()">
-        <svg viewBox="0 0 24 24"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>
-        Imprimir / PDF
-      </button>
+      <div class="topbar-title" id="topbarTitle">Auditoría de Encuestadores</div>
+      <div class="topbar-meta" id="topbarMeta">Rastreo de registros creados por usuario</div>
     </div>
   </div>
 
@@ -264,7 +164,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
         <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
       </svg>
-      <p>Ingresa un correo electrónico y el rango de fechas para generar el reporte de auditoría.</p>
+      <p>Ingresa un correo electrónico y el rango de fechas para generar el reporte de auditoría en pantalla.</p>
     </div>
 
     <div id="resultadosAuditoria" style="display:none;">
@@ -359,7 +259,7 @@
             <div class="stat-card c-gold"><div class="stat-label">Sin Pertenencia Étnica</div><div class="stat-value" id="a-etn-sin-pct">0%</div></div>
           </div>
         </div>
-        
+
         <div class="sub-section" style="margin-top:1rem;">
           <div class="sub-section-title">Tipos de Discapacidad (Frecuencia)</div>
           <div class="chart-container"><canvas id="chartDiscapacidadAuditoria"></canvas></div>
@@ -439,7 +339,7 @@
           <div class="section-icon" style="background:#fef7e0;"><svg viewBox="0 0 24 24" fill="#f0a500"><path d="M20 6h-2.18c.07-.44.18-.86.18-1a3 3 0 0 0-6 0c0 .14.11.56.18 1H10c-.36 0-.96.15-.96.96v13c0 .57.39 1.04.96 1.04h10c.57 0 1-.47 1-1.04V6.96c0-.81-.57-.96-1-.96zM14 3a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm2 16H8V7h2v2h4V7h2v12z"/></svg></div>
           <div><div class="section-title">Trámites Realizados</div><div class="section-sub">Gestión documental generada por este encuestador</div></div>
         </div>
-        
+
         <div class="cards-row">
           <div class="stat-card c-purple">
             <div class="stat-label">Personas con trámite</div>
@@ -477,7 +377,7 @@
             <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--navy);">1. Trámites Realizados</span><button class="btn-copy-small" style="background:var(--navy);" onclick="copiarTexto('txtTramRealizados')">📋 Copiar</button></div><textarea id="txtTramRealizados" class="report-box" readonly></textarea></div>
             <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--green);">2. Trámites Resueltos</span><button class="btn-copy-small" style="background:var(--green);" onclick="copiarTexto('txtTramResueltos')">📋 Copiar</button></div><textarea id="txtTramResueltos" class="report-box" style="border-color:var(--green-lt);" readonly></textarea></div>
             <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--red);">3. Trámites con Errores</span><button class="btn-copy-small" style="background:var(--red);" onclick="copiarTexto('txtTramErrores')">📋 Copiar</button></div><textarea id="txtTramErrores" class="report-box" style="background:#fde8e8;border-color:var(--red-lt);color:var(--red);" readonly></textarea></div>
-            
+
             <div>
               <div class="report-header">
                 <span style="font-size:.85rem;font-weight:bold;color:var(--gold);">4. Observaciones Trámites Adicionales</span>
@@ -485,12 +385,12 @@
               </div>
               <textarea id="txtTramObservaciones" class="report-box" style="border-color:var(--gold-lt);" readonly></textarea>
             </div>
-            
+
           </div>
         </div>
       </div>
 
-    </div><div id="seccionImprimible"></div>
+    </div>
 
   </div></div><div id="loadingOverlay">
   <div class="loading-spinner"></div>
@@ -633,7 +533,6 @@
     document.getElementById('loadingOverlay').style.display = 'flex';
     document.getElementById('emptyState').style.display     = 'none';
     document.getElementById('resultadosAuditoria').style.display = 'none';
-    document.getElementById('btnPrint').style.display = 'none';
 
     try {
       const resp = await fetch(`${API_BASE}/api/auditoria?usuario=${encodeURIComponent(email)}&fecha_inicio=${fi}&fecha_fin=${ff}`, {
@@ -647,6 +546,13 @@
       _datosAuditoria    = data;
       _usuarioConsultado = email;
       _rangoFechas       = `${fi} al ${ff}`;
+
+      // --- NUEVO: Mostrar el nombre y perfil del encuestador en el Header ---
+      const nom = data.encuestador_nombre && data.encuestador_nombre !== 'Sin registro de nombre' ? data.encuestador_nombre : email;
+      const perf = data.encuestador_perfil ? data.encuestador_perfil.toUpperCase() : 'PERFIL DESCONOCIDO';
+
+      document.getElementById('topbarTitle').textContent = nom;
+      document.getElementById('topbarMeta').textContent = perf;
 
       setVal('a-des-tot',  data.desistimientos?.total);
       setVal('a-des-err',  data.desistimientos?.con_error);
@@ -732,13 +638,10 @@
       setValInput('txtTramRealizados', data.tramites?.reporte_realizados);
       setValInput('txtTramResueltos', data.tramites?.reporte_resueltos);
       setValInput('txtTramErrores', data.tramites?.reporte_errores);
-      
-      // NUEVO: Observaciones de Trámites
+
       setValInput('txtTramObservaciones', data.tramites?.reporte_observaciones);
 
       document.getElementById('resultadosAuditoria').style.display = 'block';
-      const btnP = document.getElementById('btnPrint');
-      if(btnP) btnP.style.display = 'flex';
 
     } catch(err) {
       console.error(err);
@@ -749,243 +652,6 @@
       btn.disabled = false;
       document.getElementById('loadingOverlay').style.display = 'none';
     }
-  }
-
-  function generarYImprimir() {
-    if (!_datosAuditoria) return;
-
-    const d  = _datosAuditoria;
-    const ca = d.caracterizacion || {};
-    const tf = ca.tipo_familia || [];
-    const es = ca.estrato      || [];
-    const ed = ca.nivel_educativo || [];
-    const tr = d.tramites?.por_tipo || [];
-    const motPsi = d.pcf_psicologia?.motivos_seguimiento || [];
-
-    function getObs(id, colorClass='') {
-      const el = document.getElementById(id);
-      const v  = el ? el.value.trim() : '';
-      const cls = 'rp-obs-block' + (colorClass ? ' ' + colorClass : '') + (v ? '' : ' rp-obs-empty');
-      const txt = v ? v.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : 'Sin observaciones registradas.';
-      return `<div class="rp-obs-wrapper"><div class="${cls}">${txt}</div></div>`;
-    }
-
-    let chartImgTag = '';
-    const cnv = document.getElementById('chartTramitesAuditoria');
-    if (cnv && tr.length) {
-      chartImgTag = `<img class="rp-chart-img" src="${cnv.toDataURL('image/png')}" alt="Gráfico trámites" style="max-height:160pt;"/>`;
-    }
-
-    let chartDiscImgTag = '';
-    const cnvDisc = document.getElementById('chartDiscapacidadAuditoria');
-    if (cnvDisc && (ca.discapacidades_chart || []).length) {
-      chartDiscImgTag = `<div style="text-align:center; margin-top: 10pt;"><div class="rp-sub-title">Frecuencia de Tipos de Discapacidad</div><img class="rp-chart-img" src="${cnvDisc.toDataURL('image/png')}" alt="Gráfico Discapacidades" style="max-height:140pt;"/></div>`;
-    }
-
-    const filasSocial = (arr) => arr.length
-      ? arr.map(i => `<tr><td class="td-label">${i.label}</td><td class="td-num">${fmt(i.total)}</td></tr>`).join('')
-      : '<tr><td colspan="2" style="color:#888;font-style:italic;">Sin datos registrados</td></tr>';
-
-    const hoy = new Date().toLocaleDateString('es-CO', { dateStyle:'full' });
-
-    const html = `
-      <div class="rp-header-inst">
-        <div class="rp-header-top">MINISTERIO DE SALUD Y PROTECCIÓN SOCIAL &nbsp;·&nbsp; EMPRESA SOCIAL DEL ESTADO — VILLAVICENCIO &nbsp;·&nbsp; EQUIPOS BÁSICOS DE SALUD — EBS</div>
-        <div class="rp-header-info">
-          <div class="rp-logo-cell">
-            <div class="rp-logo-circle"><svg viewBox="0 0 24 24"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm-7 3a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm5 12H7v-.5c0-2.5 2-4 5-4s5 1.5 5 4v.5z"/></svg></div>
-            <div>ESE</div><div>VILLAVICENCIO</div>
-          </div>
-          <div class="rp-address-cell">
-            Carrera 42 N° 33–24 Barzal Alto, Villavicencio — Meta<br/>
-            Conmutador: (098) 6614100<br/>
-            NIT: 822.002.459
-          </div>
-          <div class="rp-nit-cell">
-            <strong>NIT</strong>822.002.459<br/>Res. 763/2025<br/><span style="font-size:6.5pt;color:#888;">Sistema INFORMES ESE</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="rp-title-block">
-        <div class="rp-title-main">Reporte de Auditoría — Encuestador APS</div>
-        <div class="rp-title-sub">Operación de los Equipos Básicos de Salud en Territorios y Microterritorios</div>
-      </div>
-
-      <table class="rp-id-table">
-        <tr><td>Encuestador:</td><td>${_usuarioConsultado}</td><td>Período consultado:</td><td>${_rangoFechas}</td></tr>
-        <tr><td>Generado por:</td><td>${userInfo.nombre||'—'}</td><td>Fecha de generación:</td><td>${hoy}</td></tr>
-      </table>
-
-      <div class="rp-section">
-        <div class="rp-section-title" style="background:#7b1a18;">REPORTE DE INCONSISTENCIAS GLOBAL</div>
-        <div class="rp-obs-label">Consolidado de errores de todas las tablas</div>
-        ${getObs('textoErroresGlobal','obs-error')}
-      </div>
-
-      <div class="rp-section">
-        <div class="rp-section-title">1. DESISTIMIENTOS</div>
-        <table class="rp-table">
-          <tr><th>Indicador</th><th style="width:90pt;text-align:right;">Valor</th></tr>
-          <tr><td class="td-label">Total desistimientos registrados</td><td class="td-num">${fmt(d.desistimientos?.total)}</td></tr>
-          <tr class="${(d.desistimientos?.con_error||0)>0?'error-row':''}">
-            <td class="td-label">Registros con error de captura</td><td class="td-num">${fmt(d.desistimientos?.con_error)}</td>
-          </tr>
-        </table>
-      </div>
-
-      <div class="rp-section">
-        <div class="rp-section-title">2. PLAN CUIDADO COMUNITARIO</div>
-        <table class="rp-table">
-          <tr><th>Indicador</th><th style="width:90pt;text-align:right;">Valor</th></tr>
-          <tr><td class="td-label">Planes comunitarios realizados</td><td class="td-num">${fmt(d.pcc?.planes)}</td></tr>
-          <tr><td class="td-label">Integrantes con plan comunitario</td><td class="td-num">${fmt(d.pcc?.integrantes)}</td></tr>
-          <tr class="${(d.pcc?.con_error||0)>0?'error-row':''}">
-            <td class="td-label">Registros con error</td><td class="td-num">${fmt(d.pcc?.con_error)}</td>
-          </tr>
-        </table>
-
-        <div class="rp-obs-label">Observaciones — Detalles de Jornada / Actividad (PCC)</div>
-        ${getObs('txtPccDetalles','obs-green')}
-      </div>
-
-      <div class="rp-section">
-        <div class="rp-section-title">3. CARACTERIZACIÓN SI-APS 2026</div>
-        <div class="rp-sub-title">3.1 Cobertura de Caracterización</div>
-        <table class="rp-table">
-          <tr><th>Dato</th><th style="width:90pt;text-align:right;">Total período</th></tr>
-          <tr><td>Familias / Hogares caracterizados (con consentimiento)</td><td class="td-num">${fmt(ca.familias)}</td></tr>
-          <tr><td>Personas / Integrantes caracterizados</td><td class="td-num">${fmt(ca.individuos)}</td></tr>
-        </table>
-
-        <div class="rp-sub-title">3.2 Población Clave Identificada</div>
-        <table class="rp-table">
-          <tr><th>Grupo poblacional</th><th style="width:90pt;text-align:right;">N° identificados</th></tr>
-          <tr><td>Gestantes</td><td class="td-num">${fmt(ca.gestantes)}</td></tr>
-          <tr><td>Menores de 5 años</td><td class="td-num">${fmt(ca.menores_5)}</td></tr>
-          <tr><td>Adultos mayores (60+)</td><td class="td-num">${fmt(ca.adultos_60)}</td></tr>
-          <tr><td>Víctimas del conflicto armado</td><td class="td-num">${fmt(ca.victimas_conflicto)}</td></tr>
-          <tr><td style="background:#e6f7f5;">Población con discapacidad</td><td class="td-num" style="background:#e6f7f5;">${fmt(ca.discapacidad_total)}</td></tr>
-          <tr><td>Población étnica identificada</td><td class="td-num">${fmt(ca.poblacion_etnica)}</td></tr>
-        </table>
-
-        ${chartDiscImgTag}
-
-        <div class="rp-sub-title" style="margin-top:15pt;">3.3 Perfil Social del Territorio</div>
-        <table class="rp-table">
-          <tr><th>Variable</th><th style="width:90pt;text-align:right;">Total</th></tr>
-          <tr><td colspan="2" style="background:#eaf0f8;font-style:italic;color:#003366;padding:3pt 8pt;font-size:7.5pt;">Tipo de familia</td></tr>
-          ${filasSocial(tf)}
-          <tr><td colspan="2" style="background:#eaf0f8;font-style:italic;color:#003366;padding:3pt 8pt;font-size:7.5pt;">Estrato socioeconómico</td></tr>
-          ${filasSocial(es)}
-          <tr><td colspan="2" style="background:#eaf0f8;font-style:italic;color:#003366;padding:3pt 8pt;font-size:7.5pt;">Nivel educativo</td></tr>
-          ${filasSocial(ed)}
-        </table>
-
-        <div class="rp-sub-title">3.4 Composición Étnica</div>
-        <table class="rp-table">
-          <tr><th>Categoría</th><th style="width:90pt;text-align:right;">Porcentaje</th></tr>
-          <tr><td>Con pertenencia étnica</td><td class="td-num">${ca.etnia_con_pct||0}% (${fmt(ca.etnia_con_total)} personas)</td></tr>
-          <tr><td>Sin pertenencia étnica</td><td class="td-num">${ca.etnia_sin_pct||0}%</td></tr>
-        </table>
-
-        <div class="rp-sub-title" style="background:#fde8e8;color:#c0392b;border-left-color:#c0392b;">3.5 Errores de Registro</div>
-        <table class="rp-table">
-          <tr><th>Módulo</th><th style="width:90pt;text-align:right;">Errores</th></tr>
-          <tr class="${(ca.error_familiar||0)>0?'error-row':''}"><td>Caracterización familiar</td><td class="td-num">${fmt(ca.error_familiar)}</td></tr>
-          <tr class="${(ca.error_individual||0)>0?'error-row':''}"><td>Caracterización individual</td><td class="td-num">${fmt(ca.error_individual)}</td></tr>
-        </table>
-      </div>
-
-      <div class="rp-section">
-        <div class="rp-section-title">4. PLAN CUIDADO FAMILIAR — GENERAL</div>
-        <table class="rp-table">
-          <tr><th>Tipo de Plan</th><th style="width:90pt;text-align:right;">Total período</th></tr>
-          <tr><td>Familias intervenidas (excl. Psicología)</td><td class="td-num">${fmt(d.pcf?.familias_intervenidas)}</td></tr>
-          <tr><td>Integrantes intervenidos</td><td class="td-num">${fmt(d.pcf?.integrantes_intervenidos)}</td></tr>
-        </table>
-        <div class="rp-obs-label">Observaciones — Intervenciones Familiares Realizadas</div>
-        ${getObs('txtPcfRealizados','obs-teal')}
-        <div class="rp-obs-label">Observaciones — Errores de Registro PCF</div>
-        ${getObs('txtPcfErrores','obs-error')}
-      </div>
-
-      <div class="rp-section">
-        <div class="rp-section-title">5. PLAN CUIDADO FAMILIAR — PERFIL PSICOLOGÍA</div>
-        <table class="rp-table">
-          <tr><th>Indicador</th><th style="width:90pt;text-align:right;">Total período</th></tr>
-          <tr><td>Intervenciones familiares (Psicología)</td><td class="td-num">${fmt(d.pcf_psicologia?.intervenciones_familiares)}</td></tr>
-          <tr><td>Integrantes intervenidos</td><td class="td-num">${fmt(d.pcf_psicologia?.integrantes)}</td></tr>
-          <tr><td>Seguimientos psicológicos realizados</td><td class="td-num">${fmt(d.pcf_psicologia?.seguimientos)}</td></tr>
-          <tr><td>Pacientes que requieren continuidad (1. SI)</td><td class="td-num">${fmt(d.pcf_psicologia?.requiere_continuidad_si)}</td></tr>
-          <tr><td>Pacientes que NO requieren continuidad (2. NO)</td><td class="td-num">${fmt(d.pcf_psicologia?.requiere_continuidad_no)}</td></tr>
-        </table>
-
-        ${motPsi.length ? `
-        <div class="rp-sub-title">5.1 Motivos de Seguimiento (Psicología)</div>
-        <table class="rp-table">
-          <tr><th>Motivo de consulta</th><th style="width:90pt;text-align:right;">Cantidad</th></tr>
-          ${motPsi.map(m=>`<tr><td>${m.label}</td><td class="td-num">${fmt(m.total)}</td></tr>`).join('')}
-        </table>
-        ` : ''}
-        <div class="rp-obs-label">Observaciones — Intervenciones Familiares (Psicología)</div>
-        ${getObs('txtPsicoRealizados','obs-purple')}
-        <div class="rp-obs-label">Observaciones — Trazabilidad de Seguimientos</div>
-        ${getObs('txtPsicoSeguimientos','obs-teal')}
-        <div class="rp-obs-label">Observaciones — Errores de Registro (Psicología)</div>
-        ${getObs('txtPsicoErrores','obs-error')}
-        <div class="rp-obs-label">Observaciones — Compromisos de Seguimientos</div>
-        ${getObs('txtPsicoCompromisos')}
-        <div class="rp-obs-label">Observaciones — Evaluación de Seguimientos</div>
-        ${getObs('txtPsicoEvaluacion','obs-teal')}
-      </div>
-
-      <div class="rp-section">
-        <div class="rp-section-title">6. TRÁMITES Y GESTIONES REALIZADAS</div>
-        <table class="rp-table" style="margin-bottom:10px;">
-          <tr><th>Indicador</th><th style="width:90pt;text-align:right;">Total</th></tr>
-          <tr><td>Personas con trámite (Registros únicos)</td><td class="td-num">${fmt(d.tramites?.total_registros)}</td></tr>
-          <tr><td>Familias con trámites realizados</td><td class="td-num">${fmt(d.tramites?.total_familias)}</td></tr>
-          <tr><td>Total trámites gestionados</td><td class="td-num">${fmt(d.tramites?.total)}</td></tr>
-          <tr><td>Trámites resolutivos (efectivos)</td><td class="td-num">${fmt(d.tramites?.resolutivos)}</td></tr>
-          <tr class="${(d.tramites?.con_error||0)>0?'error-row':''}"><td>Trámites con error de registro</td><td class="td-num">${fmt(d.tramites?.con_error)}</td></tr>
-        </table>
-
-        ${tr.length ? `
-        <div class="rp-sub-title">6.2 Desglose por Tipo de Trámite</div>
-        <table class="rp-table">
-          <tr><th>Tipo de trámite</th><th style="width:90pt;text-align:right;">N° gestionados</th></tr>
-          ${tr.map(t=>`<tr><td>${t.label}</td><td class="td-num">${fmt(t.total)}</td></tr>`).join('')}
-          <tr class="total-row"><td>TOTAL</td><td class="td-num">${fmt(d.tramites?.total)}</td></tr>
-        </table>
-        ${chartImgTag}
-        ` : ''}
-        <div class="rp-obs-label">Observaciones — Trámites Realizados</div>
-        ${getObs('txtTramRealizados')}
-        <div class="rp-obs-label">Observaciones — Trámites Resueltos</div>
-        ${getObs('txtTramResueltos','obs-green')}
-        <div class="rp-obs-label">Observaciones — Trámites con Errores</div>
-        ${getObs('txtTramErrores','obs-error')}
-        <div class="rp-obs-label">Observaciones — Trámites Adicionales</div>
-        ${getObs('txtTramObservaciones','obs-gold')}
-      </div>
-
-      <div class="rp-firma">
-        <div class="rp-firma-item"><div style="font-weight:bold;margin-bottom:2pt;">${_usuarioConsultado}</div><div>Encuestador(a) APS</div></div>
-        <div class="rp-firma-item">
-          <img src="/firma.webp" alt="Firma Vernaza" class="firma-img" />
-          <div style="font-weight:bold;margin-bottom:2pt;">C. Vernaza</div>
-          <div>Revisado por</div>
-        </div>
-        <div class="rp-firma-item"><div style="font-weight:bold;margin-bottom:2pt;">___________________________</div><div>Coordinación APS</div></div>
-      </div>
-      <div class="rp-pie-page">Empresa Social del Estado — Villavicencio · Sistema INFORMES ESE · Generado el ${hoy} · Resolución 763/2025</div>
-    `;
-
-    document.querySelectorAll('textarea').forEach(el => { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; });
-    document.getElementById('seccionImprimible').innerHTML = html;
-
-    setTimeout(() => { window.print(); }, 800);
   }
 
   ['inputUser','inputInicio','inputFin'].forEach(id => {
