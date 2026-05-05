@@ -85,6 +85,13 @@
     .divider{height:1px;background:var(--border);margin:1.8rem 0;}
     .list-row{display:flex;justify-content:space-between;margin-bottom:.4rem;font-size:.8rem;border-bottom:1px solid var(--border);padding-bottom:.2rem;}
 
+    /* ── Estilos Tabla de Datos ── */
+    .data-table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem; }
+    .data-table th { background: var(--navy); color: #fff; padding: 0.7rem; text-align: left; border-radius: 4px 4px 0 0; font-weight: 600; }
+    .data-table td { padding: 0.7rem; border-bottom: 1px solid var(--border); color: var(--text); }
+    .data-table tr:hover { background: var(--teal-lt); }
+    .data-table tfoot td { background: var(--teal-lt); font-weight: 700; color: var(--navy); border-top: 2px solid var(--teal); }
+
     #loadingOverlay{position:fixed;inset:0;background:rgba(240,244,250,.8);z-index:999;display:none;flex-direction:column;align-items:center;justify-content:center;gap:1rem;}
     .loading-spinner{width:40px;height:40px;border:3px solid rgba(0,176,155,.2);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite;}
     @keyframes spin{to{transform:rotate(360deg)}}
@@ -370,6 +377,23 @@
         <div class="sub-section" style="margin-top:1rem;">
           <div class="sub-section-title">Desglose por tipo de trámite</div>
           <div class="chart-container"><canvas id="chartTramitesAuditoria"></canvas></div>
+
+          <table class="data-table" id="tablaDesgloseTramites">
+            <thead>
+              <tr>
+                <th>Tipo de Trámite</th>
+                <th style="width:100px;text-align:right;">Cantidad</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+            <tfoot>
+              <tr>
+                <td style="text-align:right;">TOTAL DE TRÁMITES</td>
+                <td id="totalDesgloseTramites" style="text-align:right; font-family:monospace; font-size:1.1rem;">0</td>
+              </tr>
+            </tfoot>
+          </table>
+
         </div>
         <div class="sub-section" style="margin-top:1rem;">
           <div class="sub-section-title">Reportes Detallados de Trámites</div>
@@ -547,7 +571,6 @@
       _usuarioConsultado = email;
       _rangoFechas       = `${fi} al ${ff}`;
 
-      // --- NUEVO: Mostrar el nombre y perfil del encuestador en el Header ---
       const nom = data.encuestador_nombre && data.encuestador_nombre !== 'Sin registro de nombre' ? data.encuestador_nombre : email;
       const perf = data.encuestador_perfil ? data.encuestador_perfil.toUpperCase() : 'PERFIL DESCONOCIDO';
 
@@ -616,6 +639,23 @@
 
       const tr = data.tramites?.por_tipo || [];
       renderBarChart('chartTramitesAuditoria', tr.map(x=>x.label), tr.map(x=>x.total));
+
+      // ── LOGICA NUEVA TABLA DESGLOSE TRAMITES ──
+      const tbodyTram = document.querySelector('#tablaDesgloseTramites tbody');
+      const footTram = document.getElementById('totalDesgloseTramites');
+      tbodyTram.innerHTML = '';
+      let sumaTram = 0;
+
+      if (tr.length === 0) {
+          tbodyTram.innerHTML = '<tr><td colspan="2" style="text-align:center;color:var(--muted);">Sin datos en este periodo</td></tr>';
+          footTram.textContent = '0';
+      } else {
+          tr.forEach(item => {
+              sumaTram += item.total;
+              tbodyTram.innerHTML += `<tr><td style="font-weight:600;">${item.label}</td><td style="text-align:right; font-family:monospace; font-size:1.05rem;">${fmt(item.total)}</td></tr>`;
+          });
+          footTram.textContent = fmt(sumaTram);
+      }
 
       const panelErr = document.getElementById('panelErrores');
       if (panelErr) panelErr.style.display = 'block';
