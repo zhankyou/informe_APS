@@ -283,7 +283,9 @@
   async function cargarCorreos() {
     try {
       const resp = await fetch(`${API_BASE}/api/encuestadores`, { headers:{ 'Authorization':'Bearer '+token } });
-      if (resp.ok) todosLosCorreos = await resp.json();
+      if (resp.ok) {
+        todosLosCorreos = await resp.json();
+      }
     } catch(e) {}
   }
   cargarCorreos();
@@ -437,6 +439,20 @@
 
     const hoy = new Date().toLocaleDateString('es-CO', { dateStyle:'full' });
 
+    // ── LÓGICA DE TABLA DE DESGLOSE DE TRÁMITES ──
+    let filasTramites = '';
+    let sumaTram = 0;
+    if (tr.por_tipo && tr.por_tipo.length > 0) {
+      tr.por_tipo.forEach(item => {
+        sumaTram += item.total;
+        filasTramites += `<tr><td>${item.label}</td><td class="td-num">${fmt(item.total)}</td></tr>`;
+      });
+      filasTramites += `<tr style="background:#dce9f5;"><td style="text-align:right; font-weight:bold; color:#003366;">TOTAL DE TRÁMITES DESGLOSADOS</td><td class="td-num" style="font-size:9.5pt;">${fmt(sumaTram)}</td></tr>`;
+    } else {
+      filasTramites = `<tr><td colspan="2" style="text-align:center; color:#888;">Sin datos en este periodo</td></tr>`;
+    }
+
+    // ── LÓGICA DE TABLA TOP DIAGNÓSTICOS (SIHOS) ──
     let filasDiagnosticos = '';
     if (s && s.clinico && s.clinico.diagnosticos && s.clinico.diagnosticos.length > 0) {
       s.clinico.diagnosticos.slice(0, 7).forEach(diag => {
@@ -463,7 +479,15 @@
     let descUrgencias = tramRes > 0 ? `Se priorizaron y resolvieron ${tramRes} casos con requerimientos de atención o urgencia.` : "No se reportaron activaciones de ruta de emergencia vital durante las visitas.";
     let descOtras = famIntervenidas > 0 ? `Se abordaron ${famIntervenidas} familias con intervenciones orientadas a mitigar riesgos psicosociales.` : "Articulación comunitaria para el control de determinantes sociales de la salud.";
 
-    const mapTitles = {'caracterizacion': 'Caracterización SI-APS'};
+    // MAPAS DE LEAFLET LOOP DINÁMICO REPARADO
+    const mapTitles = {
+      'caracterizacion': 'Caracterización SI-APS',
+      'pcc': 'Plan Cuidado Comunitario (PCC)',
+      'pcf': 'Plan Cuidado Familiar (PCF)',
+      'tramites': 'Trámites',
+      'desistimientos': 'Desistimientos'
+    };
+
     let mapasHtml = ""; let mapasActivos = [];
     for (const [key, title] of Object.entries(mapTitles)) {
        if(m[key] && m[key].totales && m[key].totales.ok > 0) {
@@ -560,6 +584,10 @@
           <tr><td class="td-label">Planes Comunitarios (PCC) Realizados</td><td class="td-num">${fmt(d.pcc?.planes)}</td></tr>
           <tr><td class="td-label">Integrantes Afectados en PCC</td><td class="td-num">${fmt(d.pcc?.integrantes)}</td></tr>
         </table>
+
+        <div class="rp-sub-title-indicador" style="margin-top: 10pt;">1.1 Reportes Detallados de Plan Cuidado Comunitario</div>
+        <div class="ind-desc" style="font-weight:bold; color:var(--green);">Detalles de Jornada / Actividad</div>
+        ${getObs(d.pcc?.reporte_detalles)}
       </div>
 
       <div class="rp-section">
@@ -593,25 +621,39 @@
           <tr><td>Total trámites gestionados</td><td class="td-num">${fmt(tramTotal)}</td></tr>
           <tr><td>Trámites resolutivos (efectivos)</td><td class="td-num">${fmt(tramRes)}</td></tr>
         </table>
+
+        <div class="rp-sub-title-indicador" style="margin-top: 10pt;">4.1 Desglose por Tipo de Trámite</div>
+        <table class="rp-table">
+          <thead>
+            <tr><th>Tipo de Trámite</th><th style="width:90pt;text-align:right;">Cantidad</th></tr>
+          </thead>
+          <tbody>
+            ${filasTramites}
+          </tbody>
+        </table>
       </div>
 
       <div class="rp-section">
         <div class="rp-section-title">5. TABLAS DE INDICADORES Y CANALIZACIÓN</div>
+
         <div class="rp-sub-title-indicador">5.1 Porcentaje de canalizaciones a servicios de salud</div>
         <table class="ind-table">
           <thead><tr><th>Indicador</th><th>Fórmula de cálculo</th><th>Unidad</th><th>Resultado</th></tr></thead>
           <tbody><tr><td class="ind-strong">% canalizaciones a servicios de salud</td><td>N° de familias canalizadas a servicios de salud / N° total de familias caracterizadas × 100</td><td>Porcentaje (%)</td><td class="ind-result">${pctCanalizacion}%</td></tr></tbody>
         </table>
+
         <div class="rp-sub-title-indicador">5.2 Porcentaje de canalizaciones a otros sectores (intersectorial)</div>
         <table class="ind-table">
           <thead><tr><th>Indicador</th><th>Fórmula de cálculo</th><th>Unidad</th><th>Resultado</th></tr></thead>
           <tbody><tr><td class="ind-strong">% canalizaciones intersectoriales</td><td>N° de familias canalizadas a otros sectores / N° total de familias caracterizadas × 100</td><td>Porcentaje (%)</td><td class="ind-result">${pctIntersectorial}%</td></tr></tbody>
         </table>
+
         <div class="rp-sub-title-indicador">5.3 Cumplimiento de RIAS — PRE intervención APS</div>
         <table class="ind-table">
           <thead><tr><th>Indicador</th><th>Fórmula de cálculo</th><th>Unidad</th><th>Resultado</th></tr></thead>
           <tbody><tr><td class="ind-strong">% cumplimiento RIAS (PRE intervención)</td><td>N° de personas que cumplen con la RIAS según R3280 en la primera visita / N° total de personas caracterizadas × 100</td><td>Porcentaje (%)</td><td class="ind-result">${pctRiasPre}%</td></tr></tbody>
         </table>
+
         <div class="rp-sub-title-indicador">5.4 Cumplimiento de RIAS — POST intervención APS</div>
         <table class="ind-table">
           <thead><tr><th>Indicador</th><th>Fórmula de cálculo</th><th>Unidad</th><th>Resultado</th></tr></thead>
@@ -705,7 +747,7 @@
     document.getElementById('reportPreview').innerHTML = html;
     document.getElementById('reportPreview').style.display = 'block';
     document.getElementById('btnPrint').style.display = 'flex';
-    document.getElementById('btnExport').style.display = 'flex';
+    document.getElementById('btnExport').style.display = 'none';
 
     if (s && s.resumen.total_facturaciones > 0) {
       buildPrintChart('printChartGenero', s.demografia.genero.map(x=>x.label), s.demografia.genero.map(x=>x.total));
