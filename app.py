@@ -381,19 +381,38 @@ def get_dashboard():
     tr_res = res_tramites[0]["res"] or 0 if res_tramites else 0
     tr_err = res_tramites[0]["err"] or 0 if res_tramites else 0
 
+    # SOLUCION MATEMÁTICAS TRAMITES RESUELTOS POR CATEGORÍA
     res_tramites_nombres = ejecutar(
-        f"SELECT nombres_realizados FROM tramites_consolidados_2026 WHERE nombres_realizados IS NOT NULL AND {get_date_filter('fecha')}",
+        f"SELECT nombres_realizados, nombres_efectivos FROM tramites_consolidados_2026 WHERE (nombres_realizados IS NOT NULL OR nombres_efectivos IS NOT NULL) AND {get_date_filter('fecha')}",
         params)
-    conteo_tramites = {}
+    conteo_realizados = Counter()
+    conteo_efectivos = Counter()
+
     for row in res_tramites_nombres:
-        texto = str(row["nombres_realizados"])
-        if texto and "Ningún" not in texto and texto != 'None':
-            items = texto.split("|")
-            for item in items:
-                val = item.strip()
-                if val: conteo_tramites[val] = conteo_tramites.get(val, 0) + 1
-    por_tipo_lista = [{"label": k, "total": v} for k, v in
-                      sorted(conteo_tramites.items(), key=lambda x: x[1], reverse=True)]
+        nr = str(row.get("nombres_realizados", ""))
+        ne = str(row.get("nombres_efectivos", ""))
+
+        if nr and "Ningún" not in nr and nr != 'None':
+            for item in (x.strip() for x in nr.split("|") if x.strip()):
+                conteo_realizados[item] += 1
+
+        if ne and "Ningún" not in ne and ne != 'None':
+            for item in (x.strip() for x in ne.split("|") if x.strip()):
+                conteo_efectivos[item] += 1
+
+    por_tipo_lista = []
+    for k, v_realizados in sorted(conteo_realizados.items(), key=lambda x: x[1], reverse=True):
+        v_efectivos = conteo_efectivos.get(k, 0)
+        pendientes = v_realizados - v_efectivos if (v_realizados - v_efectivos) >= 0 else 0
+        pct = round((v_efectivos / v_realizados * 100), 1) if v_realizados > 0 else 0
+
+        por_tipo_lista.append({
+            "label": k,
+            "total": v_realizados,
+            "resueltos": v_efectivos,
+            "pendientes": pendientes,
+            "porcentaje": pct
+        })
 
     tr_registros = q("tramites_aps_2026")
     tr_familias_query = f"""
@@ -776,6 +795,7 @@ def get_auditoria_data(usuario: str, fecha_ini: str, fecha_fin: str) -> dict:
     a_tr_res = res_tram_aud[0]["res"] or 0 if res_tram_aud else 0
     a_tr_err = res_tram_aud[0]["err"] or 0 if res_tram_aud else 0
 
+    # SOLUCION MATEMÁTICAS TRAMITES RESUELTOS POR CATEGORÍA
     res_tramites_textos = ejecutar("""
                                    SELECT nombres_realizados, nombres_efectivos
                                    FROM tramites_consolidados_2026
@@ -784,17 +804,36 @@ def get_auditoria_data(usuario: str, fecha_ini: str, fecha_fin: str) -> dict:
                                      AND CAST(fecha AS text) <= :fecha_fin_limite
                                    """, params)
 
-    conteo_tramites_aud, texto_realizados, texto_resueltos, c_re, c_ef = {}, "", "", 1, 1
+    conteo_realizados_aud = Counter()
+    conteo_efectivos_aud = Counter()
+    texto_realizados, texto_resueltos, c_re, c_ef = "", "", 1, 1
+
     for row in res_tramites_textos:
-        nr, ne = str(row["nombres_realizados"]), str(row["nombres_efectivos"])
+        nr, ne = str(row.get("nombres_realizados", "")), str(row.get("nombres_efectivos", ""))
         if nr and "Ningún" not in nr and nr != 'None':
             texto_realizados += f"Registro {c_re}: {nr.replace('|', ', ')}\n"
             c_re += 1
             for item in (x.strip() for x in nr.split("|") if x.strip()):
-                conteo_tramites_aud[item] = conteo_tramites_aud.get(item, 0) + 1
+                conteo_realizados_aud[item] += 1
+
         if ne and "Ningún" not in ne and ne != 'None':
             texto_resueltos += f"Registro {c_ef}: {ne.replace('|', ', ')}\n"
             c_ef += 1
+            for item in (x.strip() for x in ne.split("|") if x.strip()):
+                conteo_efectivos_aud[item] += 1
+
+    por_tipo_aud = []
+    for k, v_realizados in sorted(conteo_realizados_aud.items(), key=lambda x: x[1], reverse=True):
+        v_efectivos = conteo_efectivos_aud.get(k, 0)
+        pend = v_realizados - v_efectivos if (v_realizados - v_efectivos) >= 0 else 0
+        pct = round((v_efectivos / v_realizados * 100), 1) if v_realizados > 0 else 0
+        por_tipo_aud.append({
+            "label": k,
+            "total": v_realizados,
+            "resueltos": v_efectivos,
+            "pendientes": pend,
+            "porcentaje": pct
+        })
 
     res_err_tr = ejecutar("""
                           SELECT id_ficha, detalle_inconsistencias
@@ -844,8 +883,7 @@ def get_auditoria_data(usuario: str, fecha_ini: str, fecha_fin: str) -> dict:
 
     data["tramites"] = {
         "total": a_tr_tot, "resolutivos": a_tr_res, "con_error": a_tr_err,
-        "por_tipo": [{"label": k, "total": v} for k, v in
-                     sorted(conteo_tramites_aud.items(), key=lambda x: x[1], reverse=True)],
+        "por_tipo": por_tipo_aud,
         "total_registros": safe_count(q("tramites_aps_2026"), params),
         "total_familias": tr_fam_res_aud[0]["total"] if tr_fam_res_aud else 0,
         "reporte_realizados": texto_realizados if texto_realizados else "No hay trámites realizados en estas fechas.",
@@ -1123,12 +1161,17 @@ def get_sihos_analytics():
 
     query_cruce = f"""
         SELECT COUNT(*) as campo_total
-        FROM pcf_planes_principal_2026
-        WHERE {get_date_filter('created_at')}
+        FROM pcf_planes_integrantes_2026 b
+        JOIN pcf_planes_principal_2026 p ON b.ec5_branch_owner_uuid = p.ec5_uuid
+        WHERE {get_date_filter('p.created_at')}
           {prof_filter_aps}
     """
     res_cruce = ejecutar(query_cruce, params)
     atenciones_campo_aps = res_cruce[0]["campo_total"] if res_cruce else 0
+
+    if total_atenciones == 0 and atenciones_campo_aps == 0 and profesional:
+        return jsonify({
+                           "error": f"No se encontraron facturaciones en SIHOS ni reportes en campo para {profesional} en estas fechas."}), 404
 
     def format_counter(counter_obj):
         return [{"label": k, "total": v} for k, v in sorted(counter_obj.items(), key=lambda x: x[1], reverse=True)]
