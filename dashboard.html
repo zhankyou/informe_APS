@@ -333,7 +333,6 @@
       .rp-section       { margin-bottom: 12pt; page-break-inside: avoid; }
       .rp-section-title { background: #003366; color: #fff; padding: 4pt 8pt; font-size: 9.5pt; font-weight: bold; letter-spacing: .04em; margin-bottom: 6pt; text-transform: uppercase; }
 
-      /* Tablas Azules de Indicadores SIHOS */
       .rp-sub-title-indicador { font-size: 10pt; font-weight: bold; color: #1a5276; margin-bottom: 5pt; page-break-inside: avoid !important;}
       .ind-desc { font-size: 8pt; color: #444; margin-bottom: 6pt; line-height: 1.4; page-break-inside: avoid !important;}
       .ind-table { width: 100%; border-collapse: collapse; margin-bottom: 15pt; font-size: 8pt; page-break-inside: avoid !important; }
@@ -403,7 +402,6 @@
       <span class="nav-label">Informes</span>
     </a>
   </div>
-
   <div class="sidebar-user">
     <div class="user-name" id="sidebarNombre">Cargando...</div>
     <div class="user-role" id="sidebarRol">—</div>
@@ -834,7 +832,6 @@
     });
   }
 
-  // Gráfico sin leyenda automática para que no se corte en PDF
   function buildPrintChart(canvasId, type, labels, data) {
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
@@ -842,7 +839,7 @@
     chartInstances[canvasId] = new Chart(ctx, {
       type: type,
       data:{ labels, datasets:[{ data, backgroundColor: PALETTE, borderColor: '#fff', borderWidth: 1 }] },
-      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display: false } } }
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display: false }, tooltip: { enabled: false } } }
     });
   }
 
@@ -858,7 +855,6 @@
   async function loadDashboard() {
     if (isSearching) return;
 
-    // Obtener valor del filtro de mes
     const monthFilter = document.getElementById('filterMonth').value;
     let urlExt = '';
     if (monthFilter) {
@@ -892,6 +888,7 @@
       _datosDashboard = { ...d, sihos: s };
 
       // ── PINTAR SIHOS EN PANTALLA (Incluso si hay 0) ──
+      document.getElementById('sec-sihos').style.display = 'block';
       setVal('sihos-total', s ? s.resumen?.total_facturaciones : 0);
       setVal('sihos-rias', s ? s.indicadores?.total_rias : 0);
       setVal('sihos-med', s ? s.indicadores?.pyp_medicina : 0);
@@ -914,7 +911,6 @@
       const monthText = monthFilter ? ` (Filtrado: ${monthFilter})` : '';
       document.getElementById('topbarFecha').textContent = 'Última actualización: ' + now + monthText;
 
-      // Resto del Dashboard original
       setVal('d-total', d.desistimientos?.total);
       setVal('d-error', d.desistimientos?.con_error);
 
@@ -993,13 +989,51 @@
 
     const d = _datosDashboard;
     const ca = d.caracterizacion || {};
-    const s  = d.sihos || null; // Datos SIHOS
+    const s  = d.sihos || null;
     const hoy = new Date().toLocaleDateString('es-CO', { dateStyle:'full' });
 
     let chartDiscImgTag = '';
     const cnvDisc = document.getElementById('chartDiscapacidad');
     if (cnvDisc && (ca.discapacidades_chart || []).length) {
       chartDiscImgTag = `<div style="text-align:center; margin-top: 10pt;"><div class="rp-sub-title">Frecuencia de Tipos de Discapacidad</div><img class="rp-chart-img" src="${cnvDisc.toDataURL('image/png')}" alt="Gráfico Discapacidades" style="max-height:140pt;"/></div>`;
+    }
+
+    // ── LÓGICA DE TABLA DE DESGLOSE DE TRÁMITES (Dashboard General) ──
+    let filasTramites = '';
+    let sumaTram = 0;
+    let sumaRes = 0;
+    let sumaPend = 0;
+
+    if (d.tramites && d.tramites.por_tipo && d.tramites.por_tipo.length > 0) {
+      d.tramites.por_tipo.forEach(item => {
+        sumaTram += item.total || 0;
+        let resueltos = item.resueltos || 0;
+        let pendientes = item.pendientes || 0;
+        let porcentaje = item.porcentaje || 0;
+
+        sumaRes += resueltos;
+        sumaPend += pendientes;
+
+        filasTramites += `<tr>
+          <td>${item.label}</td>
+          <td class="td-num">${fmt(item.total)}</td>
+          <td class="td-num" style="color:#1e9c6e;">${fmt(resueltos)}</td>
+          <td class="td-num" style="color:#f0a500;">${fmt(pendientes)}</td>
+          <td class="td-num" style="color:#0a1f3d;">${porcentaje}%</td>
+        </tr>`;
+      });
+
+      let pctTotal = sumaTram > 0 ? (sumaRes / sumaTram * 100).toFixed(1) : 0;
+
+      filasTramites += `<tr style="background:#dce9f5;">
+        <td style="text-align:right; font-weight:bold; color:#003366;">TOTAL DESGLOSADO</td>
+        <td class="td-num" style="font-size:9.5pt;">${fmt(sumaTram)}</td>
+        <td class="td-num" style="font-size:9.5pt; color:#1e9c6e;">${fmt(sumaRes)}</td>
+        <td class="td-num" style="font-size:9.5pt; color:#f0a500;">${fmt(sumaPend)}</td>
+        <td class="td-num" style="font-size:9.5pt; color:#0a1f3d;">${pctTotal}%</td>
+      </tr>`;
+    } else {
+      filasTramites = `<tr><td colspan="5" style="text-align:center; color:#888; height:20pt;">Sin trámites en este periodo</td></tr>`;
     }
 
     // LÓGICA DE TABLA DE DIAGNÓSTICOS GLOBALES (SIHOS)
@@ -1011,65 +1045,18 @@
       });
     } else {
       filasDiagnosticos = `
-        <tr><td style="height:18pt;"></td><td></td><td></td></tr>
-        <tr><td style="height:18pt;"></td><td></td><td></td></tr>
-        <tr><td style="height:18pt;"></td><td></td><td></td></tr>
+        <tr><td colspan="3" style="text-align:center; color:#888; height:30pt;">No hay diagnósticos registrados</td></tr>
       `;
     }
 
-    let graficosSihosHtml = '';
-    if (s && s.resumen && s.resumen.total_facturaciones > 0) {
-      let tableGen = getMiniTable(s.demografia.genero.map(x=>x.label), s.demografia.genero.map(x=>x.total));
-      let tableSrv = getMiniTable(s.clinico.tipo_servicio.map(x=>x.label), s.clinico.tipo_servicio.map(x=>x.total));
+    let factTotal = s ? s.resumen?.total_facturaciones : 0;
+    let medTotal = s ? s.indicadores?.pyp_medicina : 0;
+    let enfTotal = s ? s.indicadores?.pyp_enfermeria : 0;
+    let psiTotal = s ? s.indicadores?.salud_mental : 0;
+    let riasTotal = s ? s.indicadores?.total_rias : 0;
 
-      // Regenerar Gráficos Circulares ciegos antes de imprimir
-      buildPrintChart('printChartGeneroGlobal', 'doughnut', s.demografia.genero.map(x=>x.label), s.demografia.genero.map(x=>x.total));
-      buildPrintChart('printChartServicioGlobal', 'doughnut', s.clinico.tipo_servicio.map(x=>x.label), s.clinico.tipo_servicio.map(x=>x.total));
-
-      graficosSihosHtml = `
-        <div class="rp-section" style="page-break-inside: avoid;">
-          <div class="rp-section-title" style="background:#0a1f3d;">6. ANÁLISIS DE FACTURACIÓN CLÍNICA GLOBAL (SIHOS)</div>
-
-          <table class="rp-table">
-            <tr><th>Indicador Clínico</th><th style="width:90pt;text-align:right;">Cantidad Global</th></tr>
-            <tr><td>Total Facturaciones / Atenciones</td><td class="td-num">${fmt(s.resumen.total_facturaciones)}</td></tr>
-            <tr><td>Consultas Promoción y Mantenimiento (Medicina)</td><td class="td-num">${fmt(s.indicadores.pyp_medicina)}</td></tr>
-            <tr><td>Consultas Promoción y Mantenimiento (Enfermería)</td><td class="td-num">${fmt(s.indicadores.pyp_enfermeria)}</td></tr>
-            <tr><td>Consultas de Salud Mental y Psicología</td><td class="td-num">${fmt(s.indicadores.salud_mental)}</td></tr>
-            <tr class="total-row"><td>TOTAL CUMPLIMIENTO RIAS GLOBALES</td><td class="td-num">${fmt(s.indicadores.total_rias)}</td></tr>
-          </table>
-
-          <div style="display:flex; justify-content:space-between; gap:20pt; margin-top:10pt;">
-            <div style="flex:1;">
-              <div class="rp-sub-title-indicador">Distribución por Género</div>
-              <div class="chart-box">
-                <div class="donut-wrapper"><canvas id="printChartGeneroGlobal"></canvas></div>
-                <div class="legend-wrapper">${tableGen}</div>
-              </div>
-            </div>
-            <div style="flex:1;">
-              <div class="rp-sub-title-indicador">Tipo de Servicio Global</div>
-              <div class="chart-box">
-                <div class="donut-wrapper"><canvas id="printChartServicioGlobal"></canvas></div>
-                <div class="legend-wrapper">${tableSrv}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="rp-section">
-          <div class="rp-sub-title-indicador">6.1 Enfermedades y Condiciones de Salud Prevalentes Globales (Top 7)</div>
-          <table class="ind-table">
-            <thead>
-              <tr><th>Condición / Diagnóstico (CIE-10)</th><th style="width:50pt;">N° Casos Globales</th><th>Grupo etario predominante</th></tr>
-            </thead>
-            <tbody>
-              ${filasDiagnosticos}
-            </tbody>
-          </table>
-        </div>
-      `;
-    }
+    let tableGen = s && s.demografia?.genero && s.demografia.genero.length > 0 ? getMiniTable(s.demografia.genero.map(x=>x.label), s.demografia.genero.map(x=>x.total)) : '<div style="color:#888; font-size:8pt;">Sin datos</div>';
+    let tableSrv = s && s.clinico?.tipo_servicio && s.clinico.tipo_servicio.length > 0 ? getMiniTable(s.clinico.tipo_servicio.map(x=>x.label), s.clinico.tipo_servicio.map(x=>x.total)) : '<div style="color:#888; font-size:8pt;">Sin datos</div>';
 
     const html = `
       <div class="rp-header-inst">
@@ -1204,16 +1191,72 @@
           <tr><td>Trámites resolutivos (efectivos)</td><td class="td-num">${fmt(d.tramites?.resolutivos)}</td></tr>
           <tr class="${(d.tramites?.con_error||0)>0?'error-row':''}"><td>Trámites con error de registro</td><td class="td-num">${fmt(d.tramites?.con_error)}</td></tr>
         </table>
+
+        <div class="rp-sub-title-indicador" style="margin-top: 15pt;">5.1 Desglose por Tipo de Trámite</div>
+        <table class="rp-table" style="margin-bottom:5px;">
+          <thead>
+            <tr>
+              <th>Tipo de Trámite</th>
+              <th style="width:60pt;text-align:right;">Total Realizados</th>
+              <th style="width:50pt;text-align:right;">Resueltos</th>
+              <th style="width:50pt;text-align:right;">Pendientes</th>
+              <th style="width:60pt;text-align:right;">% Resolutivos</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filasTramites}
+          </tbody>
+        </table>
+
         <div style="text-align: center;">
            ${getChartImage('chartTramites')}
         </div>
       </div>
 
-      ${graficosSihosHtml}
+      <div class="rp-section" style="page-break-inside: avoid;">
+        <div class="rp-section-title" style="background:#0a1f3d;">6. ANÁLISIS DE FACTURACIÓN CLÍNICA GLOBAL (SIHOS)</div>
+        <table class="rp-table">
+          <tr><th>Indicador Clínico</th><th style="width:90pt;text-align:right;">Cantidad Global</th></tr>
+          <tr><td>Total Facturaciones / Atenciones</td><td class="td-num">${fmt(factTotal)}</td></tr>
+          <tr><td>Consultas Promoción y Mantenimiento (Medicina)</td><td class="td-num">${fmt(medTotal)}</td></tr>
+          <tr><td>Consultas Promoción y Mantenimiento (Enfermería)</td><td class="td-num">${fmt(enfTotal)}</td></tr>
+          <tr><td>Consultas de Salud Mental y Psicología</td><td class="td-num">${fmt(psiTotal)}</td></tr>
+          <tr class="total-row"><td>TOTAL CUMPLIMIENTO RIAS GLOBALES</td><td class="td-num">${fmt(riasTotal)}</td></tr>
+        </table>
+
+        <div style="display:flex; justify-content:space-between; gap:20pt; margin-top:10pt;">
+          <div style="flex:1;">
+            <div class="rp-sub-title-indicador">Distribución por Género</div>
+            <div class="chart-box">
+              <div class="donut-wrapper"><canvas id="printChartGeneroGlobal"></canvas></div>
+              <div class="legend-wrapper">${tableGen}</div>
+            </div>
+          </div>
+          <div style="flex:1;">
+            <div class="rp-sub-title-indicador">Tipo de Servicio Global</div>
+            <div class="chart-box">
+              <div class="donut-wrapper"><canvas id="printChartServicioGlobal"></canvas></div>
+              <div class="legend-wrapper">${tableSrv}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="rp-section">
+        <div class="rp-sub-title-indicador">6.1 Enfermedades y Condiciones de Salud Prevalentes Globales (Top 7)</div>
+        <table class="ind-table">
+          <thead>
+            <tr><th>Condición / Diagnóstico (CIE-10)</th><th style="width:50pt;">N° Casos Globales</th><th>Grupo etario predominante</th></tr>
+          </thead>
+          <tbody>
+            ${filasDiagnosticos}
+          </tbody>
+        </table>
+      </div>
 
       <div class="rp-firma">
         <div class="rp-firma-item">
-          <img src="/firma.webp" alt="Firma Vernaza" class="firma-img" />
+          <img src="/firma.webp" alt="Firma Vernaza" class="firma-img" onerror="this.style.display='none'"/>
           <div style="font-weight:bold;margin-bottom:2pt;">Cristian F. Calentura V.</div>
           <div>Auditoría / Análisis de Datos</div>
         </div>
@@ -1231,7 +1274,15 @@
 
     document.getElementById('seccionImprimible').innerHTML = html;
 
-    // Pequeña pausa para asegurar que Canvas se pinten antes de imprimir
+    // Dibujar gráficos de SIHOS antes de imprimir
+    if (s && s.resumen && s.resumen.total_facturaciones > 0) {
+      buildPrintChart('printChartGeneroGlobal', 'doughnut', s.demografia.genero.map(x=>x.label), s.demografia.genero.map(x=>x.total));
+      buildPrintChart('printChartServicioGlobal', 'doughnut', s.clinico.tipo_servicio.map(x=>x.label), s.clinico.tipo_servicio.map(x=>x.total));
+    } else {
+      buildPrintChart('printChartGeneroGlobal', 'doughnut', ['Sin datos'], [1]);
+      buildPrintChart('printChartServicioGlobal', 'doughnut', ['Sin datos'], [1]);
+    }
+
     setTimeout(() => { window.print(); }, 800);
   }
 
