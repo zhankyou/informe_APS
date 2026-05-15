@@ -422,11 +422,12 @@ def get_dashboard():
     for k in sorted(todas_las_keys):
         v_realizados = conteo_realizados.get(k, 0)
         v_efectivos = conteo_efectivos.get(k, 0)
+
         if v_efectivos > v_realizados: v_realizados = v_efectivos
-        pendientes = v_realizados - v_efectivos
+        pend = v_realizados - v_efectivos
         pct = round((v_efectivos / v_realizados * 100), 1) if v_realizados > 0 else 0
         por_tipo_lista.append({
-            "label": k, "total": v_realizados, "resueltos": v_efectivos, "pendientes": pendientes, "porcentaje": pct
+            "label": k, "total": v_realizados, "resueltos": v_efectivos, "pendientes": pend, "porcentaje": pct
         })
 
     tr_registros = q("tramites_aps_2026")
@@ -788,9 +789,13 @@ def get_auditoria_data(usuario: str, fecha_ini: str, fecha_fin: str) -> dict:
     }
 
     # 🛑 BALANCE Y PARSEO INTELIGENTE DE TRÁMITES (AUDITORÍA) 🛑
-    res_tram_err = ejecutar(
-        f"SELECT SUM(CAST(errores AS numeric)) as err FROM tramites_consolidados_2026 WHERE LOWER(TRIM(CAST(usuario AS text))) = LOWER(:usuario) AND {get_date_filter('fecha')}",
-        params)
+    res_tram_err = ejecutar(f"""
+                            SELECT SUM(CAST(errores AS numeric)) as err
+                            FROM tramites_consolidados_2026
+                            WHERE LOWER(TRIM(CAST(usuario AS text))) = LOWER(:usuario)
+                              AND {get_date_filter('fecha')}
+                            """, params)
+
     a_tr_err = int(res_tram_err[0]["err"] or 0) if res_tram_err else 0
 
     res_tramites_textos = ejecutar(f"""
@@ -852,7 +857,11 @@ def get_auditoria_data(usuario: str, fecha_ini: str, fecha_fin: str) -> dict:
         pend = v_realizados - v_efectivos
         pct = round((v_efectivos / v_realizados * 100), 1) if v_realizados > 0 else 0
         por_tipo_aud.append({
-            "label": k, "total": v_realizados, "resueltos": v_efectivos, "pendientes": pend, "porcentaje": pct
+            "label": k,
+            "total": v_realizados,
+            "resueltos": v_efectivos,
+            "pendientes": pend,
+            "porcentaje": pct
         })
 
     res_err_tr = ejecutar(f"""
@@ -958,8 +967,10 @@ def get_mapas():
     logger.info(
         f"📍 [MAPAS GIS] El usuario '{usuario_req}' solicitó las coordenadas de: '{usuario}'. Rango: {fecha_ini} a {fecha_fin}")
 
-    fecha_fin_limite = (fecha_fin or "2099-12-31") + "T23:59:59"
-    params = {"usuario": usuario, "fecha_ini": fecha_ini or "2000-01-01", "fecha_fin_limite": fecha_fin_limite}
+    # FIX: Se define f_ini y f_fin explícitamente para que empaten con el get_date_filter
+    f_ini = fecha_ini or "2000-01-01"
+    f_fin = fecha_fin or "2099-12-31"
+    params = {"usuario": usuario, "f_ini": f_ini, "f_fin": f_fin}
 
     LAT_MIN, LAT_MAX = 3.80, 4.40
     LNG_MIN, LNG_MAX = -74.00, -73.30
