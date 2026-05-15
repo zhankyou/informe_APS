@@ -281,6 +281,17 @@
     .etnia-labels span:first-child { color: var(--teal); font-weight: 600; }
     .etnia-labels span:last-child  { color: var(--muted); }
 
+    /* ── Estilos Tabla de Datos (ACTUALIZADO) ── */
+    .data-table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem; }
+    .data-table th { background: var(--navy); color: #fff; padding: 0.8rem; text-align: left; font-weight: 600; border-right: 1px solid rgba(255,255,255,0.1); }
+    .data-table th:first-child { border-radius: 6px 0 0 0; }
+    .data-table th:last-child { border-radius: 0 6px 0 0; border-right: none; }
+    .data-table td { padding: 0.8rem; border-bottom: 1px solid var(--border); color: var(--text); border-right: 1px solid var(--border); }
+    .data-table td:last-child { border-right: none; }
+    .data-table tr:hover { background: var(--teal-lt); }
+    .data-table tfoot td { background: var(--teal-lt); font-weight: 700; color: var(--navy); border-top: 2px solid var(--teal); }
+    .res-badge { display:inline-block; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:700; background:var(--green-lt); color:var(--green); }
+
     /* ── Loading overlay ────────────────────────────────────────── */
     #loadingOverlay {
       position: fixed; inset: 0;
@@ -668,9 +679,9 @@
           <div class="stat-value loading" id="tr-total">—</div>
         </div>
         <div class="stat-card c-green">
-          <div class="stat-label">Trámites resolutivos</div>
+          <div class="stat-label">Total de Trámites Resueltos</div>
           <div class="stat-value loading" id="tr-resol">—</div>
-          <span class="stat-badge badge-ok">Resueltos</span>
+          <span class="stat-badge badge-ok">Resolutividad</span>
         </div>
         <div class="stat-card c-red">
           <div class="stat-label">Con error de registro</div>
@@ -680,12 +691,33 @@
       </div>
 
       <div class="sub-section" style="margin-top:.5rem;">
-        <div class="sub-section-title">Tipo de trámite</div>
+        <div class="sub-section-title">Desglose por tipo de trámite</div>
         <div class="chart-card" style="box-shadow:none;padding:0;">
           <div class="chart-container" style="height:220px;">
             <canvas id="chartTramites"></canvas>
           </div>
         </div>
+
+        <table class="data-table" id="tablaDesgloseTramites">
+          <thead>
+            <tr>
+              <th>Tipo de Trámite</th>
+              <th style="width:110px;text-align:center;">Cant. Total</th>
+              <th style="width:110px;text-align:center;">Resueltos</th>
+              <th style="width:100px;text-align:center;">Efectividad</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+          <tfoot>
+            <tr>
+              <td style="text-align:right;">TOTAL DE TRÁMITES</td>
+              <td id="tdTotal" style="text-align:center; font-family:monospace; font-size:1.05rem;">0</td>
+              <td id="tdRes" style="text-align:center; font-family:monospace; font-size:1.05rem; color:var(--green);">0</td>
+              <td id="tdPct" style="text-align:center; font-family:monospace; font-size:1.05rem;">0%</td>
+            </tr>
+          </tfoot>
+        </table>
+
       </div>
     </div>
 
@@ -956,6 +988,7 @@
       setVal('psi-integ',  d.pcf_psicologia?.integrantes);
       setVal('psi-seg',    d.pcf_psicologia?.seguimientos);
 
+      // TRÁMITES BALANCEADOS (Dashboard)
       setVal('tr-registros', d.tramites?.total_registros);
       setVal('tr-familias',  d.tramites?.total_familias);
       setVal('tr-total', d.tramites?.total);
@@ -964,6 +997,45 @@
 
       const tr = d.tramites?.por_tipo || [];
       buildChart('chartTramites', 'bar', tr.map(x => x.label), tr.map(x => x.total));
+
+      // ── LOGICA NUEVA TABLA DESGLOSE TRAMITES ──
+      const tbodyTram = document.querySelector('#tablaDesgloseTramites tbody');
+      const elTot = document.getElementById('tdTotal');
+      const elRes = document.getElementById('tdRes');
+      const elPct = document.getElementById('tdPct');
+
+      tbodyTram.innerHTML = '';
+      let sumTot = 0;
+      let sumRes = 0;
+
+      if (tr.length === 0) {
+          tbodyTram.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:2rem;">Sin datos en este periodo</td></tr>';
+          elTot.textContent = '0';
+          elRes.textContent = '0';
+          elPct.textContent = '0%';
+      } else {
+          tr.forEach(item => {
+              sumTot += item.total;
+              sumRes += item.resueltos;
+
+              let color = 'var(--text)';
+              if(item.porcentaje === 100) color = 'var(--green)';
+              else if(item.porcentaje === 0) color = 'var(--gold)';
+
+              tbodyTram.innerHTML += `
+                <tr>
+                  <td style="font-weight:600;">${item.label}</td>
+                  <td style="text-align:center; font-family:monospace; font-size:1rem;">${fmt(item.total)}</td>
+                  <td style="text-align:center; font-family:monospace; font-size:1rem; font-weight:700; color:var(--navy);">${fmt(item.resueltos)}</td>
+                  <td style="text-align:center;"><span class="res-badge" style="color:${color}; background:${color}1a;">${item.porcentaje}%</span></td>
+                </tr>`;
+          });
+
+          elTot.textContent = fmt(sumTot);
+          elRes.textContent = fmt(sumRes);
+          let pctGlobal = sumTot > 0 ? ((sumRes / sumTot) * 100).toFixed(1) : 0;
+          elPct.textContent = pctGlobal + '%';
+      }
 
       document.getElementById('btnPrint').style.display = 'flex';
 
@@ -998,7 +1070,7 @@
       chartDiscImgTag = `<div style="text-align:center; margin-top: 10pt;"><div class="rp-sub-title">Frecuencia de Tipos de Discapacidad</div><img class="rp-chart-img" src="${cnvDisc.toDataURL('image/png')}" alt="Gráfico Discapacidades" style="max-height:140pt;"/></div>`;
     }
 
-    // ── LÓGICA DE TABLA DE DESGLOSE DE TRÁMITES (Dashboard General) ──
+    // ── LÓGICA DE TABLA DE DESGLOSE DE TRÁMITES (Dashboard PDF) ──
     let filasTramites = '';
     let sumaTram = 0;
     let sumaRes = 0;
