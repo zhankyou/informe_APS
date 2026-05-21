@@ -15,6 +15,7 @@
       --bg:#f0f4fa;--surface:#ffffff;--navy:#0a1f3d;--navy-lt:#122848;
       --teal:#00b09b;--teal-lt:#e6f7f5;--teal-mid:#b3e8e3;
       --gold:#f0a500;--gold-lt:#fef7e0;--red:#e53935;--red-lt:#fde8e8;
+      --orange:#f97316;--orange-lt:#ffedd5;
       --purple:#6c3fc5;--purple-lt:#ede8fb;--green:#1e9c6e;--green-lt:#e5f7f0;
       --border:#dde4ef;--text:#1a2840;--muted:#5d7290;
       --sidebar-w:240px;--radius:14px;
@@ -74,11 +75,11 @@
     .cards-row{display:flex;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;}
     .stat-card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.2rem 1.4rem;flex:1;min-width:160px;border-top:3px solid transparent;transition:box-shadow .2s,transform .2s;}
     .stat-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px);}
-    .stat-card.c-teal{border-top-color:var(--teal)}.stat-card.c-gold{border-top-color:var(--gold)}.stat-card.c-red{border-top-color:var(--red)}.stat-card.c-purple{border-top-color:var(--purple)}.stat-card.c-green{border-top-color:var(--green)}.stat-card.c-navy{border-top-color:var(--navy)}
+    .stat-card.c-teal{border-top-color:var(--teal)}.stat-card.c-gold{border-top-color:var(--gold)}.stat-card.c-red{border-top-color:var(--red)}.stat-card.c-purple{border-top-color:var(--purple)}.stat-card.c-green{border-top-color:var(--green)}.stat-card.c-navy{border-top-color:var(--navy)}.stat-card.c-orange{border-top-color:var(--orange)}
     .stat-label{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.45rem;}
     .stat-value{font-family:'Fraunces',serif;font-size:2rem;font-weight:700;color:var(--navy);line-height:1;margin-bottom:.2rem;}
     .stat-badge{display:inline-block;padding:.15rem .55rem;border-radius:20px;font-size:.68rem;font-weight:600;}
-    .badge-error{background:var(--red-lt);color:var(--red)}.badge-ok{background:var(--green-lt);color:var(--green)}.badge-warn{background:var(--gold-lt);color:var(--gold)}.badge-info{background:var(--teal-lt);color:var(--teal)}
+    .badge-error{background:var(--red-lt);color:var(--red)}.badge-ok{background:var(--green-lt);color:var(--green)}.badge-warn{background:var(--gold-lt);color:var(--gold)}.badge-info{background:var(--teal-lt);color:var(--teal)}.badge-orange{background:var(--orange-lt);color:var(--orange)}
     .sub-section{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.2rem 1.4rem;margin-bottom:1rem;}
     .sub-section-title{font-size:.73rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem;padding-bottom:.6rem;border-bottom:1px solid var(--border);}
     .chart-container{position:relative;height:220px;}
@@ -370,6 +371,11 @@
             <div class="stat-value loading" id="a-tr-res">—</div>
             <span class="stat-badge badge-ok">Resolutividad</span>
           </div>
+          <div class="stat-card c-orange">
+            <div class="stat-label">Trámites Duplicados</div>
+            <div class="stat-value loading" id="a-tr-dup">—</div>
+            <span class="stat-badge badge-orange">Descontados</span>
+          </div>
           <div class="stat-card c-red">
             <div class="stat-label">Con error de registro</div>
             <div class="stat-value loading" id="a-tr-err">—</div>
@@ -408,10 +414,10 @@
             <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--navy);">1. Trámites Realizados</span><button class="btn-copy-small" style="background:var(--navy);" onclick="copiarTexto('txtTramRealizados')">📋 Copiar</button></div><textarea id="txtTramRealizados" class="report-box" readonly></textarea></div>
             <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--green);">2. Trámites Resueltos</span><button class="btn-copy-small" style="background:var(--green);" onclick="copiarTexto('txtTramResueltos')">📋 Copiar</button></div><textarea id="txtTramResueltos" class="report-box" style="border-color:var(--green-lt);" readonly></textarea></div>
             <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--red);">3. Trámites con Errores</span><button class="btn-copy-small" style="background:var(--red);" onclick="copiarTexto('txtTramErrores')">📋 Copiar</button></div><textarea id="txtTramErrores" class="report-box" style="background:#fde8e8;border-color:var(--red-lt);color:var(--red);" readonly></textarea></div>
-
+            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--orange);">4. Trámites Duplicados (Mismo paciente, misma fecha)</span><button class="btn-copy-small" style="background:var(--orange);" onclick="copiarTexto('txtTramDuplicados')">📋 Copiar</button></div><textarea id="txtTramDuplicados" class="report-box" style="background:var(--orange-lt);border-color:var(--orange);color:var(--orange);" readonly></textarea></div>
             <div>
               <div class="report-header">
-                <span style="font-size:.85rem;font-weight:bold;color:var(--gold);">4. Observaciones Trámites Adicionales</span>
+                <span style="font-size:.85rem;font-weight:bold;color:var(--gold);">5. Observaciones Trámites Adicionales</span>
                 <button class="btn-copy-small" style="background:var(--gold);" onclick="copiarTexto('txtTramObservaciones')">📋 Copiar</button>
               </div>
               <textarea id="txtTramObservaciones" class="report-box" style="border-color:var(--gold-lt);" readonly></textarea>
@@ -643,6 +649,7 @@
       setVal('a-tr-tot',  data.tramites?.total);
       setVal('a-tr-res',  data.tramites?.resolutivos);
       setVal('a-tr-err',  data.tramites?.con_error);
+      setVal('a-tr-dup',  data.tramites?.duplicados); // TARJETA NUEVA
 
       const tr = data.tramites?.por_tipo || [];
       renderBarChart('chartTramitesAuditoria', tr.map(x=>x.label), tr.map(x=>x.total));
@@ -708,7 +715,7 @@
       setValInput('txtTramRealizados', data.tramites?.reporte_realizados);
       setValInput('txtTramResueltos', data.tramites?.reporte_resueltos);
       setValInput('txtTramErrores', data.tramites?.reporte_errores);
-
+      setValInput('txtTramDuplicados', data.tramites?.reporte_duplicados); // TEXTO NUEVO
       setValInput('txtTramObservaciones', data.tramites?.reporte_observaciones);
 
       document.getElementById('resultadosAuditoria').style.display = 'block';
