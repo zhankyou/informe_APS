@@ -403,7 +403,6 @@ def get_dashboard():
                 continue
             conteo_realizados[item] += 1
 
-            # 🛑 AUTO-RESOLVER TRÁMITES ADICIONALES
             if 'adicional' in item.lower() or 'otro' in item.lower():
                 conteo_efectivos[item] += 1
                 if item in items_e: items_e.remove(item)
@@ -422,15 +421,31 @@ def get_dashboard():
     for k in sorted(todas_las_keys):
         v_realizados = conteo_realizados.get(k, 0)
         v_efectivos = conteo_efectivos.get(k, 0)
-
         if v_efectivos > v_realizados: v_realizados = v_efectivos
-        pend = v_realizados - v_efectivos
+        pendientes = v_realizados - v_efectivos
         pct = round((v_efectivos / v_realizados * 100), 1) if v_realizados > 0 else 0
         por_tipo_lista.append({
-            "label": k, "total": v_realizados, "resueltos": v_efectivos, "pendientes": pend, "porcentaje": pct
+            "label": k, "total": v_realizados, "resueltos": v_efectivos, "pendientes": pendientes, "porcentaje": pct
         })
 
-    tr_registros = q("tramites_aps_2026")
+    # TRÁMITES REPETIDOS A NIVEL GLOBAL:
+    tr_raw = ejecutar(f"SELECT title, created_at FROM tramites_aps_2026 WHERE {get_date_filter('created_at')}", params)
+    titulos_fechas = {}
+    duplicados_count = 0
+
+    for r in tr_raw:
+        t = str(r.get("title", "")).strip().lower()
+        if not t or t == "none": continue
+        f = str(r.get("created_at", ""))[:10]
+        clave = f"{t}|{f}"
+        if clave in titulos_fechas:
+            duplicados_count += 1
+        else:
+            titulos_fechas[clave] = True
+
+    tr_registros = q("tramites_aps_2026") - duplicados_count
+    if tr_registros < 0: tr_registros = 0
+
     tr_familias_query = f"""
                         SELECT COUNT(DISTINCT
                                      COALESCE("7_4_territorio", '') || COALESCE("8_5_microterritorio", '') ||
@@ -633,16 +648,11 @@ def get_auditoria_data(usuario: str, fecha_ini: str, fecha_fin: str) -> dict:
     data["caracterizacion"] = {
         "familias": safe_count(q("caracterizacion_si_aps_familiar_2026", "\"1_1_consentimiento_i\" = '1. SI'"), params),
         "individuos": safe_count(q("caracterizacion_si_aps_individual_2026"), params),
-        "gestantes": safe_count(q("caracterizacion_si_aps_individual_2026", "\"109_9_se_encuentra_e\" = '1. SI'"),
-                                params),
+        "gestantes": safe_count(q("caracterizacion_si_aps_individual_2026", "\"109_9_se_encuentra_e\" = '1. SI'"), params),
         "menores_5": men_5_aud, "adultos_60": may_60_aud,
-        "victimas_conflicto": safe_count(
-            q("caracterizacion_si_aps_familiar_2026", "\"78_52_familia_vctima\" = '1. SI'"), params),
-        "poblacion_etnica": safe_count(q("caracterizacion_si_aps_individual_2026",
-                                         "\"116_16_pertenencia_t\" IS NOT NULL AND \"116_16_pertenencia_t\" != '7. Ninguna'"),
-                                       params),
-        "sin_aseguramiento": safe_count(
-            q("caracterizacion_si_aps_individual_2026", "\"113_13_rgimen_de_afi\" = '5. No afiliado'"), params),
+        "victimas_conflicto": safe_count(q("caracterizacion_si_aps_familiar_2026", "\"78_52_familia_vctima\" = '1. SI'"), params),
+        "poblacion_etnica": safe_count(q("caracterizacion_si_aps_individual_2026", "\"116_16_pertenencia_t\" IS NOT NULL AND \"116_16_pertenencia_t\" != '7. Ninguna'"), params),
+        "sin_aseguramiento": safe_count(q("caracterizacion_si_aps_individual_2026", "\"113_13_rgimen_de_afi\" = '5. No afiliado'"), params),
         "discapacidad_total": total_discapacidad_aud, "discapacidades_chart": disc_chart_aud,
         "error_familiar": safe_count(qerr("CARACT_FAMILIAR"), params),
         "error_individual": safe_count(qerr("CARACT_INDIVIDUAL"), params),
@@ -652,9 +662,7 @@ def get_auditoria_data(usuario: str, fecha_ini: str, fecha_fin: str) -> dict:
         "etnia_con_total": int(etnia_data_aud.get("con_etnia") or 0)
     }
 
-    pcf_fam_count = safe_count(q("pcf_planes_principal_2026",
-                                 "(\"4_3_perfil_profesion\" IS NULL OR TRIM(\"4_3_perfil_profesion\") != 'Profesional Psicología')"),
-                               params)
+    pcf_fam_count = safe_count(q("pcf_planes_principal_2026", "(\"4_3_perfil_profesion\" IS NULL OR TRIM(\"4_3_perfil_profesion\") != 'Profesional Psicología')"), params)
     texto_pcf_fam = ""
     texto_err_pcf = ""
 
@@ -700,8 +708,7 @@ def get_auditoria_data(usuario: str, fecha_ini: str, fecha_fin: str) -> dict:
         "reporte_errores": texto_err_pcf if texto_err_pcf else "✅ Excelente. No hay errores de registro."
     }
 
-    fam_psico_count = safe_count(
-        q("pcf_planes_principal_2026", "TRIM(\"4_3_perfil_profesion\") = 'Profesional Psicología'"), params)
+    fam_psico_count = safe_count(q("pcf_planes_principal_2026", "TRIM(\"4_3_perfil_profesion\") = 'Profesional Psicología'"), params)
     integrantes_psico_count = safe_count(q("pcf_psicologia_principal_2026"), params)
 
     try:
@@ -778,8 +785,7 @@ def get_auditoria_data(usuario: str, fecha_ini: str, fecha_fin: str) -> dict:
         "intervenciones_familiares": fam_psico_count,
         "integrantes": integrantes_psico_count,
         "seguimientos": seg_psico_count,
-        "motivos_seguimiento": [{"label": k, "total": v} for k, v in
-                                sorted(motivos_count.items(), key=lambda item: item[1], reverse=True)],
+        "motivos_seguimiento": [{"label": k, "total": v} for k, v in sorted(motivos_count.items(), key=lambda item: item[1], reverse=True)],
         "requiere_continuidad_si": cont_seg_si, "requiere_continuidad_no": cont_seg_no,
         "reporte_familias": texto_psico_fam if texto_psico_fam else "No hay intervenciones en estas fechas.",
         "reporte_seguimientos": texto_psico_seg if texto_psico_seg else "No hay seguimientos en estas fechas.",
@@ -829,7 +835,6 @@ def get_auditoria_data(usuario: str, fecha_ini: str, fecha_fin: str) -> dict:
             texto_realizados += f"Registro {c_re}: {item}\n"
             c_re += 1
 
-            # 🛑 AUTO-RESOLVER TRÁMITES ADICIONALES
             if 'adicional' in item.lower() or 'otro' in item.lower():
                 conteo_efectivos_aud[item] += 1
                 texto_resueltos += f"Registro {c_ef}: Trámite adicional Resuelto\n"
@@ -875,21 +880,44 @@ def get_auditoria_data(usuario: str, fecha_ini: str, fecha_fin: str) -> dict:
     texto_errores_tr = "".join(
         [f"{idx + 1}. Ficha [{r['id_ficha']}]: {r['detalle_inconsistencias']}\n" for idx, r in enumerate(res_err_tr)])
 
-    tr_familias_query_aud = f"""
-                            SELECT COUNT(DISTINCT 
-                                         COALESCE("7_4_territorio", '') || COALESCE("8_5_microterritorio", '') || 
-                                         CASE 
-                                             WHEN "3_2_cdigo_hogar" = 'No Aplica' OR "3_2_cdigo_hogar" IS NULL THEN COALESCE("4_21_cdigo_hogar", '') 
-                                             ELSE "3_2_cdigo_hogar" END || 
-                                         CASE 
-                                             WHEN "5_3_cdigo_familia" = 'No Aplica' OR "5_3_cdigo_familia" IS NULL THEN COALESCE("6_31_cdigo_familia", '') 
-                                             ELSE "5_3_cdigo_familia" END
-                                   ) as total 
-                            FROM tramites_aps_2026
-                            WHERE LOWER(TRIM(CAST(created_by AS text))) = LOWER(:usuario)
-                              AND {get_date_filter('created_at')}
-                            """
-    tr_fam_res_aud = ejecutar(tr_familias_query_aud, params)
+    # 🛑 DETECCIÓN Y DESCUENTO DE DUPLICADOS EN TRÁMITES (Solo para Auditoría por Usuario)
+    tr_raw = ejecutar(f"""
+        SELECT ec5_uuid, title, created_at, 
+               COALESCE("7_4_territorio", '') || COALESCE("8_5_microterritorio", '') || 
+               CASE WHEN "3_2_cdigo_hogar" = 'No Aplica' OR "3_2_cdigo_hogar" IS NULL THEN COALESCE("4_21_cdigo_hogar", '') ELSE "3_2_cdigo_hogar" END || 
+               CASE WHEN "5_3_cdigo_familia" = 'No Aplica' OR "5_3_cdigo_familia" IS NULL THEN COALESCE("6_31_cdigo_familia", '') ELSE "5_3_cdigo_familia" END as cod_familia
+        FROM tramites_aps_2026
+        WHERE LOWER(TRIM(CAST(created_by AS text))) = LOWER(:usuario)
+        AND {get_date_filter('created_at')}
+    """, params)
+
+    titulos_fechas = {}
+    duplicados_list = []
+    familias_unicas = set()
+    total_registros_brutos = 0
+
+    for r in tr_raw:
+        total_registros_brutos += 1
+        t = str(r.get("title", "")).strip().lower()
+        f = str(r.get("created_at", ""))[:10]
+        uid = str(r.get("ec5_uuid", ""))
+        fam = str(r.get("cod_familia", ""))
+
+        if not t or t == "none": continue
+
+        clave = f"{t}|{f}"
+        if clave in titulos_fechas:
+            duplicados_list.append(f"Ficha [{uid}] - Paciente: {t.title()} - Fecha: {f}")
+        else:
+            titulos_fechas[clave] = True
+            if fam: familias_unicas.add(fam)
+
+    duplicados_count = len(duplicados_list)
+    tr_registros = total_registros_brutos - duplicados_count
+    if tr_registros < 0: tr_registros = 0
+    tr_familias = len(familias_unicas)
+
+    texto_duplicados = "\n".join(duplicados_list) if duplicados_list else "✅ No se detectaron trámites duplicados para este usuario."
 
     res_obs_tramites = ejecutar(f"""
                                 SELECT title, "150_describe_aqu_el_" as obs
@@ -906,13 +934,17 @@ def get_auditoria_data(usuario: str, fecha_ini: str, fecha_fin: str) -> dict:
         texto_obs_tramites += f"{idx}. Ficha {titulo}: {obs}\n\n"
 
     data["tramites"] = {
-        "total": a_tr_tot, "resolutivos": a_tr_res, "con_error": a_tr_err,
+        "total": a_tr_tot,
+        "resolutivos": a_tr_res,
+        "con_error": a_tr_err,
         "por_tipo": por_tipo_aud,
-        "total_registros": safe_count(q("tramites_aps_2026"), params),
-        "total_familias": tr_fam_res_aud[0]["total"] if tr_fam_res_aud else 0,
+        "total_registros": tr_registros,
+        "total_familias": tr_familias,
+        "duplicados": duplicados_count,
         "reporte_realizados": texto_realizados if texto_realizados else "No hay trámites realizados en estas fechas.",
         "reporte_resueltos": texto_resueltos if texto_resueltos else "No hay trámites resueltos en estas fechas.",
         "reporte_errores": texto_errores_tr if texto_errores_tr else "✅ Excelente. No hay trámites con errores.",
+        "reporte_duplicados": texto_duplicados,
         "reporte_observaciones": texto_obs_tramites.strip() if texto_obs_tramites else "No hay observaciones de trámites en estas fechas."
     }
 
@@ -967,10 +999,8 @@ def get_mapas():
     logger.info(
         f"📍 [MAPAS GIS] El usuario '{usuario_req}' solicitó las coordenadas de: '{usuario}'. Rango: {fecha_ini} a {fecha_fin}")
 
-    # FIX: Se define f_ini y f_fin explícitamente para que empaten con el get_date_filter
-    f_ini = fecha_ini or "2000-01-01"
-    f_fin = fecha_fin or "2099-12-31"
-    params = {"usuario": usuario, "f_ini": f_ini, "f_fin": f_fin}
+    fecha_fin_limite = (fecha_fin or "2099-12-31") + "T23:59:59"
+    params = {"usuario": usuario, "fecha_ini": fecha_ini or "2000-01-01", "fecha_fin_limite": fecha_fin_limite}
 
     LAT_MIN, LAT_MAX = 3.80, 4.40
     LNG_MIN, LNG_MAX = -74.00, -73.30
@@ -1192,7 +1222,7 @@ def get_sihos_analytics():
 
     if total_atenciones == 0 and atenciones_campo_aps == 0 and profesional:
         return jsonify({
-            "error": f"No se encontraron facturaciones en SIHOS ni reportes en campo para {profesional} en estas fechas."}), 404
+                           "error": f"No se encontraron facturaciones en SIHOS ni reportes en campo para {profesional} en estas fechas."}), 404
 
     def format_counter(counter_obj):
         return [{"label": k, "total": v} for k, v in sorted(counter_obj.items(), key=lambda x: x[1], reverse=True)]
