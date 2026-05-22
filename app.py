@@ -322,9 +322,73 @@ def get_dashboard():
                 if item: conteo_disc[item] = conteo_disc.get(item, 0) + 1
     disc_chart = [{"label": k, "total": v} for k, v in sorted(conteo_disc.items(), key=lambda x: x[1], reverse=True)]
 
+    # 🛑 DUPLICADOS EN FAMILIAS (DASHBOARD)
+    raw_fam_dash = ejecutar(f"""
+        SELECT title, "1_1_consentimiento_i",
+               created_by, "12_4_territorio", "13_5_microterritorio", "18_10_cdigo_hogar", "19_101_cdigo_hogar", "21_11_cdigo_familia", "22_111_cdigo_familia"
+        FROM caracterizacion_si_aps_familiar_2026
+        WHERE {get_date_filter('created_at')}
+    """, params)
+
+    seen_t_dash = set()
+    seen_c_dash = set()
+    uniq_fam_dash = 0
+    dups_fam_count_dash = 0
+
+    for r in raw_fam_dash:
+        consent = str(r.get("1_1_consentimiento_i", "")).strip().upper()
+        if consent != '1. SI': continue
+
+        t = str(r.get("title", "")).strip().lower()
+        t_key = t if t and t != "none" else None
+
+        c1 = str(r.get("created_by", "")).strip().lower()
+        c2 = str(r.get("12_4_territorio", "")).strip().lower()
+        c3 = str(r.get("13_5_microterritorio", "")).strip().lower()
+        c4 = str(r.get("18_10_cdigo_hogar", "")).strip().lower()
+        c5 = str(r.get("19_101_cdigo_hogar", "")).strip().lower()
+        c6 = str(r.get("21_11_cdigo_familia", "")).strip().lower()
+        c7 = str(r.get("22_111_cdigo_familia", "")).strip().lower()
+        c_key = f"{c1}|{c2}|{c3}|{c4}|{c5}|{c6}|{c7}"
+
+        is_dup = False
+        if t_key and t_key in seen_t_dash: is_dup = True
+        if c_key != "||||||" and c_key.replace("none", "").replace("|", "") != "":
+            if c_key in seen_c_dash: is_dup = True
+
+        if is_dup:
+            dups_fam_count_dash += 1
+        else:
+            if t_key: seen_t_dash.add(t_key)
+            if c_key != "||||||" and c_key.replace("none", "").replace("|", "") != "": seen_c_dash.add(c_key)
+            uniq_fam_dash += 1
+
+    # 🛑 DUPLICADOS EN INDIVIDUOS (DASHBOARD)
+    raw_ind_dash = ejecutar(f"""
+        SELECT title
+        FROM caracterizacion_si_aps_individual_2026
+        WHERE {get_date_filter('created_at')}
+    """, params)
+
+    seen_t_ind_dash = set()
+    uniq_ind_dash = 0
+    dups_ind_count_dash = 0
+
+    for r in raw_ind_dash:
+        t = str(r.get("title", "")).strip().lower()
+        t_key = t if t and t != "none" else None
+
+        if t_key and t_key in seen_t_ind_dash:
+            dups_ind_count_dash += 1
+        else:
+            if t_key: seen_t_ind_dash.add(t_key)
+            uniq_ind_dash += 1
+
     data["caracterizacion"] = {
-        "familias": q("caracterizacion_si_aps_familiar_2026", "\"1_1_consentimiento_i\" = '1. SI'"),
-        "individuos": q("caracterizacion_si_aps_individual_2026"),
+        "familias": uniq_fam_dash,
+        "familias_duplicadas": dups_fam_count_dash,
+        "individuos": uniq_ind_dash,
+        "individuos_duplicadas": dups_ind_count_dash,
         "sin_aseguramiento": safe_count(
             f"SELECT COUNT(DISTINCT ec5_branch_owner_uuid) FROM caracterizacion_si_aps_individual_2026 WHERE \"113_13_rgimen_de_afi\" = '5. No afiliado' AND {get_date_filter('created_at')}",
             params),
@@ -354,15 +418,73 @@ def get_dashboard():
             params),
     }
 
-    query_pcf_int = f"""
-        SELECT COUNT(*) FROM pcf_planes_integrantes_2026 b
+    # 🛑 DUPLICADOS EN PCF GENERAL (DASHBOARD)
+    raw_pcf_dash = ejecutar(f"""
+        SELECT "created_by", "9_7_territorio", "10_8_microterritorio", "11_9_identificacin_d", 
+               "12_91_identificacin_", "13_10_identificacin_", "14_101_identificacin"
+        FROM pcf_planes_principal_2026
+        WHERE {get_date_filter('created_at')}
+          AND ("4_3_perfil_profesion" IS NULL OR TRIM("4_3_perfil_profesion") != 'Profesional Psicología')
+    """, params)
+
+    seen_c_pcf_dash = set()
+    uniq_pcf_dash = 0
+    dups_pcf_count_dash = 0
+
+    for r in raw_pcf_dash:
+        c1 = str(r.get("created_by", "")).strip().lower()
+        c2 = str(r.get("9_7_territorio", "")).strip().lower()
+        c3 = str(r.get("10_8_microterritorio", "")).strip().lower()
+        c4 = str(r.get("11_9_identificacin_d", "")).strip().lower()
+        c5 = str(r.get("12_91_identificacin_", "")).strip().lower()
+        c6 = str(r.get("13_10_identificacin_", "")).strip().lower()
+        c7 = str(r.get("14_101_identificacin", "")).strip().lower()
+
+        c_key = f"{c1}|{c2}|{c3}|{c4}|{c5}|{c6}|{c7}"
+
+        if c_key == "||||||" or c_key.replace("none", "").replace("|", "") == "":
+            uniq_pcf_dash += 1
+            continue
+
+        if c_key in seen_c_pcf_dash:
+            dups_pcf_count_dash += 1
+        else:
+            seen_c_pcf_dash.add(c_key)
+            uniq_pcf_dash += 1
+
+    # 🛑 DUPLICADOS EN PCF INTEGRANTES (DASHBOARD)
+    raw_pcf_ind_dash = ejecutar(f"""
+        SELECT b.title, p.created_by
+        FROM pcf_planes_integrantes_2026 b
         JOIN pcf_planes_principal_2026 p ON b.ec5_branch_owner_uuid = p.ec5_uuid
         WHERE {get_date_filter('p.created_at')}
-    """
+          AND (p."4_3_perfil_profesion" IS NULL OR TRIM(p."4_3_perfil_profesion") != 'Profesional Psicología')
+    """, params)
+
+    seen_ind_pcf_dash = set()
+    uniq_ind_pcf_dash = 0
+    dups_ind_pcf_count_dash = 0
+
+    for r in raw_pcf_ind_dash:
+        t = str(r.get("title", "")).strip().lower()
+        c = str(r.get("created_by", "")).strip().lower()
+
+        if not t or t == "none":
+            uniq_ind_pcf_dash += 1
+            continue
+
+        clave = f"{c}|{t}"
+        if clave in seen_ind_pcf_dash:
+            dups_ind_pcf_count_dash += 1
+        else:
+            seen_ind_pcf_dash.add(clave)
+            uniq_ind_pcf_dash += 1
+
     data["pcf"] = {
-        "familias_intervenidas": q("pcf_planes_principal_2026",
-                                   "(\"4_3_perfil_profesion\" IS NULL OR TRIM(\"4_3_perfil_profesion\") != 'Profesional Psicología')"),
-        "integrantes_intervenidos": safe_count(query_pcf_int, params),
+        "familias_intervenidas": uniq_pcf_dash,
+        "familias_duplicadas": dups_pcf_count_dash,
+        "integrantes_intervenidos": uniq_ind_pcf_dash,
+        "integrantes_duplicados": dups_ind_pcf_count_dash,
     }
 
     data["pcf_psicologia"] = {
@@ -428,7 +550,6 @@ def get_dashboard():
             "label": k, "total": v_realizados, "resueltos": v_efectivos, "pendientes": pendientes, "porcentaje": pct
         })
 
-    # TRÁMITES REPETIDOS A NIVEL GLOBAL:
     tr_raw = ejecutar(f"SELECT title, created_at FROM tramites_aps_2026 WHERE {get_date_filter('created_at')}", params)
     titulos_fechas = {}
     duplicados_count = 0
@@ -645,14 +766,103 @@ def get_auditoria_data(usuario: str, fecha_ini: str, fecha_fin: str) -> dict:
     disc_chart_aud = [{"label": k, "total": v} for k, v in
                       sorted(conteo_disc_aud.items(), key=lambda x: x[1], reverse=True)]
 
+    # 🛑 DUPLICADOS EN FAMILIAS (AUDITORÍA)
+    raw_fam_aud = ejecutar(f"""
+        SELECT ec5_uuid, title, "1_1_consentimiento_i",
+               created_by, "12_4_territorio", "13_5_microterritorio", "18_10_cdigo_hogar", "19_101_cdigo_hogar", "21_11_cdigo_familia", "22_111_cdigo_familia"
+        FROM caracterizacion_si_aps_familiar_2026
+        WHERE LOWER(TRIM(CAST(created_by AS text))) = LOWER(:usuario)
+          AND {get_date_filter('created_at')}
+    """, params)
+
+    seen_t_aud = set()
+    seen_c_aud = set()
+    uniq_fam_aud = 0
+    dups_fam_list = []
+
+    for r in raw_fam_aud:
+        consent = str(r.get("1_1_consentimiento_i", "")).strip().upper()
+        if consent != '1. SI': continue
+
+        uid = str(r.get("ec5_uuid", ""))
+        t = str(r.get("title", "")).strip().lower()
+        t_key = t if t and t != "none" else None
+
+        c1 = str(r.get("created_by", "")).strip().lower()
+        c2 = str(r.get("12_4_territorio", "")).strip().lower()
+        c3 = str(r.get("13_5_microterritorio", "")).strip().lower()
+        c4 = str(r.get("18_10_cdigo_hogar", "")).strip().lower()
+        c5 = str(r.get("19_101_cdigo_hogar", "")).strip().lower()
+        c6 = str(r.get("21_11_cdigo_familia", "")).strip().lower()
+        c7 = str(r.get("22_111_cdigo_familia", "")).strip().lower()
+        c_key = f"{c1}|{c2}|{c3}|{c4}|{c5}|{c6}|{c7}"
+
+        is_dup = False
+        reasons = []
+
+        if t_key and t_key in seen_t_aud:
+            is_dup = True
+            reasons.append("Título repetido")
+        if c_key != "||||||" and c_key.replace("none", "").replace("|", "") != "":
+            if c_key in seen_c_aud:
+                is_dup = True
+                reasons.append("Códigos/Territorio concatenados repetidos")
+
+        if is_dup:
+            dups_fam_list.append(
+                f"Ficha [{uid}] - {t.title() if t and t != 'none' else 'N/A'} -> Motivo: {' y '.join(reasons)}")
+        else:
+            if t_key: seen_t_aud.add(t_key)
+            if c_key != "||||||" and c_key.replace("none", "").replace("|", "") != "": seen_c_aud.add(c_key)
+            uniq_fam_aud += 1
+
+    texto_dups_fam = "\n".join(dups_fam_list) if dups_fam_list else "✅ No se detectaron familias duplicadas."
+    dups_fam_count = len(dups_fam_list)
+
+    # 🛑 DUPLICADOS EN INDIVIDUOS (AUDITORÍA) 🛑
+    raw_ind_aud = ejecutar(f"""
+        SELECT ec5_branch_uuid, title, created_at
+        FROM caracterizacion_si_aps_individual_2026
+        WHERE LOWER(TRIM(CAST(created_by AS text))) = LOWER(:usuario)
+          AND {get_date_filter('created_at')}
+    """, params)
+
+    seen_t_ind_aud = set()
+    uniq_ind_aud = 0
+    dups_ind_list = []
+
+    for r in raw_ind_aud:
+        uid = str(r.get("ec5_branch_uuid", ""))
+        t = str(r.get("title", "")).strip().lower()
+        t_key = t if t and t != "none" else None
+
+        if t_key and t_key in seen_t_ind_aud:
+            dups_ind_list.append(
+                f"Ficha [{uid}] - Nombre: {t.title() if t and t != 'none' else 'N/A'} -> Motivo: Integrante repetido (Título idéntico)")
+        else:
+            if t_key: seen_t_ind_aud.add(t_key)
+            uniq_ind_aud += 1
+
+    texto_dups_ind = "\n".join(dups_ind_list) if dups_ind_list else "✅ No se detectaron integrantes duplicados."
+    dups_ind_count = len(dups_ind_list)
+
     data["caracterizacion"] = {
-        "familias": safe_count(q("caracterizacion_si_aps_familiar_2026", "\"1_1_consentimiento_i\" = '1. SI'"), params),
-        "individuos": safe_count(q("caracterizacion_si_aps_individual_2026"), params),
-        "gestantes": safe_count(q("caracterizacion_si_aps_individual_2026", "\"109_9_se_encuentra_e\" = '1. SI'"), params),
+        "familias": uniq_fam_aud,
+        "familias_duplicadas": dups_fam_count,
+        "reporte_duplicados_fam": texto_dups_fam,
+        "individuos": uniq_ind_aud,
+        "individuos_duplicadas": dups_ind_count,
+        "reporte_duplicados_ind": texto_dups_ind,
+        "gestantes": safe_count(q("caracterizacion_si_aps_individual_2026", "\"109_9_se_encuentra_e\" = '1. SI'"),
+                                params),
         "menores_5": men_5_aud, "adultos_60": may_60_aud,
-        "victimas_conflicto": safe_count(q("caracterizacion_si_aps_familiar_2026", "\"78_52_familia_vctima\" = '1. SI'"), params),
-        "poblacion_etnica": safe_count(q("caracterizacion_si_aps_individual_2026", "\"116_16_pertenencia_t\" IS NOT NULL AND \"116_16_pertenencia_t\" != '7. Ninguna'"), params),
-        "sin_aseguramiento": safe_count(q("caracterizacion_si_aps_individual_2026", "\"113_13_rgimen_de_afi\" = '5. No afiliado'"), params),
+        "victimas_conflicto": safe_count(
+            q("caracterizacion_si_aps_familiar_2026", "\"78_52_familia_vctima\" = '1. SI'"), params),
+        "poblacion_etnica": safe_count(q("caracterizacion_si_aps_individual_2026",
+                                         "\"116_16_pertenencia_t\" IS NOT NULL AND \"116_16_pertenencia_t\" != '7. Ninguna'"),
+                                       params),
+        "sin_aseguramiento": safe_count(
+            q("caracterizacion_si_aps_individual_2026", "\"113_13_rgimen_de_afi\" = '5. No afiliado'"), params),
         "discapacidad_total": total_discapacidad_aud, "discapacidades_chart": disc_chart_aud,
         "error_familiar": safe_count(qerr("CARACT_FAMILIAR"), params),
         "error_individual": safe_count(qerr("CARACT_INDIVIDUAL"), params),
@@ -662,23 +872,89 @@ def get_auditoria_data(usuario: str, fecha_ini: str, fecha_fin: str) -> dict:
         "etnia_con_total": int(etnia_data_aud.get("con_etnia") or 0)
     }
 
-    pcf_fam_count = safe_count(q("pcf_planes_principal_2026", "(\"4_3_perfil_profesion\" IS NULL OR TRIM(\"4_3_perfil_profesion\") != 'Profesional Psicología')"), params)
-    texto_pcf_fam = ""
-    texto_err_pcf = ""
+    # 🛑 DUPLICADOS EN PCF GENERAL (AUDITORÍA) 🛑
+    raw_pcf_aud = ejecutar(f"""
+        SELECT ec5_uuid, title, created_at, created_by, 
+               "9_7_territorio", "10_8_microterritorio", "11_9_identificacin_d", 
+               "12_91_identificacin_", "13_10_identificacin_", "14_101_identificacin"
+        FROM pcf_planes_principal_2026
+        WHERE LOWER(TRIM(CAST(created_by AS text))) = LOWER(:usuario)
+          AND {get_date_filter('created_at')}
+          AND ("4_3_perfil_profesion" IS NULL OR TRIM("4_3_perfil_profesion") != 'Profesional Psicología')
+    """, params)
 
-    if pcf_fam_count > 0:
-        try:
-            res_pcf_fam = ejecutar(f"""
-                                   SELECT ec5_uuid, created_at
-                                   FROM pcf_planes_principal_2026
-                                   WHERE LOWER(TRIM(CAST(created_by AS text))) = LOWER(:usuario)
-                                     AND {get_date_filter('created_at')}
-                                     AND ("4_3_perfil_profesion" IS NULL OR TRIM("4_3_perfil_profesion") != 'Profesional Psicología')
-                                   """, params)
-            for idx, r in enumerate(res_pcf_fam, 1):
-                texto_pcf_fam += f"Intervención {idx}: Ficha [{r.get('ec5_uuid', 'N/A')}] - {str(r.get('created_at', ''))[:10]}\n"
-        except:
-            pass
+    seen_c_pcf_aud = set()
+    uniq_pcf_aud = 0
+    dups_pcf_list = []
+    texto_pcf_fam = ""
+    c_pcf_ok = 1
+
+    for r in raw_pcf_aud:
+        uid = str(r.get("ec5_uuid", "N/A"))
+        t = str(r.get("title", "")).strip().lower()
+        f = str(r.get("created_at", ""))[:10]
+
+        c1 = str(r.get("created_by", "")).strip().lower()
+        c2 = str(r.get("9_7_territorio", "")).strip().lower()
+        c3 = str(r.get("10_8_microterritorio", "")).strip().lower()
+        c4 = str(r.get("11_9_identificacin_d", "")).strip().lower()
+        c5 = str(r.get("12_91_identificacin_", "")).strip().lower()
+        c6 = str(r.get("13_10_identificacin_", "")).strip().lower()
+        c7 = str(r.get("14_101_identificacin", "")).strip().lower()
+        c_key = f"{c1}|{c2}|{c3}|{c4}|{c5}|{c6}|{c7}"
+
+        is_dup = False
+        if c_key != "||||||" and c_key.replace("none", "").replace("|", "") != "":
+            if c_key in seen_c_pcf_aud:
+                is_dup = True
+
+        if is_dup:
+            dups_pcf_list.append(
+                f"Ficha [{uid}] - {t.title() if t and t != 'none' else 'N/A'} -> Motivo: Identificación/Territorio repetido")
+        else:
+            if c_key != "||||||" and c_key.replace("none", "").replace("|", "") != "":
+                seen_c_pcf_aud.add(c_key)
+            uniq_pcf_aud += 1
+            texto_pcf_fam += f"Intervención {c_pcf_ok}: Ficha [{uid}] - {f}\n"
+            c_pcf_ok += 1
+
+    texto_dups_pcf = "\n".join(dups_pcf_list) if dups_pcf_list else "✅ No se detectaron planes duplicados."
+    dups_pcf_count = len(dups_pcf_list)
+
+    # 🛑 DUPLICADOS EN PCF INTEGRANTES (AUDITORÍA) 🛑
+    raw_pcf_ind_aud = ejecutar(f"""
+        SELECT b.ec5_branch_uuid, b.title, p.created_by
+        FROM pcf_planes_integrantes_2026 b
+        JOIN pcf_planes_principal_2026 p ON b.ec5_branch_owner_uuid = p.ec5_uuid
+        WHERE LOWER(TRIM(CAST(p.created_by AS text))) = LOWER(:usuario)
+          AND {get_date_filter('p.created_at')}
+          AND (p."4_3_perfil_profesion" IS NULL OR TRIM(p."4_3_perfil_profesion") != 'Profesional Psicología')
+    """, params)
+
+    seen_ind_pcf_aud = set()
+    uniq_ind_pcf_aud = 0
+    dups_ind_pcf_aud_list = []
+
+    for r in raw_pcf_ind_aud:
+        uid = str(r.get("ec5_branch_uuid", "N/A"))
+        t = str(r.get("title", "")).strip().lower()
+        c = str(r.get("created_by", "")).strip().lower()
+
+        if not t or t == "none":
+            uniq_ind_pcf_aud += 1
+            continue
+
+        clave = f"{c}|{t}"
+        if clave in seen_ind_pcf_aud:
+            dups_ind_pcf_aud_list.append(
+                f"Ficha [{uid}] - Integrante: {t.title()} -> Motivo: Nombre repetido por este encuestador")
+        else:
+            seen_ind_pcf_aud.add(clave)
+            uniq_ind_pcf_aud += 1
+
+    texto_dups_ind_pcf = "\n".join(
+        dups_ind_pcf_aud_list) if dups_ind_pcf_aud_list else "✅ No se detectaron integrantes duplicados."
+    dups_ind_pcf_aud_count = len(dups_ind_pcf_aud_list)
 
     try:
         res_err_pcf = ejecutar(f"""
@@ -688,27 +964,25 @@ def get_auditoria_data(usuario: str, fecha_ini: str, fecha_fin: str) -> dict:
                                  AND modulo IN ('PCF_PRINCIPAL', 'PCF_INTEGRANTES')
                                  AND {get_date_filter('fecha_creacion')}
                                """, params)
-        for idx, r in enumerate(res_err_pcf, 1):
-            texto_err_pcf += f"{idx}. [{r['modulo']}] Ficha [{r['id_ficha']}]: {r['detalle_inconsistencias']}\n"
+        texto_err_pcf = "".join(
+            [f"{idx + 1}. [{r['modulo']}] Ficha [{r['id_ficha']}]: {r['detalle_inconsistencias']}\n" for idx, r in
+             enumerate(res_err_pcf)])
     except:
-        pass
-
-    query_pcf_int = f"""
-                    SELECT COUNT(*)
-                    FROM pcf_planes_integrantes_2026 b
-                             JOIN pcf_planes_principal_2026 p ON b.ec5_branch_owner_uuid = p.ec5_uuid
-                    WHERE LOWER(TRIM(CAST(p.created_by AS text))) = LOWER(:usuario)
-                      AND {get_date_filter('p.created_at')}
-                    """
+        texto_err_pcf = ""
 
     data["pcf"] = {
-        "familias_intervenidas": pcf_fam_count,
-        "integrantes_intervenidos": safe_count(query_pcf_int, params),
+        "familias_intervenidas": uniq_pcf_aud,
+        "familias_duplicadas": dups_pcf_count,
+        "integrantes_intervenidos": uniq_ind_pcf_aud,
+        "integrantes_duplicados": dups_ind_pcf_aud_count,
         "reporte_familias": texto_pcf_fam if texto_pcf_fam else "No hay intervenciones registradas en estas fechas.",
-        "reporte_errores": texto_err_pcf if texto_err_pcf else "✅ Excelente. No hay errores de registro."
+        "reporte_errores": texto_err_pcf if texto_err_pcf else "✅ Excelente. No hay errores de registro.",
+        "reporte_duplicados_fam": texto_dups_pcf,
+        "reporte_duplicados_ind": texto_dups_ind_pcf
     }
 
-    fam_psico_count = safe_count(q("pcf_planes_principal_2026", "TRIM(\"4_3_perfil_profesion\") = 'Profesional Psicología'"), params)
+    fam_psico_count = safe_count(
+        q("pcf_planes_principal_2026", "TRIM(\"4_3_perfil_profesion\") = 'Profesional Psicología'"), params)
     integrantes_psico_count = safe_count(q("pcf_psicologia_principal_2026"), params)
 
     try:
@@ -785,7 +1059,8 @@ def get_auditoria_data(usuario: str, fecha_ini: str, fecha_fin: str) -> dict:
         "intervenciones_familiares": fam_psico_count,
         "integrantes": integrantes_psico_count,
         "seguimientos": seg_psico_count,
-        "motivos_seguimiento": [{"label": k, "total": v} for k, v in sorted(motivos_count.items(), key=lambda item: item[1], reverse=True)],
+        "motivos_seguimiento": [{"label": k, "total": v} for k, v in
+                                sorted(motivos_count.items(), key=lambda item: item[1], reverse=True)],
         "requiere_continuidad_si": cont_seg_si, "requiere_continuidad_no": cont_seg_no,
         "reporte_familias": texto_psico_fam if texto_psico_fam else "No hay intervenciones en estas fechas.",
         "reporte_seguimientos": texto_psico_seg if texto_psico_seg else "No hay seguimientos en estas fechas.",
@@ -794,7 +1069,6 @@ def get_auditoria_data(usuario: str, fecha_ini: str, fecha_fin: str) -> dict:
         "reporte_errores": texto_err_psico if texto_err_psico else "✅ Excelente. No hay errores en estas fechas."
     }
 
-    # 🛑 BALANCE Y PARSEO INTELIGENTE DE TRÁMITES (AUDITORÍA) 🛑
     res_tram_err = ejecutar(f"""
                             SELECT SUM(CAST(errores AS numeric)) as err
                             FROM tramites_consolidados_2026
@@ -880,7 +1154,6 @@ def get_auditoria_data(usuario: str, fecha_ini: str, fecha_fin: str) -> dict:
     texto_errores_tr = "".join(
         [f"{idx + 1}. Ficha [{r['id_ficha']}]: {r['detalle_inconsistencias']}\n" for idx, r in enumerate(res_err_tr)])
 
-    # 🛑 DETECCIÓN Y DESCUENTO DE DUPLICADOS EN TRÁMITES (Solo para Auditoría por Usuario)
     tr_raw = ejecutar(f"""
         SELECT ec5_uuid, title, created_at, 
                COALESCE("7_4_territorio", '') || COALESCE("8_5_microterritorio", '') || 
@@ -917,7 +1190,8 @@ def get_auditoria_data(usuario: str, fecha_ini: str, fecha_fin: str) -> dict:
     if tr_registros < 0: tr_registros = 0
     tr_familias = len(familias_unicas)
 
-    texto_duplicados = "\n".join(duplicados_list) if duplicados_list else "✅ No se detectaron trámites duplicados para este usuario."
+    texto_duplicados = "\n".join(
+        duplicados_list) if duplicados_list else "✅ No se detectaron trámites duplicados para este usuario."
 
     res_obs_tramites = ejecutar(f"""
                                 SELECT title, "150_describe_aqu_el_" as obs
@@ -1222,7 +1496,7 @@ def get_sihos_analytics():
 
     if total_atenciones == 0 and atenciones_campo_aps == 0 and profesional:
         return jsonify({
-                           "error": f"No se encontraron facturaciones en SIHOS ni reportes en campo para {profesional} en estas fechas."}), 404
+            "error": f"No se encontraron facturaciones en SIHOS ni reportes en campo para {profesional} en estas fechas."}), 404
 
     def format_counter(counter_obj):
         return [{"label": k, "total": v} for k, v in sorted(counter_obj.items(), key=lambda x: x[1], reverse=True)]
