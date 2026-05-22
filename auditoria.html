@@ -241,7 +241,10 @@
         </div>
         <div class="cards-row">
           <div class="stat-card c-purple"><div class="stat-label">Familias caracterizadas</div><div class="stat-value" id="a-ca-fam">0</div><span class="stat-badge badge-info">1. SI (Consentimiento)</span></div>
+          <div class="stat-card c-orange"><div class="stat-label">Familias Duplicadas</div><div class="stat-value" id="a-ca-fam-dup">0</div><span class="stat-badge badge-orange">Descontadas</span></div>
           <div class="stat-card c-navy"><div class="stat-label">Integrantes caracterizados</div><div class="stat-value" id="a-ca-ind">0</div></div>
+          <div class="stat-card c-orange"><div class="stat-label">Integrantes Duplicados</div><div class="stat-value" id="a-ca-ind-dup">0</div><span class="stat-badge badge-orange">Descontados</span></div>
+          <div class="stat-card c-red"><div class="stat-label">Familias sin aseguramiento</div><div class="stat-value" id="a-ca-sinaseg">—</div><span class="stat-badge badge-error">No afiliadas</span></div>
         </div>
         <div class="sub-section">
           <div class="sub-section-title">Grupos Poblacionales Identificados</div>
@@ -277,10 +280,24 @@
         </div>
 
         <div class="sub-section" style="margin-top:1rem;">
-          <div class="sub-section-title">Errores de Registro (Caracterización)</div>
+          <div class="sub-section-title">Reportes y Errores de Registro (Caracterización)</div>
           <div class="cards-row">
             <div class="stat-card c-red"><div class="stat-label">Errores Familiar</div><div class="stat-value" id="a-ca-err-f">0</div></div>
             <div class="stat-card c-gold"><div class="stat-label">Errores Individual</div><div class="stat-value" id="a-ca-err-i">0</div></div>
+          </div>
+          <div style="margin-top:1.5rem;">
+            <div class="report-header">
+              <span style="font-size:.85rem;font-weight:bold;color:var(--orange);">1. Familias Duplicadas (Título o Geo/Códigos idénticos)</span>
+              <button class="btn-copy-small" style="background:var(--orange);" onclick="copiarTexto('txtCaFamDuplicadas')">📋 Copiar</button>
+            </div>
+            <textarea id="txtCaFamDuplicadas" class="report-box" style="background:var(--orange-lt);border-color:var(--orange);color:var(--orange);" readonly></textarea>
+          </div>
+          <div style="margin-top:1.5rem;">
+            <div class="report-header">
+              <span style="font-size:.85rem;font-weight:bold;color:var(--orange);">2. Integrantes Duplicados (Título idéntico)</span>
+              <button class="btn-copy-small" style="background:var(--orange);" onclick="copiarTexto('txtCaIndDuplicadas')">📋 Copiar</button>
+            </div>
+            <textarea id="txtCaIndDuplicadas" class="report-box" style="background:var(--orange-lt);border-color:var(--orange);color:var(--orange);" readonly></textarea>
           </div>
         </div>
       </div>
@@ -293,13 +310,17 @@
         </div>
         <div class="cards-row">
           <div class="stat-card c-teal"><div class="stat-label">Familias intervenidas</div><div class="stat-value" id="a-pcf-fam">0</div></div>
+          <div class="stat-card c-orange"><div class="stat-label">Planes Duplicados</div><div class="stat-value" id="a-pcf-fam-dup">0</div><span class="stat-badge badge-orange">Descontados</span></div>
           <div class="stat-card c-navy"><div class="stat-label">Integrantes intervenidos</div><div class="stat-value" id="a-pcf-int">0</div></div>
+          <div class="stat-card c-orange"><div class="stat-label">Integrantes Duplicados</div><div class="stat-value" id="a-pcf-int-dup">0</div><span class="stat-badge badge-orange">Descontados</span></div>
         </div>
         <div class="sub-section" style="margin-top:1rem;">
           <div class="sub-section-title">Reportes Detallados de Plan Cuidado Familiar (General)</div>
           <div style="display:flex;flex-direction:column;gap:1.5rem;">
             <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--teal);">1. Intervenciones Familiares Realizadas</span><button class="btn-copy-small" style="background:var(--teal);" onclick="copiarTexto('txtPcfRealizados')">📋 Copiar</button></div><textarea id="txtPcfRealizados" class="report-box" readonly style="border-color:var(--teal-lt);"></textarea></div>
             <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--red);">2. Errores de Registro</span><button class="btn-copy-small" style="background:var(--red);" onclick="copiarTexto('txtPcfErrores')">📋 Copiar</button></div><textarea id="txtPcfErrores" class="report-box" style="background:#fde8e8;border-color:var(--red-lt);color:var(--red);" readonly></textarea></div>
+            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--orange);">3. Planes Duplicados (Territorio/Códigos idénticos)</span><button class="btn-copy-small" style="background:var(--orange);" onclick="copiarTexto('txtPcfDuplicados')">📋 Copiar</button></div><textarea id="txtPcfDuplicados" class="report-box" style="background:var(--orange-lt);border-color:var(--orange);color:var(--orange);" readonly></textarea></div>
+            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--orange);">4. Integrantes Duplicados (Título idéntico)</span><button class="btn-copy-small" style="background:var(--orange);" onclick="copiarTexto('txtPcfIndDuplicados')">📋 Copiar</button></div><textarea id="txtPcfIndDuplicados" class="report-box" style="background:var(--orange-lt);border-color:var(--orange);color:var(--orange);" readonly></textarea></div>
           </div>
         </div>
       </div>
@@ -595,8 +616,14 @@
       setVal('a-pcc-pla',  data.pcc?.planes);
       setVal('a-pcc-int',  data.pcc?.integrantes);
       setVal('a-pcc-err',  data.pcc?.con_error);
+
       setVal('a-ca-fam',   data.caracterizacion?.familias);
+      setVal('a-ca-fam-dup', data.caracterizacion?.familias_duplicadas);
+
       setVal('a-ca-ind',   data.caracterizacion?.individuos);
+      setVal('a-ca-ind-dup', data.caracterizacion?.individuos_duplicadas);
+
+      setVal('a-ca-sinaseg',    data.caracterizacion?.sin_aseguramiento);
       setVal('a-ca-ges',   data.caracterizacion?.gestantes);
       setVal('a-ca-men',   data.caracterizacion?.menores_5);
       setVal('a-ca-may',   data.caracterizacion?.adultos_60);
@@ -618,7 +645,9 @@
       renderBarChart('chartDiscapacidadAuditoria', disc.map(x=>x.label), disc.map(x=>x.total));
 
       setVal('a-pcf-fam', data.pcf?.familias_intervenidas);
+      setVal('a-pcf-fam-dup', data.pcf?.familias_duplicadas);
       setVal('a-pcf-int', data.pcf?.integrantes_intervenidos);
+      setVal('a-pcf-int-dup', data.pcf?.integrantes_duplicados); // ASIGNACIÓN DE PCF INTEGRANTES DUPLICADOS
 
       setVal('a-psi-fam', data.pcf_psicologia?.intervenciones_familiares);
       setVal('a-psi-int', data.pcf_psicologia?.integrantes);
@@ -649,14 +678,12 @@
       setVal('a-tr-tot',  data.tramites?.total);
       setVal('a-tr-res',  data.tramites?.resolutivos);
       setVal('a-tr-err',  data.tramites?.con_error);
-      setVal('a-tr-dup',  data.tramites?.duplicados); // TARJETA NUEVA
+      setVal('a-tr-dup',  data.tramites?.duplicados);
 
       const tr = data.tramites?.por_tipo || [];
       renderBarChart('chartTramitesAuditoria', tr.map(x=>x.label), tr.map(x=>x.total));
 
-      // ── LOGICA NUEVA TABLA DESGLOSE TRAMITES ──
       const tbodyTram = document.querySelector('#tablaDesgloseTramites tbody');
-
       const elTot = document.getElementById('tdTotal');
       const elRes = document.getElementById('tdRes');
       const elPct = document.getElementById('tdPct');
@@ -700,11 +727,15 @@
       const setValInput = (id, val) => { const e = document.getElementById(id); if(e) e.value = val; };
 
       setValInput('textoErroresGlobal', data.reporte_errores_texto);
-
       setValInput('txtPccDetalles', data.pcc?.reporte_detalles);
+
+      setValInput('txtCaFamDuplicadas', data.caracterizacion?.reporte_duplicados_fam);
+      setValInput('txtCaIndDuplicadas', data.caracterizacion?.reporte_duplicados_ind);
 
       setValInput('txtPcfRealizados', data.pcf?.reporte_familias);
       setValInput('txtPcfErrores', data.pcf?.reporte_errores);
+      setValInput('txtPcfDuplicados', data.pcf?.reporte_duplicados_fam);
+      setValInput('txtPcfIndDuplicados', data.pcf?.reporte_duplicados_ind); // ASIGNACIÓN DEL TEXTO PCF INTEGRANTES DUPLICADOS
 
       setValInput('txtPsicoRealizados', data.pcf_psicologia?.reporte_familias);
       setValInput('txtPsicoSeguimientos', data.pcf_psicologia?.reporte_seguimientos);
@@ -715,7 +746,7 @@
       setValInput('txtTramRealizados', data.tramites?.reporte_realizados);
       setValInput('txtTramResueltos', data.tramites?.reporte_resueltos);
       setValInput('txtTramErrores', data.tramites?.reporte_errores);
-      setValInput('txtTramDuplicados', data.tramites?.reporte_duplicados); // TEXTO NUEVO
+      setValInput('txtTramDuplicados', data.tramites?.reporte_duplicados);
       setValInput('txtTramObservaciones', data.tramites?.reporte_observaciones);
 
       document.getElementById('resultadosAuditoria').style.display = 'block';
