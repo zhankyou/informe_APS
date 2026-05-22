@@ -27,6 +27,8 @@
       --purple-lt : #ede8fb;
       --green     : #1e9c6e;
       --green-lt  : #e5f7f0;
+      --orange    : #f97316;
+      --orange-lt : #ffedd5;
       --border    : #dde4ef;
       --text      : #1a2840;
       --muted     : #5d7290;
@@ -210,6 +212,8 @@
     .stat-card.c-purple { border-top-color: var(--purple); }
     .stat-card.c-green  { border-top-color: var(--green); }
     .stat-card.c-navy   { border-top-color: var(--navy); }
+    .stat-card.c-orange { border-top-color: var(--orange); }
+
     .stat-label {
       font-size: .68rem; font-weight: 700; letter-spacing: .1em;
       text-transform: uppercase; color: var(--muted); margin-bottom: .45rem;
@@ -229,6 +233,7 @@
     .badge-warn   { background: var(--gold-lt);   color: var(--gold); }
     .badge-info   { background: var(--teal-lt);   color: var(--teal); }
     .badge-purple   { background: var(--purple-lt);   color: var(--purple); }
+    .badge-orange   { background: var(--orange-lt);   color: var(--orange); }
 
     /* ── Chart cards ─────────────────────────────────────────────── */
     .charts-row {
@@ -510,9 +515,19 @@
           <div class="stat-value loading" id="ca-familias">—</div>
           <span class="stat-badge badge-info">Con consentimiento</span>
         </div>
+        <div class="stat-card c-orange">
+          <div class="stat-label">Familias Duplicadas</div>
+          <div class="stat-value loading" id="ca-fam-dup">—</div>
+          <span class="stat-badge badge-orange">Descontadas</span>
+        </div>
         <div class="stat-card c-navy">
           <div class="stat-label">Integrantes caracterizados</div>
           <div class="stat-value loading" id="ca-individuos">—</div>
+        </div>
+        <div class="stat-card c-orange">
+          <div class="stat-label">Integrantes Duplicados</div>
+          <div class="stat-value loading" id="ca-ind-dup">—</div>
+          <span class="stat-badge badge-orange">Descontados</span>
         </div>
         <div class="stat-card c-red">
           <div class="stat-label">Familias sin aseguramiento</div>
@@ -615,9 +630,19 @@
           <div class="stat-label">Familias intervenidas</div>
           <div class="stat-value loading" id="pcf-fam">—</div>
         </div>
+        <div class="stat-card c-orange">
+          <div class="stat-label">Planes Duplicados</div>
+          <div class="stat-value loading" id="pcf-fam-dup">—</div>
+          <span class="stat-badge badge-orange">Descontados</span>
+        </div>
         <div class="stat-card c-navy">
           <div class="stat-label">Integrantes intervenidos</div>
           <div class="stat-value loading" id="pcf-integ">—</div>
+        </div>
+        <div class="stat-card c-orange">
+          <div class="stat-label">Integrantes Duplicados</div>
+          <div class="stat-value loading" id="pcf-int-dup">—</div>
+          <span class="stat-badge badge-orange">Descontados</span>
         </div>
       </div>
     </div>
@@ -919,7 +944,6 @@
 
       _datosDashboard = { ...d, sihos: s };
 
-      // ── PINTAR SIHOS EN PANTALLA (Incluso si hay 0) ──
       document.getElementById('sec-sihos').style.display = 'block';
       setVal('sihos-total', s ? s.resumen?.total_facturaciones : 0);
       setVal('sihos-rias', s ? s.indicadores?.total_rias : 0);
@@ -951,7 +975,9 @@
       setVal('pcc-error',  d.pcc?.con_error);
 
       setVal('ca-familias',   d.caracterizacion?.familias);
+      setVal('ca-fam-dup',    d.caracterizacion?.familias_duplicadas);
       setVal('ca-individuos', d.caracterizacion?.individuos);
+      setVal('ca-ind-dup',    d.caracterizacion?.individuos_duplicadas);
       setVal('ca-sinaseg',    d.caracterizacion?.sin_aseguramiento);
       setVal('ca-gestantes',  d.caracterizacion?.gestantes);
       setVal('ca-menores5',   d.caracterizacion?.menores_5);
@@ -982,7 +1008,9 @@
       buildChart('chartDiscapacidad', 'bar', disc.map(x => x.label), disc.map(x => x.total));
 
       setVal('pcf-fam',   d.pcf?.familias_intervenidas);
+      setVal('pcf-fam-dup', d.pcf?.familias_duplicadas);
       setVal('pcf-integ', d.pcf?.integrantes_intervenidos);
+      setVal('pcf-int-dup', d.pcf?.integrantes_duplicados); // ASIGNACIÓN DASHBOARD INDIVIDUOS PCF
 
       setVal('psi-interv', d.pcf_psicologia?.intervenciones_familiares);
       setVal('psi-integ',  d.pcf_psicologia?.integrantes);
@@ -1161,7 +1189,7 @@
       <table class="rp-id-table">
         <tr>
           <td>Generado por:</td><td>${userInfo.nombre||'—'}</td>
-          <td>Fecha de generación:</td><td>${hoy}</td>
+          <td>Fecha de generation:</td><td>${hoy}</td>
         </tr>
       </table>
 
