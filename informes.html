@@ -75,6 +75,9 @@
     .custom-dropdown { position:absolute; top:100%; left:0; right:0; background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow-md); max-height:200px; overflow-y:auto; z-index:1000; display:none; margin-top:4px; }
     .custom-dropdown-item { padding:.7rem 1rem; font-size:.85rem; color:var(--text); cursor:pointer; transition:background .2s; }
     .custom-dropdown-item:hover { background:var(--teal-lt); color:var(--teal); }
+    .custom-dropdown::-webkit-scrollbar { width:6px; }
+    .custom-dropdown::-webkit-scrollbar-track { background:transparent; }
+    .custom-dropdown::-webkit-scrollbar-thumb { background:var(--border); border-radius:10px; }
 
     /* Estados y Carga */
     #loadingOverlay{position:fixed;inset:0;background:rgba(240,244,250,.8);z-index:999;display:none;flex-direction:column;align-items:center;justify-content:center;gap:1rem;}
@@ -176,9 +179,15 @@
 
 <nav class="sidebar">
   <div class="sidebar-brand">
-    <div class="brand-logo"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg></div>
-    <div><div class="brand-name">INFORMES</div><div class="brand-sub">ESE 2026</div></div>
+    <div class="brand-logo">
+      <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+    </div>
+    <div>
+      <div class="brand-name">INFORMES</div>
+      <div class="brand-sub">ESE 2026</div>
+    </div>
   </div>
+
   <div class="nav">
     <div class="nav-section-title">Módulos</div>
     <a href="/dashboard" class="nav-item">
@@ -187,7 +196,11 @@
     </a>
     <a href="/auditoria" class="nav-item">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-      <span class="nav-label">Auditoría</span>
+      <span class="nav-label">Auditoría (Creación)</span>
+    </a>
+    <a href="/auditoria_actualizacion" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
+      <span class="nav-label">Auditoría (Cargas)</span>
     </a>
     <a href="/sihos" class="nav-item">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
@@ -231,9 +244,18 @@
     <div class="auditoria-filters">
       <div class="filter-group">
         <label>Correo del Encuestador</label>
-        <input type="email" id="inputUser" placeholder="Escribe para buscar..." autocomplete="off"/>
+        <input type="email" id="inputUser" placeholder="Buscar por correo..." autocomplete="off"/>
         <div id="customDropdown" class="custom-dropdown"></div>
       </div>
+
+      <div style="display:flex; align-items:center; color:var(--muted); font-size:0.8rem; font-weight:bold; padding-bottom: 0.5rem; margin-top: 1.5rem;">Ó</div>
+
+      <div class="filter-group">
+        <label>Nombre del Profesional</label>
+        <input type="text" id="inputName" placeholder="Buscar por nombre..." autocomplete="off"/>
+        <div id="customDropdownName" class="custom-dropdown"></div>
+      </div>
+
       <div class="filter-group">
         <label>Fecha Inicio</label>
         <input type="date" id="inputInicio"/>
@@ -253,7 +275,7 @@
         <line x1="16" y1="17" x2="8" y2="17"></line>
         <polyline points="10 9 9 9 8 9"></polyline>
       </svg>
-      <p>Selecciona un encuestador para generar un reporte integral que cruza variables sociodemográficas, geográficas (Mapas) y facturación (SIHOS).</p>
+      <p>Selecciona un correo o nombre de encuestador para generar un reporte integral que cruza variables sociodemográficas, geográficas (Mapas) y facturación (SIHOS).</p>
     </div>
 
     <div id="reportPreview" class="report-paper"></div>
@@ -276,19 +298,23 @@
   document.getElementById('sidebarRol').textContent    = userInfo.rol   || '—';
 
   let todosLosCorreos = [];
+  let todosLosNombres = [];
   const inputUser = document.getElementById('inputUser');
   const dropdown  = document.getElementById('customDropdown');
+  const inputName = document.getElementById('inputName');
+  const dropdownName = document.getElementById('customDropdownName');
   let isSearching = false;
 
-  async function cargarCorreos() {
+  async function cargarFiltros() {
     try {
-      const resp = await fetch(`${API_BASE}/api/encuestadores`, { headers:{ 'Authorization':'Bearer '+token } });
-      if (resp.ok) {
-        todosLosCorreos = await resp.json();
-      }
+      const resp1 = await fetch(`${API_BASE}/api/encuestadores`, { headers:{ 'Authorization':'Bearer '+token } });
+      if (resp1.ok) { todosLosCorreos = await resp1.json(); }
+
+      const resp2 = await fetch(`${API_BASE}/api/nombres_profesionales`, { headers:{ 'Authorization':'Bearer '+token } });
+      if (resp2.ok) { todosLosNombres = await resp2.json(); }
     } catch(e) {}
   }
-  cargarCorreos();
+  cargarFiltros();
 
   function filtrarCorreos(query) {
     dropdown.innerHTML = '';
@@ -298,14 +324,36 @@
     filtrados.forEach(c => {
       const div = document.createElement('div');
       div.className = 'custom-dropdown-item'; div.textContent = c;
-      div.onmousedown = () => { inputUser.value = c; dropdown.style.display = 'none'; };
+      div.onmousedown = () => { inputUser.value = c; inputName.value = ''; dropdown.style.display = 'none'; };
       dropdown.appendChild(div);
     });
     dropdown.style.display = 'block';
   }
-  inputUser.addEventListener('input', () => filtrarCorreos(inputUser.value));
+
+  function filtrarNombres(query) {
+    dropdownName.innerHTML = '';
+    if (!todosLosNombres.length) return;
+    const filtrados = todosLosNombres.filter(n => n.toLowerCase().includes(query.toLowerCase()));
+    if (filtrados.length === 0) { dropdownName.style.display = 'none'; return; }
+    filtrados.forEach(n => {
+      const div = document.createElement('div');
+      div.className = 'custom-dropdown-item'; div.textContent = n;
+      div.onmousedown = () => { inputName.value = n; inputUser.value = ''; dropdownName.style.display = 'none'; };
+      dropdownName.appendChild(div);
+    });
+    dropdownName.style.display = 'block';
+  }
+
+  inputUser.addEventListener('input', () => { inputName.value = ''; filtrarCorreos(inputUser.value); });
   inputUser.addEventListener('focus', () => filtrarCorreos(inputUser.value));
-  document.addEventListener('click', (e) => { if (e.target !== inputUser && e.target !== dropdown) dropdown.style.display = 'none'; });
+
+  inputName.addEventListener('input', () => { inputUser.value = ''; filtrarNombres(inputName.value); });
+  inputName.addEventListener('focus', () => filtrarNombres(inputName.value));
+
+  document.addEventListener('click', (e) => {
+      if (e.target !== inputUser && e.target !== dropdown) dropdown.style.display = 'none';
+      if (e.target !== inputName && e.target !== dropdownName) dropdownName.style.display = 'none';
+  });
 
   function logout() {
     localStorage.removeItem('informes_token');
@@ -347,23 +395,32 @@
 
   function descargarExcel() {
     const email = document.getElementById('inputUser').value.trim();
+    const nombre = document.getElementById('inputName').value.trim();
     const fi    = document.getElementById('inputInicio').value;
     const ff    = document.getElementById('inputFin').value;
-    if (!email||!fi||!ff) { alert('Por favor genera el informe primero.'); return; }
-    window.location.href = `${API_BASE}/api/exportar_excel?usuario=${encodeURIComponent(email)}&fecha_inicio=${fi}&fecha_fin=${ff}&token=${token}`;
+
+    if ((!email && !nombre) || !fi || !ff) { alert('Por favor genera el informe primero.'); return; }
+
+    let urlParam = email ? `usuario=${encodeURIComponent(email)}` : `nombre=${encodeURIComponent(nombre)}`;
+    window.location.href = `${API_BASE}/api/exportar_excel?${urlParam}&fecha_inicio=${fi}&fecha_fin=${ff}&token=${token}`;
   }
 
   async function generarInforme() {
     if (isSearching) return;
 
     const email = document.getElementById('inputUser').value.trim();
+    const nombre = document.getElementById('inputName').value.trim();
     const fi    = document.getElementById('inputInicio').value;
     const ff    = document.getElementById('inputFin').value;
     const btn   = document.getElementById('btnBuscar');
 
     dropdown.style.display = 'none';
+    dropdownName.style.display = 'none';
 
-    if (!email||!fi||!ff) { alert('Por favor ingresa el correo y el rango de fechas completo.'); return; }
+    if ((!email && !nombre) || !fi || !ff) {
+        alert('Por favor ingresa el correo o el nombre del profesional y el rango de fechas completo.');
+        return;
+    }
 
     isSearching = true;
     btn.disabled = true;
@@ -374,9 +431,11 @@
     document.getElementById('btnExport').style.display      = 'none';
 
     try {
+      let urlParam = email ? `usuario=${encodeURIComponent(email)}` : `nombre=${encodeURIComponent(nombre)}`;
+
       const [respAud, respMapas] = await Promise.all([
-        fetch(`${API_BASE}/api/auditoria?usuario=${encodeURIComponent(email)}&fecha_inicio=${fi}&fecha_fin=${ff}`, { headers: headers() }),
-        fetch(`${API_BASE}/api/mapas?usuario=${encodeURIComponent(email)}&fecha_inicio=${fi}&fecha_fin=${ff}`, { headers: headers() })
+        fetch(`${API_BASE}/api/auditoria?${urlParam}&fecha_inicio=${fi}&fecha_fin=${ff}`, { headers: headers() }),
+        fetch(`${API_BASE}/api/mapas?${urlParam}&fecha_inicio=${fi}&fecha_fin=${ff}`, { headers: headers() })
       ]);
 
       if (respAud.status === 401 || respMapas.status === 401) { logout(); return; }
@@ -387,6 +446,8 @@
       if (d.error) { alert(d.error); document.getElementById('emptyState').style.display='block'; return; }
 
       let s = null;
+      let usuarioConsultado = email || nombre;
+
       if (d.encuestador_nombre && d.encuestador_nombre !== 'Sin registro de nombre') {
         try {
           const respSihos = await fetch(`${API_BASE}/api/sihos?profesional=${encodeURIComponent(d.encuestador_nombre)}&fecha_inicio=${fi}&fecha_fin=${ff}`, { headers: headers() });
@@ -397,7 +458,7 @@
         } catch(e) { console.warn("No se pudo cargar SIHOS", e); }
       }
 
-      renderHtmlReport(d, m, s, email, `${fi} al ${ff}`);
+      renderHtmlReport(d, m, s, usuarioConsultado, `${fi} al ${ff}`);
 
     } catch(err) {
       alert(`⚠️ Fallo en la consulta:\n\n${err.message}`);
@@ -773,7 +834,7 @@
     });
   }
 
-  ['inputUser','inputInicio','inputFin'].forEach(id => {
+  ['inputUser','inputName','inputInicio','inputFin'].forEach(id => {
     document.getElementById(id).addEventListener('keydown', e => { if(e.key==='Enter') generarInforme(); });
   });
 </script>
