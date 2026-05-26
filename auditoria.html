@@ -132,7 +132,11 @@
   <div class="nav">
     <div class="nav-section-title">Módulos</div>
     <a href="/dashboard" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg><span class="nav-label">Dashboard</span></a>
-    <a href="/auditoria" class="nav-item active"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg><span class="nav-label">Auditoría</span></a>
+
+    <a href="/auditoria" class="nav-item active"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 14z"/></svg><span class="nav-label">Auditoría (Creación)</span></a>
+
+    <a href="/auditoria_actualizacion" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg><span class="nav-label">Auditoría (Cargas)</span></a>
+
     <a href="/sihos" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg><span class="nav-label">SIHOS Clínica</span></a>
     <a href="/mapas" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg><span class="nav-label">Mapas GIS</span></a>
     <a href="/informes" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg><span class="nav-label">Informes</span></a>
@@ -157,9 +161,18 @@
     <div class="auditoria-filters">
       <div class="filter-group">
         <label>Correo del Encuestador</label>
-        <input type="email" id="inputUser" placeholder="Escribe para buscar..." autocomplete="off"/>
+        <input type="email" id="inputUser" placeholder="Buscar por correo..." autocomplete="off"/>
         <div id="customDropdown" class="custom-dropdown"></div>
       </div>
+
+      <div style="display:flex; align-items:center; color:var(--muted); font-size:0.8rem; font-weight:bold; padding-bottom: 0.5rem; margin-top: 1.5rem;">Ó</div>
+
+      <div class="filter-group">
+        <label>Nombre del Profesional</label>
+        <input type="text" id="inputName" placeholder="Buscar por nombre..." autocomplete="off"/>
+        <div id="customDropdownName" class="custom-dropdown"></div>
+      </div>
+
       <div class="filter-group">
         <label>Fecha Inicio</label>
         <input type="date" id="inputInicio"/>
@@ -175,7 +188,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
         <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
       </svg>
-      <p>Ingresa un correo electrónico y el rango de fechas para generar el reporte de auditoría en pantalla.</p>
+      <p>Ingresa un correo o nombre del profesional y el rango de fechas para generar el reporte de auditoría en pantalla.</p>
     </div>
 
     <div id="resultadosAuditoria" style="display:none;">
@@ -332,15 +345,39 @@
           <div><div class="section-title">Plan Cuidado Familiar — Psicología</div><div class="section-sub">Intervenciones registradas con el perfil Profesional Psicología</div></div>
         </div>
         <div class="cards-row">
-          <div class="stat-card c-purple"><div class="stat-label">Intervenciones familiares</div><div class="stat-value" id="a-psi-fam">0</div></div>
+          <div class="stat-card c-purple"><div class="stat-label">Intervenciones familiares (Nuevas)</div><div class="stat-value" id="a-psi-fam">0</div></div>
+          <div class="stat-card c-teal"><div class="stat-label">Familias Anteriores</div><div class="stat-value" id="a-psi-fam-ant">0</div><span class="stat-badge badge-info">De meses pasados</span></div>
+          <div class="stat-card c-orange"><div class="stat-label">Familias Duplicadas</div><div class="stat-value" id="a-psi-fam-dup">0</div><span class="stat-badge badge-orange">Descontadas</span></div>
+        </div>
+        <div class="cards-row">
           <div class="stat-card c-navy"><div class="stat-label">Integrantes intervenidos</div><div class="stat-value" id="a-psi-int">0</div></div>
-          <div class="stat-card c-teal"><div class="stat-label">Seguimientos realizados</div><div class="stat-value" id="a-psi-seg">0</div></div>
+          <div class="stat-card c-orange"><div class="stat-label">Integrantes Duplicados</div><div class="stat-value" id="a-psi-ind-dup">0</div><span class="stat-badge badge-orange">Descontados</span></div>
+          <div class="stat-card c-teal"><div class="stat-label">Total Seguimientos Realizados</div><div class="stat-value" id="a-psi-seg">0</div></div>
+        </div>
+
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Tipos de Seguimiento</div>
+          <div class="cards-row" id="cardsTiposSeguimiento"></div>
+          <table class="data-table" id="tablaTiposSeguimiento">
+            <thead>
+              <tr>
+                <th>Tipo de Seguimiento</th>
+                <th style="width:150px;text-align:center;">Total Registrados</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+            <tfoot>
+              <tr>
+                <td style="text-align:right;">TOTAL DE SEGUIMIENTOS DESGLOSADOS</td>
+                <td id="tdTotalSeg" style="text-align:center; font-family:monospace; font-size:1.05rem;">0</td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
 
         <div class="sub-section" style="margin-top:1rem;">
           <div class="sub-section-title">Motivos de Consulta y Continuidad en Seguimientos</div>
-          <div class="cards-row" id="cardsMotivosSeguimiento">
-            </div>
+
           <div class="cards-row" style="margin-top: 0.5rem;">
             <div class="stat-card c-gold" style="max-width: 280px;">
               <div class="stat-label">Requiere Continuidad (1. SI)</div>
@@ -350,6 +387,14 @@
               <div class="stat-label">No Requiere (2. NO)</div>
               <div class="stat-value" id="a-psi-cont-no">0</div>
             </div>
+          </div>
+
+          <div style="margin-top:1.5rem;">
+            <div class="report-header">
+              <span style="font-size:.85rem;font-weight:bold;color:var(--teal);">Detalle de Motivos de Consulta</span>
+              <button class="btn-copy-small" style="background:var(--teal);" onclick="copiarTexto('txtPsicoMotivos')">📋 Copiar</button>
+            </div>
+            <textarea id="txtPsicoMotivos" class="report-box" style="border-color:var(--teal-lt);" readonly></textarea>
           </div>
         </div>
 
@@ -361,6 +406,8 @@
             <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--red);">3. Errores de Registro</span><button class="btn-copy-small" style="background:var(--red);" onclick="copiarTexto('txtPsicoErrores')">📋 Copiar</button></div><textarea id="txtPsicoErrores" class="report-box" style="background:#fde8e8;border-color:var(--red-lt);color:var(--red);" readonly></textarea></div>
             <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--navy);">4. Compromisos de Seguimientos</span><button class="btn-copy-small" style="background:var(--navy);" onclick="copiarTexto('txtPsicoCompromisos')">📋 Copiar</button></div><textarea id="txtPsicoCompromisos" class="report-box" readonly style="border-color:var(--border);"></textarea></div>
             <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--teal);">5. Evaluación de Seguimientos</span><button class="btn-copy-small" style="background:var(--teal);" onclick="copiarTexto('txtPsicoEvaluacion')">📋 Copiar</button></div><textarea id="txtPsicoEvaluacion" class="report-box" readonly style="border-color:var(--teal-lt);"></textarea></div>
+            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--orange);">6. Familias Duplicadas (Territorio/Códigos idénticos)</span><button class="btn-copy-small" style="background:var(--orange);" onclick="copiarTexto('txtPsicoFamDuplicadas')">📋 Copiar</button></div><textarea id="txtPsicoFamDuplicadas" class="report-box" style="background:var(--orange-lt);border-color:var(--orange);color:var(--orange);" readonly></textarea></div>
+            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--orange);">7. Integrantes Duplicados (Título idéntico)</span><button class="btn-copy-small" style="background:var(--orange);" onclick="copiarTexto('txtPsicoIndDuplicadas')">📋 Copiar</button></div><textarea id="txtPsicoIndDuplicadas" class="report-box" style="background:var(--orange-lt);border-color:var(--orange);color:var(--orange);" readonly></textarea></div>
           </div>
         </div>
       </div>
@@ -476,21 +523,30 @@
   document.getElementById('sidebarNombre').textContent = userInfo.nombre || '—';
   document.getElementById('sidebarRol').textContent    = userInfo.rol   || '—';
 
+  // ── FUNCIÓN MOVIDA AQUÍ ARRIBA PARA EVITAR ERROR DE INICIALIZACIÓN ──
+  const setValInput = (id, val) => { const e = document.getElementById(id); if(e) e.value = val; };
+
   let todosLosCorreos = [];
+  let todosLosNombres = [];
   const inputUser = document.getElementById('inputUser');
   const dropdown  = document.getElementById('customDropdown');
+
+  const inputName = document.getElementById('inputName');
+  const dropdownName = document.getElementById('customDropdownName');
+
   let isSearching = false;
 
-  async function cargarCorreos() {
+  async function cargarFiltros() {
     try {
-      const resp = await fetch(`${API_BASE}/api/encuestadores`, { headers:{ 'Authorization':'Bearer '+token } });
-      if (resp.ok) {
-        todosLosCorreos = await resp.json();
-      }
+      const resp1 = await fetch(`${API_BASE}/api/encuestadores`, { headers:{ 'Authorization':'Bearer '+token } });
+      if (resp1.ok) { todosLosCorreos = await resp1.json(); }
+
+      const resp2 = await fetch(`${API_BASE}/api/nombres_profesionales`, { headers:{ 'Authorization':'Bearer '+token } });
+      if (resp2.ok) { todosLosNombres = await resp2.json(); }
     } catch(e) {}
   }
 
-  cargarCorreos();
+  cargarFiltros();
 
   function filtrarCorreos(query) {
     dropdown.innerHTML = '';
@@ -502,16 +558,37 @@
       const div = document.createElement('div');
       div.className = 'custom-dropdown-item';
       div.textContent = c;
-      div.onmousedown = () => { inputUser.value = c; dropdown.style.display = 'none'; };
+      div.onmousedown = () => { inputUser.value = c; inputName.value = ''; dropdown.style.display = 'none'; };
       dropdown.appendChild(div);
     });
     dropdown.style.display = 'block';
   }
 
-  inputUser.addEventListener('input', () => filtrarCorreos(inputUser.value));
+  function filtrarNombres(query) {
+    dropdownName.innerHTML = '';
+    if (!todosLosNombres.length) return;
+    const filtrados = todosLosNombres.filter(n => n.toLowerCase().includes(query.toLowerCase()));
+
+    if (filtrados.length === 0) { dropdownName.style.display = 'none'; return; }
+    filtrados.forEach(n => {
+      const div = document.createElement('div');
+      div.className = 'custom-dropdown-item';
+      div.textContent = n;
+      div.onmousedown = () => { inputName.value = n; inputUser.value = ''; dropdownName.style.display = 'none'; };
+      dropdownName.appendChild(div);
+    });
+    dropdownName.style.display = 'block';
+  }
+
+  inputUser.addEventListener('input', () => { inputName.value = ''; filtrarCorreos(inputUser.value); });
   inputUser.addEventListener('focus', () => filtrarCorreos(inputUser.value));
+
+  inputName.addEventListener('input', () => { inputUser.value = ''; filtrarNombres(inputName.value); });
+  inputName.addEventListener('focus', () => filtrarNombres(inputName.value));
+
   document.addEventListener('click', (e) => {
     if (e.target !== inputUser && e.target !== dropdown) { dropdown.style.display = 'none'; }
+    if (e.target !== inputName && e.target !== dropdownName) { dropdownName.style.display = 'none'; }
   });
 
   let _datosAuditoria = null;
@@ -578,13 +655,18 @@
     if (isSearching) return;
 
     const email = document.getElementById('inputUser').value.trim();
+    const nombre = document.getElementById('inputName').value.trim();
     const fi    = document.getElementById('inputInicio').value;
     const ff    = document.getElementById('inputFin').value;
     const btn   = document.getElementById('btnBuscar');
 
     dropdown.style.display = 'none';
+    dropdownName.style.display = 'none';
 
-    if (!email||!fi||!ff) { alert('Por favor ingresa el correo y el rango de fechas completo.'); return; }
+    if ((!email && !nombre) || !fi || !ff) {
+        alert('Por favor ingresa el correo o el nombre del profesional y el rango de fechas completo.');
+        return;
+    }
 
     isSearching = true;
     btn.disabled = true;
@@ -593,7 +675,9 @@
     document.getElementById('resultadosAuditoria').style.display = 'none';
 
     try {
-      const resp = await fetch(`${API_BASE}/api/auditoria?usuario=${encodeURIComponent(email)}&fecha_inicio=${fi}&fecha_fin=${ff}`, {
+      let urlParam = email ? `usuario=${encodeURIComponent(email)}` : `nombre=${encodeURIComponent(nombre)}`;
+
+      const resp = await fetch(`${API_BASE}/api/auditoria?${urlParam}&fecha_inicio=${fi}&fecha_fin=${ff}`, {
         headers:{ 'Authorization':'Bearer '+token }
       });
       if (resp.status === 401) { logout(); return; }
@@ -602,10 +686,10 @@
       if (data.error) { alert(data.error); document.getElementById('emptyState').style.display='block'; return; }
 
       _datosAuditoria    = data;
-      _usuarioConsultado = email;
+      _usuarioConsultado = email || nombre;
       _rangoFechas       = `${fi} al ${ff}`;
 
-      const nom = data.encuestador_nombre && data.encuestador_nombre !== 'Sin registro de nombre' ? data.encuestador_nombre : email;
+      const nom = data.encuestador_nombre && data.encuestador_nombre !== 'Sin registro de nombre' ? data.encuestador_nombre : _usuarioConsultado;
       const perf = data.encuestador_perfil ? data.encuestador_perfil.toUpperCase() : 'PERFIL DESCONOCIDO';
 
       document.getElementById('topbarTitle').textContent = nom;
@@ -647,31 +731,60 @@
       setVal('a-pcf-fam', data.pcf?.familias_intervenidas);
       setVal('a-pcf-fam-dup', data.pcf?.familias_duplicadas);
       setVal('a-pcf-int', data.pcf?.integrantes_intervenidos);
-      setVal('a-pcf-int-dup', data.pcf?.integrantes_duplicados); // ASIGNACIÓN DE PCF INTEGRANTES DUPLICADOS
+      setVal('a-pcf-int-dup', data.pcf?.integrantes_duplicados);
 
       setVal('a-psi-fam', data.pcf_psicologia?.intervenciones_familiares);
+      setVal('a-psi-fam-ant', data.pcf_psicologia?.familias_anteriores);
+      setVal('a-psi-fam-dup', data.pcf_psicologia?.familias_duplicadas);
       setVal('a-psi-int', data.pcf_psicologia?.integrantes);
+      setVal('a-psi-ind-dup', data.pcf_psicologia?.integrantes_duplicados);
       setVal('a-psi-seg', data.pcf_psicologia?.seguimientos);
 
       setVal('a-psi-cont-si', data.pcf_psicologia?.requiere_continuidad_si);
       setVal('a-psi-cont-no', data.pcf_psicologia?.requiere_continuidad_no);
 
-      const contMotivos = document.getElementById('cardsMotivosSeguimiento');
-      if (contMotivos) {
-        contMotivos.innerHTML = '';
-        const motivos = data.pcf_psicologia?.motivos_seguimiento || [];
-        if (!motivos.length) {
-          contMotivos.innerHTML = '<div style="font-size:0.8rem;color:var(--muted);">Sin motivos registrados</div>';
+      const contTiposSeg = document.getElementById('cardsTiposSeguimiento');
+      const tbodyTiposSeg = document.querySelector('#tablaTiposSeguimiento tbody');
+      const tdTotalSeg = document.getElementById('tdTotalSeg');
+
+      if (contTiposSeg && tbodyTiposSeg) {
+        contTiposSeg.innerHTML = '';
+        tbodyTiposSeg.innerHTML = '';
+        let totalSeguimientosTipos = 0;
+        const tipos = data.pcf_psicologia?.tipos_seguimiento || [];
+
+        if (!tipos.length) {
+          contTiposSeg.innerHTML = '<div style="font-size:0.8rem;color:var(--muted);">Sin tipos registrados</div>';
+          tbodyTiposSeg.innerHTML = '<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:2rem;">Sin datos en este periodo</td></tr>';
+          tdTotalSeg.textContent = '0';
         } else {
-          motivos.forEach(m => {
-            contMotivos.innerHTML += `
-              <div class="stat-card c-teal" style="flex:1; min-width:160px;">
-                <div class="stat-label" style="font-size:0.65rem;">${m.label}</div>
-                <div class="stat-value" style="font-size:1.5rem;">${fmt(m.total)}</div>
+          tipos.forEach(t => {
+            totalSeguimientosTipos += t.total;
+            contTiposSeg.innerHTML += `
+              <div class="stat-card c-purple" style="flex:1; min-width:160px;">
+                <div class="stat-label" style="font-size:0.65rem;">${t.label}</div>
+                <div class="stat-value" style="font-size:1.5rem;">${fmt(t.total)}</div>
               </div>`;
+            tbodyTiposSeg.innerHTML += `
+              <tr>
+                <td style="font-weight:600;">${t.label}</td>
+                <td style="text-align:center; font-family:monospace; font-size:1rem; font-weight:700; color:var(--navy);">${fmt(t.total)}</td>
+              </tr>`;
           });
+          tdTotalSeg.textContent = fmt(totalSeguimientosTipos);
         }
       }
+
+      const motivos = data.pcf_psicologia?.motivos_seguimiento || [];
+      let txtMotivos = '';
+      if (!motivos.length) {
+        txtMotivos = 'Sin motivos registrados en estas fechas.';
+      } else {
+        motivos.forEach(m => {
+          txtMotivos += `• ${m.label} -> Total: ${fmt(m.total)} atenciones\n`;
+        });
+      }
+      setValInput('txtPsicoMotivos', txtMotivos);
 
       setVal('tr-registros', data.tramites?.total_registros);
       setVal('tr-familias',  data.tramites?.total_familias);
@@ -724,8 +837,6 @@
       const panelErr = document.getElementById('panelErrores');
       if (panelErr) panelErr.style.display = 'block';
 
-      const setValInput = (id, val) => { const e = document.getElementById(id); if(e) e.value = val; };
-
       setValInput('textoErroresGlobal', data.reporte_errores_texto);
       setValInput('txtPccDetalles', data.pcc?.reporte_detalles);
 
@@ -735,13 +846,15 @@
       setValInput('txtPcfRealizados', data.pcf?.reporte_familias);
       setValInput('txtPcfErrores', data.pcf?.reporte_errores);
       setValInput('txtPcfDuplicados', data.pcf?.reporte_duplicados_fam);
-      setValInput('txtPcfIndDuplicados', data.pcf?.reporte_duplicados_ind); // ASIGNACIÓN DEL TEXTO PCF INTEGRANTES DUPLICADOS
+      setValInput('txtPcfIndDuplicados', data.pcf?.reporte_duplicados_ind);
 
       setValInput('txtPsicoRealizados', data.pcf_psicologia?.reporte_familias);
       setValInput('txtPsicoSeguimientos', data.pcf_psicologia?.reporte_seguimientos);
       setValInput('txtPsicoErrores', data.pcf_psicologia?.reporte_errores);
       setValInput('txtPsicoCompromisos', data.pcf_psicologia?.reporte_compromisos);
       setValInput('txtPsicoEvaluacion', data.pcf_psicologia?.reporte_evaluacion);
+      setValInput('txtPsicoFamDuplicadas', data.pcf_psicologia?.reporte_duplicados_fam);
+      setValInput('txtPsicoIndDuplicadas', data.pcf_psicologia?.reporte_duplicados_ind);
 
       setValInput('txtTramRealizados', data.tramites?.reporte_realizados);
       setValInput('txtTramResueltos', data.tramites?.reporte_resueltos);
@@ -765,6 +878,9 @@
   ['inputUser','inputInicio','inputFin'].forEach(id => {
     document.getElementById(id).addEventListener('keydown', e => { if(e.key==='Enter') buscarAuditoria(); });
   });
+
+  // Agregar enter al inputName
+  document.getElementById('inputName').addEventListener('keydown', e => { if(e.key==='Enter') buscarAuditoria(); });
 </script>
 </body>
 </html>
