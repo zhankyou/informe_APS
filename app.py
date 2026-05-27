@@ -1100,16 +1100,27 @@ def get_auditoria_data(usuario: str, fecha_ini: str, fecha_fin: str) -> dict:
         dups_psico_fam_list) if dups_psico_fam_list else "✅ No se detectaron familias duplicadas en Psicología."
     dups_psico_fam_count = len(dups_psico_fam_list)
 
-    # 🛑 FAMILIAS ANTERIORES EN PSICOLOGIA (AUDITORIA) 🛑
-    raw_psico_ant_aud = ejecutar(f"""
-        SELECT p.ec5_uuid
+    # 🛑 FAMILIAS E INTEGRANTES ANTERIORES EN PSICOLOGIA (AUDITORIA) 🛑
+    raw_fam_ant = ejecutar(f"""
+        SELECT f.ec5_uuid
         FROM pcf_psicologia_seguimientos_2026 s
-        JOIN pcf_planes_principal_2026 p ON s.ec5_branch_owner_uuid = p.ec5_uuid
+        JOIN pcf_psicologia_principal_2026 i ON s.ec5_branch_owner_uuid = i.ec5_uuid
+        JOIN pcf_planes_principal_2026 f ON i.ec5_parent_uuid = f.ec5_uuid
         WHERE LOWER(TRIM(CAST(s.created_by AS text))) = LOWER(:usuario)
           AND {get_date_filter('s.created_at')}
-          AND NOT ({get_date_filter('p.created_at')})
+          AND NOT ({get_date_filter('f.created_at')})
     """, params)
-    familias_anteriores_aud = len(set([str(r.get("ec5_uuid")) for r in raw_psico_ant_aud]))
+    familias_anteriores_aud = len(set([str(r.get("ec5_uuid")) for r in raw_fam_ant]))
+
+    raw_ind_ant = ejecutar(f"""
+        SELECT i.ec5_uuid
+        FROM pcf_psicologia_seguimientos_2026 s
+        JOIN pcf_psicologia_principal_2026 i ON s.ec5_branch_owner_uuid = i.ec5_uuid
+        WHERE LOWER(TRIM(CAST(s.created_by AS text))) = LOWER(:usuario)
+          AND {get_date_filter('s.created_at')}
+          AND NOT ({get_date_filter('i.created_at')})
+    """, params)
+    integrantes_anteriores_aud = len(set([str(r.get("ec5_uuid")) for r in raw_ind_ant]))
 
     integrantes_psico_count = safe_count(f"""
         SELECT COUNT(*) FROM pcf_psicologia_principal_2026
@@ -1144,7 +1155,6 @@ def get_auditoria_data(usuario: str, fecha_ini: str, fecha_fin: str) -> dict:
             fecha_str = str(r.get('created_at', ''))[:10]
             texto_psico_seg += f"Seguimiento {idx}: Ficha [{uid_ficha}] - {fecha_str}\n"
 
-            # Corregido: "128_23_consulta_por_" es Tipo, "129_24_" es Motivo
             tipo_seg = next((v for k, v in r.items() if k.startswith('128_23_')), None)
             motivo = next((v for k, v in r.items() if k.startswith('129_24_')), None)
 
@@ -1193,6 +1203,7 @@ def get_auditoria_data(usuario: str, fecha_ini: str, fecha_fin: str) -> dict:
         "familias_anteriores": familias_anteriores_aud,
         "reporte_duplicados_fam": texto_dups_psico_fam,
         "integrantes": integrantes_psico_count,
+        "integrantes_anteriores": integrantes_anteriores_aud,
         "seguimientos": seg_psico_count,
         "tipos_seguimiento": [{"label": k, "total": v} for k, v in
                               sorted(tipo_seg_count.items(), key=lambda item: item[1], reverse=True)],
@@ -1826,16 +1837,27 @@ def get_auditoria_actualizacion_data(usuario: str, fecha_ini: str, fecha_fin: st
         dups_psico_fam_list) if dups_psico_fam_list else "✅ No se detectaron familias duplicadas en Psicología."
     dups_psico_fam_count = len(dups_psico_fam_list)
 
-    # 🛑 FAMILIAS ANTERIORES EN PSICOLOGIA (AUDITORIA ACTUALIZACION) 🛑
-    raw_psico_ant_aud = ejecutar(f"""
-        SELECT p.ec5_uuid
+    # 🛑 FAMILIAS E INTEGRANTES ANTERIORES EN PSICOLOGIA (AUDITORIA ACTUALIZACION) 🛑
+    raw_fam_ant = ejecutar(f"""
+        SELECT f.ec5_uuid
         FROM pcf_psicologia_seguimientos_2026 s
-        JOIN pcf_planes_principal_2026 p ON s.ec5_branch_owner_uuid = p.ec5_uuid
+        JOIN pcf_psicologia_principal_2026 i ON s.ec5_branch_owner_uuid = i.ec5_uuid
+        JOIN pcf_planes_principal_2026 f ON i.ec5_parent_uuid = f.ec5_uuid
         WHERE LOWER(TRIM(CAST(s.created_by AS text))) = LOWER(:usuario)
           AND {get_date_filter('s.uploaded_at')}
-          AND NOT ({get_date_filter('p.uploaded_at')})
+          AND NOT ({get_date_filter('f.uploaded_at')})
     """, params)
-    familias_anteriores_aud = len(set([str(r.get("ec5_uuid")) for r in raw_psico_ant_aud]))
+    familias_anteriores_aud = len(set([str(r.get("ec5_uuid")) for r in raw_fam_ant]))
+
+    raw_ind_ant = ejecutar(f"""
+        SELECT i.ec5_uuid
+        FROM pcf_psicologia_seguimientos_2026 s
+        JOIN pcf_psicologia_principal_2026 i ON s.ec5_branch_owner_uuid = i.ec5_uuid
+        WHERE LOWER(TRIM(CAST(s.created_by AS text))) = LOWER(:usuario)
+          AND {get_date_filter('s.uploaded_at')}
+          AND NOT ({get_date_filter('i.uploaded_at')})
+    """, params)
+    integrantes_anteriores_aud = len(set([str(r.get("ec5_uuid")) for r in raw_ind_ant]))
 
     integrantes_psico_count = safe_count(f"""
         SELECT COUNT(*) FROM pcf_psicologia_principal_2026
@@ -1919,6 +1941,7 @@ def get_auditoria_actualizacion_data(usuario: str, fecha_ini: str, fecha_fin: st
         "familias_anteriores": familias_anteriores_aud,
         "reporte_duplicados_fam": texto_dups_psico_fam,
         "integrantes": integrantes_psico_count,
+        "integrantes_anteriores": integrantes_anteriores_aud,
         "seguimientos": seg_psico_count,
         "tipos_seguimiento": [{"label": k, "total": v} for k, v in
                               sorted(tipo_seg_count.items(), key=lambda item: item[1], reverse=True)],
