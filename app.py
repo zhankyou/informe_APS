@@ -430,6 +430,90 @@ def get_dashboard():
             params),
     }
 
+    # =========================================================================================
+    # NUEVO MÓDULO: NÚMERO DE HOGARES POR TERRITORIO / MICROTERRITORIO (CARACT vs PCF)
+    # =========================================================================================
+    raw_caract_hogares = ejecutar(f"""
+        SELECT "12_4_territorio", "13_5_microterritorio", "18_10_cdigo_hogar", "19_101_cdigo_hogar", "21_11_cdigo_familia", "22_111_cdigo_familia"
+        FROM caracterizacion_si_aps_familiar_2026
+        WHERE {get_date_filter('created_at')}
+    """, params)
+
+    hogares_caract_dict = {}
+    for r in raw_caract_hogares:
+        t = str(r.get("12_4_territorio", "")).strip().upper()
+        m = str(r.get("13_5_microterritorio", "")).strip().upper()
+        c1 = str(r.get("18_10_cdigo_hogar", "")).strip().lower()
+        c2 = str(r.get("19_101_cdigo_hogar", "")).strip().lower()
+        c3 = str(r.get("21_11_cdigo_familia", "")).strip().lower()
+        c4 = str(r.get("22_111_cdigo_familia", "")).strip().lower()
+
+        id_hogar = f"{t}|{m}|{c1}|{c2}|{c3}|{c4}".replace("none", "").strip()
+        if id_hogar != "|||||" and len(id_hogar.replace("|", "")) > 0:
+            if not t or t == "NONE": t = "SIN TERRITORIO"
+            if not m or m == "NONE": m = "SIN MICROTERRITORIO"
+            hogares_caract_dict[id_hogar] = {"terr": t, "micro": m}
+
+    raw_pcf_hogares = ejecutar(f"""
+        SELECT "9_7_territorio", "10_8_microterritorio", "11_9_identificacin_d", "12_91_identificacin_", "13_10_identificacin_", "14_101_identificacin"
+        FROM pcf_planes_principal_2026
+        WHERE {get_date_filter('created_at')}
+    """, params)
+
+    hogares_pcf_dict = {}
+    for r in raw_pcf_hogares:
+        t = str(r.get("9_7_territorio", "")).strip().upper()
+        m = str(r.get("10_8_microterritorio", "")).strip().upper()
+        c1 = str(r.get("11_9_identificacin_d", "")).strip().lower()
+        c2 = str(r.get("12_91_identificacin_", "")).strip().lower()
+        c3 = str(r.get("13_10_identificacin_", "")).strip().lower()
+        c4 = str(r.get("14_101_identificacin", "")).strip().lower()
+
+        id_hogar = f"{t}|{m}|{c1}|{c2}|{c3}|{c4}".replace("none", "").strip()
+        if id_hogar != "|||||" and len(id_hogar.replace("|", "")) > 0:
+            if not t or t == "NONE": t = "SIN TERRITORIO"
+            if not m or m == "NONE": m = "SIN MICROTERRITORIO"
+            hogares_pcf_dict[id_hogar] = {"terr": t, "micro": m}
+
+    set_caract = set(hogares_caract_dict.keys())
+    set_pcf = set(hogares_pcf_dict.keys())
+    concertados = set_caract.intersection(set_pcf)
+
+    agrupacion_terr = {}
+    for id_h, info in hogares_caract_dict.items():
+        llave = f"{info['terr']} / {info['micro']}"
+        if llave not in agrupacion_terr: agrupacion_terr[llave] = {"caract": 0, "pcf": 0, "concertados": 0}
+        agrupacion_terr[llave]["caract"] += 1
+        if id_h in concertados:
+            agrupacion_terr[llave]["concertados"] += 1
+
+    for id_h, info in hogares_pcf_dict.items():
+        llave = f"{info['terr']} / {info['micro']}"
+        if llave not in agrupacion_terr: agrupacion_terr[llave] = {"caract": 0, "pcf": 0, "concertados": 0}
+        agrupacion_terr[llave]["pcf"] += 1
+
+    lista_territorios = []
+    for k, v in agrupacion_terr.items():
+        pct = round((v["concertados"] / v["caract"] * 100), 1) if v["caract"] > 0 else (
+            100.0 if v["concertados"] > 0 else 0.0)
+        lista_territorios.append({
+            "label": k,
+            "caract": v["caract"],
+            "pcf": v["pcf"],
+            "concertados": v["concertados"],
+            "porcentaje": pct
+        })
+
+    lista_territorios.sort(key=lambda x: x["caract"] + x["pcf"], reverse=True)
+
+    data["hogares_territorio"] = {
+        "total_caract": len(set_caract),
+        "total_pcf": len(set_pcf),
+        "total_concertados": len(concertados),
+        "desglose": lista_territorios
+    }
+    # =========================================================================================
+
     raw_pcf_dash = ejecutar(
         f"SELECT created_by, \"9_7_territorio\", \"10_8_microterritorio\", \"11_9_identificacin_d\", \"12_91_identificacin_\", \"13_10_identificacin_\", \"14_101_identificacin\" FROM pcf_planes_principal_2026 WHERE {get_date_filter('created_at')} AND (\"4_3_perfil_profesion\" IS NULL OR TRIM(\"4_3_perfil_profesion\") != 'Profesional Psicología')",
         params)
@@ -441,7 +525,8 @@ def get_dashboard():
         if c_key in seen_c_pcf_dash:
             dups_pcf_count_dash += 1
         else:
-            seen_c_pcf_dash.add(c_key); uniq_pcf_dash += 1
+            seen_c_pcf_dash.add(c_key);
+            uniq_pcf_dash += 1
 
     raw_pcf_ind_dash = ejecutar(
         f"SELECT b.title, p.created_by FROM pcf_planes_integrantes_2026 b JOIN pcf_planes_principal_2026 p ON b.ec5_branch_owner_uuid = p.ec5_uuid WHERE {get_date_filter('p.created_at')} AND (p.\"4_3_perfil_profesion\" IS NULL OR TRIM(p.\"4_3_perfil_profesion\") != 'Profesional Psicología')",
@@ -456,7 +541,8 @@ def get_dashboard():
         if clave in seen_ind_pcf_dash:
             dups_ind_pcf_count_dash += 1
         else:
-            seen_ind_pcf_dash.add(clave); uniq_ind_pcf_dash += 1
+            seen_ind_pcf_dash.add(clave);
+            uniq_ind_pcf_dash += 1
 
     data["pcf"] = {"familias_intervenidas": uniq_pcf_dash, "familias_duplicadas": dups_pcf_count_dash,
                    "integrantes_intervenidos": uniq_ind_pcf_dash, "integrantes_duplicados": dups_ind_pcf_count_dash}
@@ -472,7 +558,8 @@ def get_dashboard():
         if c_key in seen_c_psico_dash:
             dups_psico_fam_count_dash += 1
         else:
-            seen_c_psico_dash.add(c_key); uniq_psico_fam_dash += 1
+            seen_c_psico_dash.add(c_key);
+            uniq_psico_fam_dash += 1
 
     data["pcf_psicologia"] = {
         "intervenciones_familiares": uniq_psico_fam_dash, "familias_duplicadas": dups_psico_fam_count_dash,
