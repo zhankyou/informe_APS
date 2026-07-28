@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>INFORMES ESE · Mapas GIS</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,400&display=swap" rel="stylesheet"/>
+
+  <!-- LIBRERÍAS EXTERNAS DE MAPAS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- ESTILOS GLOBALES -->
+  <link rel="stylesheet" href="/static/css/global.css"/>
+  <style>
+    .map-container { width: 100%; height: 350px; border-radius: 8px; border: 1px solid var(--border); z-index: 10; }
+  </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-logo"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg></div>
+    <div><div class="brand-name">INFORMES</div><div class="brand-sub">ESE 2026</div></div>
+  </div>
+  <div class="nav">
+    <div class="nav-section-title">Módulos</div>
+    <a href="/dashboard" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg><span class="nav-label">Dashboard</span></a>
+    <a href="/auditoria" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg><span class="nav-label">Auditoría (Creación)</span></a>
+    <a href="/auditoria_actualizacion" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg><span class="nav-label">Auditoría (Cargas)</span></a>
+    <a href="/sihos" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg><span class="nav-label">SIHOS Clínica</span></a>
+    <a href="/mapas" class="nav-item active"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg><span class="nav-label">Mapas GIS</span></a>
+    <a href="/informes" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg><span class="nav-label">Informes</span></a>
+  </div>
+  <div class="sidebar-user">
+    <div class="user-name" id="sidebarNombre">Cargando...</div>
+    <div class="user-role" id="sidebarRol">—</div>
+    <button class="btn-logout" onclick="logout()">Cerrar sesión</button>
+  </div>
+</nav>
+
+<!-- MAIN CONTENT -->
+<div class="main">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title" id="topbarTitle">Georreferenciación EBS</div>
+      <div class="topbar-meta" id="topbarMeta">Auditoría perimetral de ubicaciones de Villavicencio</div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <div class="auditoria-filters">
+      <div class="filter-group">
+        <label>Correo del Encuestador</label>
+        <input type="email" id="inputUser" placeholder="Escribe para buscar..." autocomplete="off"/>
+        <div id="customDropdown" class="custom-dropdown"></div>
+      </div>
+      <div class="filter-group">
+        <label>Fecha Inicio</label>
+        <input type="date" id="inputInicio"/>
+      </div>
+      <div class="filter-group">
+        <label>Fecha Fin</label>
+        <input type="date" id="inputFin"/>
+      </div>
+      <button class="btn-search" id="btnBuscar" onclick="buscarMapas()">📍 Cargar Mapas</button>
+    </div>
+
+    <div id="resultadosMapas" style="display:none;">
+
+      <div class="section">
+        <div class="section-title" style="margin-bottom:1rem;">1. Caracterización SI-APS</div>
+        <div class="cards-row">
+          <div class="stat-card c-teal"><div class="stat-label">Puntos Correctos</div><div class="stat-value" id="val-caract-ok">0</div></div>
+          <div class="stat-card c-red"><div class="stat-label">Error: Vacíos o Cero</div><div class="stat-value" id="val-caract-vacios">0</div></div>
+          <div class="stat-card c-gold"><div class="stat-label">Error: Fuera Perímetro</div><div class="stat-value" id="val-caract-fuera">0</div></div>
+        </div>
+        <div class="sub-section">
+          <div class="sub-section-title">Mapa de Cobertura</div>
+          <div id="map-caracterizacion" class="map-container"></div>
+        </div>
+        <div class="sub-section" style="background:#fde8e8;">
+          <div class="sub-section-title" style="color:var(--red); border-color:var(--red-lt);">
+            <span>Consola de Errores (Fichas sin GPS o fuera de Villavicencio)</span>
+            <button class="btn-copy-small" onclick="copiarTexto('txt-err-caract')">📋 Copiar</button>
+          </div>
+          <textarea id="txt-err-caract" class="report-box" readonly></textarea>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title" style="margin-bottom:1rem;">2. Plan Cuidado Comunitario (PCC)</div>
+        <div class="cards-row">
+          <div class="stat-card c-teal"><div class="stat-label">Puntos Correctos</div><div class="stat-value" id="val-pcc-ok">0</div></div>
+          <div class="stat-card c-red"><div class="stat-label">Error: Vacíos o Cero</div><div class="stat-value" id="val-pcc-vacios">0</div></div>
+          <div class="stat-card c-gold"><div class="stat-label">Error: Fuera Perímetro</div><div class="stat-value" id="val-pcc-fuera">0</div></div>
+        </div>
+        <div class="sub-section">
+          <div id="map-pcc" class="map-container"></div>
+        </div>
+        <div class="sub-section" style="background:#fde8e8;">
+          <div class="sub-section-title" style="color:var(--red); border-color:var(--red-lt);">
+            <span>Consola de Errores PCC</span><button class="btn-copy-small" onclick="copiarTexto('txt-err-pcc')">📋 Copiar</button>
+          </div>
+          <textarea id="txt-err-pcc" class="report-box" readonly></textarea>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title" style="margin-bottom:1rem;">3. Plan Cuidado Familiar (PCF General y Psicología)</div>
+        <div class="cards-row">
+          <div class="stat-card c-teal"><div class="stat-label">Puntos Correctos</div><div class="stat-value" id="val-pcf-ok">0</div></div>
+          <div class="stat-card c-red"><div class="stat-label">Error: Vacíos o Cero</div><div class="stat-value" id="val-pcf-vacios">0</div></div>
+          <div class="stat-card c-gold"><div class="stat-label">Error: Fuera Perímetro</div><div class="stat-value" id="val-pcf-fuera">0</div></div>
+        </div>
+        <div class="sub-section"><div id="map-pcf" class="map-container"></div></div>
+        <div class="sub-section" style="background:#fde8e8;">
+          <div class="sub-section-title" style="color:var(--red); border-color:var(--red-lt);"><span>Consola de Errores PCF</span><button class="btn-copy-small" onclick="copiarTexto('txt-err-pcf')">📋 Copiar</button></div>
+          <textarea id="txt-err-pcf" class="report-box" readonly></textarea>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title" style="margin-bottom:1rem;">4. Trámites</div>
+        <div class="cards-row">
+          <div class="stat-card c-teal"><div class="stat-label">Puntos Correctos</div><div class="stat-value" id="val-tram-ok">0</div></div>
+          <div class="stat-card c-red"><div class="stat-label">Error: Vacíos o Cero</div><div class="stat-value" id="val-tram-vacios">0</div></div>
+          <div class="stat-card c-gold"><div class="stat-label">Error: Fuera Perímetro</div><div class="stat-value" id="val-tram-fuera">0</div></div>
+        </div>
+        <div class="sub-section"><div id="map-tramites" class="map-container"></div></div>
+        <div class="sub-section" style="background:#fde8e8;">
+          <div class="sub-section-title" style="color:var(--red); border-color:var(--red-lt);"><span>Consola de Errores Trámites</span><button class="btn-copy-small" onclick="copiarTexto('txt-err-tram')">📋 Copiar</button></div>
+          <textarea id="txt-err-tram" class="report-box" readonly></textarea>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title" style="margin-bottom:1rem;">5. Desistimientos</div>
+        <div class="cards-row">
+          <div class="stat-card c-teal"><div class="stat-label">Puntos Correctos</div><div class="stat-value" id="val-des-ok">0</div></div>
+          <div class="stat-card c-red"><div class="stat-label">Error: Vacíos o Cero</div><div class="stat-value" id="val-des-vacios">0</div></div>
+          <div class="stat-card c-gold"><div class="stat-label">Error: Fuera Perímetro</div><div class="stat-value" id="val-des-fuera">0</div></div>
+        </div>
+        <div class="sub-section"><div id="map-desist" class="map-container"></div></div>
+        <div class="sub-section" style="background:#fde8e8;">
+          <div class="sub-section-title" style="color:var(--red); border-color:var(--red-lt);"><span>Consola de Errores Desistimientos</span><button class="btn-copy-small" onclick="copiarTexto('txt-err-des')">📋 Copiar</button></div>
+          <textarea id="txt-err-des" class="report-box" readonly></textarea>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div id="loadingOverlay"><div class="loading-spinner"></div><div class="loading-text">Cargando puntos satelitales...</div></div>
+
+<!-- SCRIPTS MODULARIZADOS -->
+<script src="/static/js/auth.js"></script>
+<script src="/static/js/filtros.js"></script>
+
+<script>
+  let isSearching = false;
+  const mapInstances = {};
+  const markerLayers = {};
+  const VILLA_LAT = 4.142;
+  const VILLA_LNG = -73.626;
+
+  function initMaps() {
+    const ids = ['map-caracterizacion', 'map-pcc', 'map-pcf', 'map-tramites', 'map-desist'];
+    ids.forEach(id => {
+      mapInstances[id] = L.map(id).setView([VILLA_LAT, VILLA_LNG], 11);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap &copy; CARTO'
+      }).addTo(mapInstances[id]);
+
+      markerLayers[id] = L.layerGroup().addTo(mapInstances[id]);
+    });
+  }
+
+  initMaps();
+
+  function renderPuntos(mapId, puntos) {
+    const map = mapInstances[mapId];
+    const layer = markerLayers[mapId];
+    layer.clearLayers();
+
+    if (!puntos || puntos.length === 0) {
+      map.setView([VILLA_LAT, VILLA_LNG], 11);
+      return;
+    }
+
+    const bounds = [];
+    puntos.forEach(p => {
+      L.circleMarker([p.lat, p.lng], {
+        color: '#00b09b', radius: 6, fillOpacity: 0.8
+      }).bindPopup(`<b>Ficha:</b> ${p.uid}<br><b>Fecha:</b> ${p.fecha}`).addTo(layer);
+      bounds.push([p.lat, p.lng]);
+    });
+
+    map.fitBounds(bounds, { padding: [30, 30] });
+    if (map.getZoom() > 16) map.setZoom(16);
+  }
+
+  function compilarErrores(vacios, fuera) {
+    let txt = "";
+    if(vacios.length > 0) {
+      txt += "--- ERRORES: GPS VACÍO O EN CERO ---\n";
+      txt += vacios.join("\n") + "\n\n";
+    }
+    if(fuera.length > 0) {
+      txt += "--- ERRORES: COORDENADAS FUERA DE VILLAVICENCIO ---\n";
+      txt += fuera.join("\n") + "\n\n";
+    }
+    return txt || "✅ Excelente. Todos los registros contienen GPS y están dentro del municipio.";
+  }
+
+  async function buscarMapas() {
+    if (isSearching) return;
+
+    const email = document.getElementById('inputUser').value.trim();
+    const fi    = document.getElementById('inputInicio').value;
+    const ff    = document.getElementById('inputFin').value;
+    const btn   = document.getElementById('btnBuscar');
+
+    const dropdown = document.getElementById('customDropdown');
+    if(dropdown) dropdown.style.display = 'none';
+
+    if (!email) { alert('Por favor selecciona un encuestador.'); return; }
+
+    isSearching = true;
+    btn.disabled = true;
+    document.getElementById('loadingOverlay').style.display = 'flex';
+
+    try {
+      const token = localStorage.getItem('informes_token');
+      const resp = await fetch(`${API_BASE}/api/mapas?usuario=${encodeURIComponent(email)}&fecha_inicio=${fi}&fecha_fin=${ff}`, {
+        headers:{ 'Authorization':'Bearer '+token }
+      });
+      if (resp.status === 401) { logout(); return; }
+
+      const data = await resp.json();
+      document.getElementById('resultadosMapas').style.display = 'block';
+
+      const nom = data.encuestador_nombre && data.encuestador_nombre !== 'Sin registro de nombre' ? data.encuestador_nombre : email;
+      const perf = data.encuestador_perfil ? data.encuestador_perfil.toUpperCase() : 'PERFIL DESCONOCIDO';
+
+      document.getElementById('topbarTitle').textContent = nom;
+      document.getElementById('topbarMeta').textContent = perf;
+
+      // 1. CARACTERIZACIÓN
+      document.getElementById('val-caract-ok').textContent = data.caracterizacion.totales.ok;
+      document.getElementById('val-caract-vacios').textContent = data.caracterizacion.totales.vacios;
+      document.getElementById('val-caract-fuera').textContent = data.caracterizacion.totales.fuera;
+      renderPuntos('map-caracterizacion', data.caracterizacion.correctos);
+      document.getElementById('txt-err-caract').value = compilarErrores(data.caracterizacion.errores_vacios, data.caracterizacion.errores_fuera);
+
+      // 2. PCC
+      document.getElementById('val-pcc-ok').textContent = data.pcc.totales.ok;
+      document.getElementById('val-pcc-vacios').textContent = data.pcc.totales.vacios;
+      document.getElementById('val-pcc-fuera').textContent = data.pcc.totales.fuera;
+      renderPuntos('map-pcc', data.pcc.correctos);
+      document.getElementById('txt-err-pcc').value = compilarErrores(data.pcc.errores_vacios, data.pcc.errores_fuera);
+
+      // 3. PCF
+      document.getElementById('val-pcf-ok').textContent = data.pcf.totales.ok;
+      document.getElementById('val-pcf-vacios').textContent = data.pcf.totales.vacios;
+      document.getElementById('val-pcf-fuera').textContent = data.pcf.totales.fuera;
+      renderPuntos('map-pcf', data.pcf.correctos);
+      document.getElementById('txt-err-pcf').value = compilarErrores(data.pcf.errores_vacios, data.pcf.errores_fuera);
+
+      // 4. TRAMITES
+      document.getElementById('val-tram-ok').textContent = data.tramites.totales.ok;
+      document.getElementById('val-tram-vacios').textContent = data.tramites.totales.vacios;
+      document.getElementById('val-tram-fuera').textContent = data.tramites.totales.fuera;
+      renderPuntos('map-tramites', data.tramites.correctos);
+      document.getElementById('txt-err-tram').value = compilarErrores(data.tramites.errores_vacios, data.tramites.errores_fuera);
+
+      // 5. DESISTIMIENTOS
+      document.getElementById('val-des-ok').textContent = data.desistimientos.totales.ok;
+      document.getElementById('val-des-vacios').textContent = data.desistimientos.totales.vacios;
+      document.getElementById('val-des-fuera').textContent = data.desistimientos.totales.fuera;
+      renderPuntos('map-desist', data.desistimientos.correctos);
+      document.getElementById('txt-err-des').value = compilarErrores(data.desistimientos.errores_vacios, data.desistimientos.errores_fuera);
+
+      setTimeout(() => {
+        Object.values(mapInstances).forEach(m => m.invalidateSize());
+      }, 300);
+
+    } catch(err) {
+      alert('Ocurrió un error cargando las coordenadas.');
+    } finally {
+      isSearching = false;
+      btn.disabled = false;
+      document.getElementById('loadingOverlay').style.display = 'none';
+    }
+  }
+
+  ['inputUser','inputInicio','inputFin'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => { if(e.key==='Enter') buscarMapas(); });
+  });
+</script>
+</body>
+</html>
