@@ -1,0 +1,72 @@
+/* static/css/print.css */
+
+/* Ocultar la sección imprimible en pantalla normal */
+#seccionImprimible { display: none; }
+
+@media print {
+    /* Configuración estricta de Hoja Carta (Letter) y márgenes */
+    @page {
+        size: letter portrait;
+        margin: 1.5cm;
+    }
+
+    /* Ocultar elementos de la interfaz de usuario web */
+    .sidebar, .topbar, .content, #loadingOverlay, .auditoria-filters, .btn-print, .btn-refresh {
+        display: none !important;
+    }
+
+    /* Resetear el contenedor principal para impresión */
+    .main { margin: 0 !important; width: 100% !important; padding: 0 !important; }
+    body { background: #fff !important; display: block; color: #000 !important; }
+
+    /* Activar el contenedor de impresión */
+    #seccionImprimible {
+        display: block !important;
+        font-family: Arial, sans-serif;
+        color: #000;
+        font-size: 9pt;
+        width: 100%;
+    }
+
+    /* --- ESTILOS DEL REPORTE OFICIAL --- */
+    .rp-header-inst { border: 1.5px solid #003366; margin-bottom: 12pt; }
+    .rp-header-top { background: #003366 !important; color: #fff !important; text-align: center; padding: 6pt; font-size: 8pt; font-weight: bold; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .rp-header-info { display: flex; align-items: center; border-top: 1px solid #003366; padding: 6pt; justify-content: space-between; }
+    .rp-address-cell { flex: 1; font-size: 7.5pt; color: #111; line-height: 1.5; text-align: center; border-left: 1px solid #ccc; border-right: 1px solid #ccc; padding: 0 10pt; }
+
+    .rp-title-block { text-align: center; margin-bottom: 10pt; padding-bottom: 6pt; border-bottom: 2pt solid #003366; }
+    .rp-title-main { font-size: 12pt; font-weight: bold; color: #003366; text-transform: uppercase; }
+
+    .rp-id-table { width: 100%; border-collapse: collapse; margin-bottom: 12pt; font-size: 8pt; }
+    .rp-id-table td { border: 1px solid #003366; padding: 4pt 6pt; }
+    .rp-id-table td:nth-child(odd) { background: #e8f0f8 !important; font-weight: bold; color: #003366; width: 22%; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+    /* Control de Saltos de Página (Evita Hojas Vacías y Cortes) */
+    .rp-section { margin-bottom: 14pt; page-break-inside: avoid; }
+    .page-break { page-break-before: always; }
+
+    .rp-section-title {
+        background: #003366 !important; color: #fff !important;
+        padding: 4pt 8pt; font-size: 9pt; font-weight: bold;
+        margin-bottom: 6pt; text-transform: uppercase;
+        -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
+
+    .rp-sub-title-indicador { font-size: 9pt; font-weight: bold; color: #1a5276; margin-bottom: 4pt; page-break-inside: avoid; }
+
+    /* Tablas Generales */
+    .rp-table { width: 100%; border-collapse: collapse; margin-bottom: 8pt; font-size: 8pt; page-break-inside: avoid; }
+    .rp-table th { background: #003366 !important; color: #fff !important; padding: 4pt 6pt; text-align: left; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .rp-table td { border: 1px solid #c8d6e8; padding: 4pt 6pt; color: #111; }
+    .rp-table tr:nth-child(even) td { background: #f0f6fb !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .rp-table .td-num { text-align: right; font-weight: bold; color: #003366; width: 70pt; }
+
+    /* Gráficos */
+    .rp-chart-img { max-width: 100%; max-height: 180px; object-fit: contain; display: block; margin: 0 auto; }
+    .rp-charts-container { display: flex; justify-content: center; gap: 10pt; flex-wrap: wrap; page-break-inside: avoid; align-items: flex-end; }
+
+    /* Firmas */
+    .rp-firma { margin-top: 30pt; display: flex; justify-content: space-around; gap: 20pt; page-break-inside: avoid; align-items: flex-end; }
+    .rp-firma-item { text-align: center; flex: 1; border-top: 1pt solid #333; padding-top: 4pt; font-size: 7.5pt; }
+    .rp-pie-page { text-align: center; font-size: 7pt; color: #888; margin-top: 10pt; border-top: 1px solid #ddd; padding-top: 4pt; }
+}
