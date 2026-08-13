@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>INFORMES ESE · Auditoría</title>
+  <title>INFORMES ESE · Dashboard General</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,400&display=swap" rel="stylesheet"/>
@@ -11,123 +11,54 @@
   <!-- LIBRERÍAS EXTERNAS -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 
-  <!-- ESTILOS GLOBALES (Reemplaza los miles de líneas de CSS inline) -->
+  <!-- ESTILOS MODULARIZADOS -->
   <link rel="stylesheet" href="/static/css/global.css"/>
-  <style>
-    /* ═══════════════════════════════════════════════════════════════
-       ESTILOS PANTALLA
-    ═══════════════════════════════════════════════════════════════ */
-    :root {
-      --bg:#f0f4fa;--surface:#ffffff;--navy:#0a1f3d;--navy-lt:#122848;
-      --teal:#00b09b;--teal-lt:#e6f7f5;--teal-mid:#b3e8e3;
-      --gold:#f0a500;--gold-lt:#fef7e0;--red:#e53935;--red-lt:#fde8e8;
-      --orange:#f97316;--orange-lt:#ffedd5;
-      --purple:#6c3fc5;--purple-lt:#ede8fb;--green:#1e9c6e;--green-lt:#e5f7f0;
-      --border:#dde4ef;--text:#1a2840;--muted:#5d7290;
-      --sidebar-w:240px;--radius:14px;
-      --shadow:0 2px 16px rgba(10,31,61,.07);--shadow-md:0 4px 28px rgba(10,31,61,.11);
-    }
-    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-    html{scroll-behavior:smooth;}
-    body{font-family:'Sora',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;}
-
-    .sidebar{width:var(--sidebar-w);background:var(--navy);height:100vh;position:fixed;left:0;top:0;display:flex;flex-direction:column;padding:1.5rem 0;z-index:100;box-shadow:4px 0 24px rgba(0,0,0,.18);}
-    .sidebar-brand{display:flex;align-items:center;gap:.75rem;padding:0 1.4rem 1.5rem;border-bottom:1px solid rgba(255,255,255,.08);}
-    .brand-logo{width:36px;height:36px;background:linear-gradient(135deg,var(--teal),#00d4b8);border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-    .brand-logo svg{width:20px;height:20px;fill:#fff;}
-    .brand-name{font-family:'Fraunces',serif;font-size:1rem;color:#fff;}
-    .brand-sub{font-size:.62rem;color:rgba(255,255,255,.4);letter-spacing:.1em;text-transform:uppercase;}
-    .nav{flex:1;padding:1.2rem 0;}
-    .nav-item{display:flex;align-items:center;gap:.75rem;padding:.7rem 1.4rem;color:rgba(255,255,255,.55);font-size:.83rem;font-weight:500;cursor:pointer;transition:all .18s;text-decoration:none;margin:.1rem 0;}
-    .nav-item:hover{color:#fff;background:rgba(255,255,255,.06);}
-    .nav-item.active{color:var(--teal);background:rgba(0,176,155,.12);border-right:3px solid var(--teal);}
-    .nav-item svg{width:18px;height:18px;flex-shrink:0;}
-    .nav-section-title{padding:.9rem 1.4rem .3rem;font-size:.62rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.25);}
-    .sidebar-user{padding:1rem 1.4rem;border-top:1px solid rgba(255,255,255,.08);}
-    .user-name{font-size:.82rem;color:#fff;font-weight:600;margin-bottom:.15rem;}
-    .user-role{font-size:.68rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.1em;}
-    .btn-logout{margin-top:.75rem;width:100%;background:rgba(229,57,53,.15);border:1px solid rgba(229,57,53,.3);color:#ff8a80;border-radius:8px;padding:.45rem;font-family:'Sora',sans-serif;font-size:.75rem;cursor:pointer;transition:background .2s;}
-    .btn-logout:hover{background:rgba(229,57,53,.25);}
-
-    .main{margin-left:var(--sidebar-w);flex:1;min-height:100vh;}
-    .topbar{background:var(--surface);padding:1rem 2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:var(--shadow);}
-    .topbar-title{font-family:'Fraunces',serif;font-size:1.1rem;font-weight:700;color:var(--navy);text-transform: capitalize;}
-    .topbar-meta{font-size:.75rem;color:var(--muted);}
-    .content{padding:1.75rem 2rem 4rem;}
-
-    .auditoria-filters{display:flex;gap:1rem;margin-bottom:2rem;background:var(--surface);padding:1.5rem;border-radius:var(--radius);box-shadow:var(--shadow);flex-wrap:wrap;align-items:flex-end;}
-    .filter-group{flex:1;min-width:200px; position:relative;}
-    .filter-group label{display:block;font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.45rem;}
-    .auditoria-filters input{width:100%;border:1.5px solid var(--border);border-radius:8px;padding:.8rem 1rem;font-family:'Sora',sans-serif;font-size:.9rem;color:var(--text);outline:none;transition:border-color .2s;}
-    .auditoria-filters input:focus{border-color:var(--teal);}
-    .btn-search{background:var(--navy);color:#fff;border:none;padding:.9rem 2rem;border-radius:8px;font-weight:600;font-family:'Sora',sans-serif;cursor:pointer;transition:background .2s;white-space:nowrap;height:46px;}
-    .btn-search:hover:not(:disabled){background:var(--teal);}
-    .btn-search:disabled{background:var(--muted);cursor:not-allowed;opacity:0.6;}
-
-    .custom-dropdown { position:absolute; top:100%; left:0; right:0; background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow-md); max-height:200px; overflow-y:auto; z-index:1000; display:none; margin-top:4px; }
-    .custom-dropdown-item { padding:.7rem 1rem; font-size:.85rem; color:var(--text); cursor:pointer; transition:background .2s; }
-    .custom-dropdown-item:hover { background:var(--teal-lt); color:var(--teal); }
-
-    .section{margin-bottom:2.5rem;animation:fadeIn .4s ease;}
-    @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-    .section-header{display:flex;align-items:center;gap:.75rem;margin-bottom:1.1rem;}
-    .section-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-    .section-icon svg{width:20px;height:20px;}
-    .section-title{font-family:'Fraunces',serif;font-size:1.1rem;color:var(--navy);}
-    .section-sub{font-size:.75rem;color:var(--muted);}
-    .cards-row{display:flex;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;}
-    .stat-card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.2rem 1.4rem;flex:1;min-width:160px;border-top:3px solid transparent;transition:box-shadow .2s,transform .2s;}
-    .stat-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px);}
-    .stat-card.c-teal{border-top-color:var(--teal)}.stat-card.c-gold{border-top-color:var(--gold)}.stat-card.c-red{border-top-color:var(--red)}.stat-card.c-purple{border-top-color:var(--purple)}.stat-card.c-green{border-top-color:var(--green)}.stat-card.c-navy{border-top-color:var(--navy)}.stat-card.c-orange{border-top-color:var(--orange)}
-    .stat-label{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.45rem;}
-    .stat-value{font-family:'Fraunces',serif;font-size:2rem;font-weight:700;color:var(--navy);line-height:1;margin-bottom:.2rem;}
-    .stat-badge{display:inline-block;padding:.15rem .55rem;border-radius:20px;font-size:.68rem;font-weight:600;}
-    .badge-error{background:var(--red-lt);color:var(--red)}.badge-ok{background:var(--green-lt);color:var(--green)}.badge-warn{background:var(--gold-lt);color:var(--gold)}.badge-info{background:var(--teal-lt);color:var(--teal)}.badge-orange{background:var(--orange-lt);color:var(--orange)}
-    .sub-section{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.2rem 1.4rem;margin-bottom:1rem;}
-    .sub-section-title{font-size:.73rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem;padding-bottom:.6rem;border-bottom:1px solid var(--border);}
-    .chart-container{position:relative;height:220px;}
-    .divider{height:1px;background:var(--border);margin:1.8rem 0;}
-    .list-row{display:flex;justify-content:space-between;margin-bottom:.4rem;font-size:.8rem;border-bottom:1px solid var(--border);padding-bottom:.2rem;}
-
-    .data-table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem; }
-    .data-table th { background: var(--navy); color: #fff; padding: 0.8rem; text-align: left; font-weight: 600; border-right: 1px solid rgba(255,255,255,0.1); }
-    .data-table td { padding: 0.8rem; border-bottom: 1px solid var(--border); color: var(--text); border-right: 1px solid var(--border); }
-    .data-table tfoot td { background: var(--teal-lt); font-weight: 700; color: var(--navy); border-top: 2px solid var(--teal); }
-    .res-badge { display:inline-block; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:700; background:var(--green-lt); color:var(--green); }
-
-    #loadingOverlay{position:fixed;inset:0;background:rgba(240,244,250,.8);z-index:999;display:none;flex-direction:column;align-items:center;justify-content:center;gap:1rem;}
-    .loading-spinner{width:40px;height:40px;border:3px solid rgba(0,176,155,.2);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite;}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    .loading-text{font-size:.85rem;color:var(--muted);}
-    .empty-state{text-align:center;padding:4rem 2rem;color:var(--muted);}
-    .empty-state svg{width:60px;margin-bottom:1rem;opacity:.4;}
-
-    .report-box{width:100%;height:120px;background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:.75rem;font-family:monospace;font-size:.8rem;resize:none;outline:none;}
-    .report-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;}
-    .btn-copy-small{padding:.4rem 1rem;font-size:.75rem;border-radius:6px;border:none;color:#fff;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;}
-
-    /* ESTILO PERIODO ANTERIOR */
-    .anterior-card { border: 1px dashed var(--muted) !important; background: var(--bg); opacity: 0.85;}
-    .anterior-card:hover { opacity: 1; border-color: var(--teal) !important;}
-    .anterior-section { background: transparent; border: 1px dashed var(--border); box-shadow: none; padding: 1rem; }
-  </style>
+  <link rel="stylesheet" href="/static/css/print.css" media="print"/>
 </head>
 <body>
 
 <!-- SIDEBAR -->
 <nav class="sidebar">
   <div class="sidebar-brand">
-    <div class="brand-logo"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg></div>
-    <div><div class="brand-name">INFORMES</div><div class="brand-sub">ESE 2026</div></div>
+    <div class="brand-logo">
+      <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+    </div>
+    <div>
+      <div class="brand-name">INFORMES</div>
+      <div class="brand-sub">ESE 2026</div>
+    </div>
   </div>
+
   <div class="nav">
     <div class="nav-section-title">Módulos</div>
-    <a href="/dashboard" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg><span class="nav-label">Dashboard</span></a>
-    <a href="/auditoria" class="nav-item active"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg><span class="nav-label">Auditoría (Creación)</span></a>
+    <a href="/dashboard" class="nav-item active">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+      <span class="nav-label">Dashboard</span>
+    </a>
+    <a href="/auditoria" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      <span class="nav-label">Auditoría (Creación)</span>
+    </a>
     <a href="/auditoria_actualizacion" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg><span class="nav-label">Auditoría (Cargas)</span></a>
-    <a href="/sihos" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg><span class="nav-label">SIHOS Clínica</span></a>
-    <a href="/mapas" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg><span class="nav-label">Mapas GIS</span></a>
-    <a href="/informes" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg><span class="nav-label">Informes</span></a>
+    <a href="/sihos" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+      <span class="nav-label">SIHOS Clínica</span>
+    </a>
+    <a href="/mapas" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+      <span class="nav-label">Mapas GIS</span>
+    </a>
+    <a href="/informes" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+      <span class="nav-label">Informes</span>
+    </a>
+
+    <div class="nav-section-title" style="margin-top: 15px;">Secciones Rápidas</div>
+    <a href="#sec-caract" class="nav-item"><span class="nav-dot" style="background:var(--purple)"></span> <span class="nav-label">Caracterización</span></a>
+    <a href="#sec-hogares" class="nav-item"><span class="nav-dot" style="background:var(--teal)"></span> <span class="nav-label">Hogares Concertados</span></a>
+    <a href="#sec-pcf" class="nav-item"><span class="nav-dot" style="background:var(--teal)"></span> <span class="nav-label">Planes de Cuidado</span></a>
+    <a href="#sec-tramites" class="nav-item"><span class="nav-dot" style="background:var(--gold)"></span> <span class="nav-label">Gestión de Trámites</span></a>
+    <a href="#sec-sihos" class="nav-item"><span class="nav-dot" style="background:var(--purple)"></span> <span class="nav-label">Métricas SIHOS</span></a>
   </div>
   <div class="sidebar-user">
     <div class="user-name" id="sidebarNombre">Cargando...</div>
@@ -140,773 +71,441 @@
 <div class="main">
   <div class="topbar">
     <div>
-      <div class="topbar-title" id="topbarTitle">Auditoría de Encuestadores</div>
-      <div class="topbar-meta" id="topbarMeta">Rastreo de registros creados por usuario (created_at)</div>
+      <div class="topbar-title">Dashboard General 2026</div>
+      <div class="topbar-meta" id="topbarFecha">Cargando datos...</div>
+    </div>
+    <div class="topbar-actions">
+      <input type="month" id="filterMonth" class="date-filter" title="Filtrar por mes"/>
+      <button class="btn-refresh" id="btnRefresh" onclick="loadDashboard()">↻ Actualizar</button>
+
+      <!-- BOTÓN IMPRIMIR PDF: Llama la función generarYImprimir() en dashboard.js -->
+      <button class="btn-print" id="btnPrint" onclick="generarYImprimir()" style="display:none;">
+        <svg viewBox="0 0 24 24"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>
+        Imprimir PDF
+      </button>
     </div>
   </div>
 
   <div class="content">
 
-    <div class="auditoria-filters">
-      <div class="filter-group">
-        <label>Correo del Encuestador</label>
-        <input type="email" id="inputUser" placeholder="Buscar por correo..." autocomplete="off"/>
-        <div id="customDropdown" class="custom-dropdown"></div>
+    <div class="section" id="sec-desist">
+      <div class="section-header">
+        <div class="section-icon" style="background:#fde8e8;">
+          <svg viewBox="0 0 24 24" fill="#e53935"><path d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"/></svg>
+        </div>
+        <div>
+          <div class="section-title">Desistimientos</div>
+          <div class="section-sub">Registros de abandono de procesos</div>
+        </div>
       </div>
-      <div style="display:flex; align-items:center; color:var(--muted); font-size:0.8rem; font-weight:bold; padding-bottom: 0.5rem; margin-top: 1.5rem;">Ó</div>
-      <div class="filter-group">
-        <label>Nombre del Profesional</label>
-        <input type="text" id="inputName" placeholder="Buscar por nombre..." autocomplete="off"/>
-        <div id="customDropdownName" class="custom-dropdown"></div>
+      <div class="cards-row">
+        <div class="stat-card c-red">
+          <div class="stat-label">Total desistimientos</div>
+          <div class="stat-value loading" id="d-total">—</div>
+        </div>
+        <div class="stat-card c-gold">
+          <div class="stat-label">Con error de registro</div>
+          <div class="stat-value loading" id="d-error">—</div>
+          <span class="stat-badge badge-warn">Requiere revisión</span>
+        </div>
       </div>
-      <div class="filter-group">
-        <label>Fecha Inicio</label>
-        <input type="date" id="inputInicio"/>
-      </div>
-      <div class="filter-group">
-        <label>Fecha Fin</label>
-        <input type="date" id="inputFin"/>
-      </div>
-      <button class="btn-search" id="btnBuscar" onclick="buscarAuditoria()">🔍 Consultar</button>
     </div>
 
-    <div id="emptyState" class="empty-state">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-        <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-      </svg>
-      <p>Ingresa un correo o nombre del profesional y el rango de fechas para generar el reporte de auditoría.</p>
+    <div class="divider"></div>
+
+    <div class="section" id="sec-pcc">
+      <div class="section-header">
+        <div class="section-icon" style="background:#e8f5e9;">
+          <svg viewBox="0 0 24 24" fill="#1e9c6e"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+        </div>
+        <div>
+          <div class="section-title">Plan Cuidado Comunitario</div>
+          <div class="section-sub">Planes y participantes en atención comunitaria</div>
+        </div>
+      </div>
+      <div class="cards-row">
+        <div class="stat-card c-green">
+          <div class="stat-label">Planes realizados</div>
+          <div class="stat-value loading" id="pcc-planes">—</div>
+        </div>
+        <div class="stat-card c-teal">
+          <div class="stat-label">Integrantes con plan</div>
+          <div class="stat-value loading" id="pcc-integ">—</div>
+        </div>
+        <div class="stat-card c-gold">
+          <div class="stat-label">Con error de registro</div>
+          <div class="stat-value loading" id="pcc-error">—</div>
+          <span class="stat-badge badge-warn">Requiere revisión</span>
+        </div>
+      </div>
     </div>
 
-    <div id="resultadosAuditoria" style="display:none;">
+    <div class="divider"></div>
 
-      <!-- ERRORES GLOBALES -->
-      <div id="panelErrores" style="display:none; margin-bottom: 2.5rem;">
-        <div class="section-header" style="justify-content:space-between;">
-          <div style="display:flex;align-items:center;gap:.75rem;">
-            <div class="section-icon" style="background:var(--red-lt);">
-              <svg viewBox="0 0 24 24" fill="var(--red)"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
-            </div>
-            <div>
-              <div class="section-title">Reporte de Inconsistencias Global</div>
-              <div class="section-sub">Consolidado de errores de TODAS las tablas</div>
-            </div>
-          </div>
-          <button class="btn-search" style="background:var(--teal);" onclick="copiarTexto('textoErroresGlobal')">📋 Copiar Reporte</button>
+    <div class="section" id="sec-caract">
+      <div class="section-header">
+        <div class="section-icon" style="background:#ede8fb;">
+          <svg viewBox="0 0 24 24" fill="#6c3fc5"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
         </div>
-        <textarea id="textoErroresGlobal" readonly style="width:100%;height:280px;background:#0a1f3d;color:#00d4b8;font-family:monospace;font-size:.85rem;padding:1.5rem;border-radius:12px;border:2px solid var(--teal-mid);resize:none;outline:none;box-shadow:inset 0 4px 10px rgba(0,0,0,.5);"></textarea>
+        <div>
+          <div class="section-title">Caracterización SI-APS 2026</div>
+          <div class="section-sub">Familias e individuos caracterizados en el territorio</div>
+        </div>
       </div>
 
-      <!-- DESISTIMIENTOS -->
-      <div class="section">
-        <div class="section-header">
-          <div class="section-icon" style="background:#fde8e8;"><svg viewBox="0 0 24 24" fill="#e53935"><path d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"/></svg></div>
-          <div><div class="section-title">Desistimientos</div><div class="section-sub">Abandonos registrados por este usuario</div></div>
+      <div class="cards-row">
+        <div class="stat-card c-purple">
+          <div class="stat-label">Familias caracterizadas</div>
+          <div class="stat-value loading" id="ca-familias">—</div>
+          <span class="stat-badge badge-info">Con consentimiento</span>
         </div>
-        <div class="cards-row">
-          <div class="stat-card c-red"><div class="stat-label">Total desistimientos</div><div class="stat-value" id="a-des-tot">0</div></div>
-          <div class="stat-card c-gold"><div class="stat-label">Registros con error</div><div class="stat-value" id="a-des-err">0</div><span class="stat-badge badge-warn">Requiere revisión</span></div>
+        <div class="stat-card c-orange">
+          <div class="stat-label">Familias Duplicadas</div>
+          <div class="stat-value loading" id="ca-fam-dup">—</div>
+          <span class="stat-badge badge-orange">Descontadas</span>
         </div>
-      </div>
-      <div class="divider"></div>
-
-      <!-- PLAN CUIDADO COMUNITARIO -->
-      <div class="section">
-        <div class="section-header">
-          <div class="section-icon" style="background:#e8f5e9;"><svg viewBox="0 0 24 24" fill="#1e9c6e"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></div>
-          <div><div class="section-title">Plan Cuidado Comunitario</div><div class="section-sub">Atenciones comunitarias registradas</div></div>
+        <div class="stat-card c-navy">
+          <div class="stat-label">Integrantes caracterizados</div>
+          <div class="stat-value loading" id="ca-individuos">—</div>
         </div>
-        <div class="cards-row">
-          <div class="stat-card c-green"><div class="stat-label">Planes realizados</div><div class="stat-value" id="a-pcc-pla">0</div></div>
-          <div class="stat-card c-teal"><div class="stat-label">Integrantes con plan</div><div class="stat-value" id="a-pcc-int">0</div></div>
-          <div class="stat-card c-gold"><div class="stat-label">Registros con error</div><div class="stat-value" id="a-pcc-err">0</div><span class="stat-badge badge-warn">Revisar</span></div>
+        <div class="stat-card c-orange">
+          <div class="stat-label">Integrantes Duplicados</div>
+          <div class="stat-value loading" id="ca-ind-dup">—</div>
+          <span class="stat-badge badge-orange">Descontados</span>
         </div>
-
-        <div class="sub-section" style="margin-top:1rem;">
-          <div class="sub-section-title">Reportes Detallados de Plan Cuidado Comunitario</div>
-          <div style="display:flex;flex-direction:column;gap:1.5rem;">
-            <div>
-              <div class="report-header">
-                <span style="font-size:.85rem;font-weight:bold;color:var(--green);">1. Detalles de Jornada / Actividad</span>
-                <button class="btn-copy-small" style="background:var(--green);" onclick="copiarTexto('txtPccDetalles')">📋 Copiar</button>
-              </div>
-              <textarea id="txtPccDetalles" class="report-box" readonly style="border-color:var(--green-lt);"></textarea>
-            </div>
-          </div>
+        <div class="stat-card c-red">
+          <div class="stat-label">Familias sin aseguramiento</div>
+          <div class="stat-value loading" id="ca-sinaseg">—</div>
+          <span class="stat-badge badge-error">No afiliadas</span>
         </div>
       </div>
-      <div class="divider"></div>
 
-      <!-- CARACTERIZACIÓN ACTUAL -->
-      <div class="section">
-        <div class="section-header">
-          <div class="section-icon" style="background:#ede8fb;"><svg viewBox="0 0 24 24" fill="#6c3fc5"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></div>
-          <div><div class="section-title">Caracterización SI-APS 2026</div><div class="section-sub">Encuestas y tamizajes realizados en la fecha seleccionada</div></div>
-        </div>
+      <div class="sub-section">
+        <div class="sub-section-title">Grupos Poblacionales</div>
         <div class="cards-row">
-          <div class="stat-card c-purple"><div class="stat-label">Familias caracterizadas</div><div class="stat-value" id="a-ca-fam">0</div><span class="stat-badge badge-info">1. SI (Consentimiento)</span></div>
-          <div class="stat-card c-orange"><div class="stat-label">Familias Duplicadas</div><div class="stat-value" id="a-ca-fam-dup">0</div><span class="stat-badge badge-orange">Descontadas</span></div>
-          <div class="stat-card c-navy"><div class="stat-label">Integrantes caracterizados</div><div class="stat-value" id="a-ca-ind">0</div></div>
-          <div class="stat-card c-orange"><div class="stat-label">Integrantes Duplicados</div><div class="stat-value" id="a-ca-ind-dup">0</div><span class="stat-badge badge-orange">Descontados</span></div>
-          <div class="stat-card c-red"><div class="stat-label">Familias sin aseguramiento</div><div class="stat-value" id="a-ca-sinaseg">—</div><span class="stat-badge badge-error">No afiliadas</span></div>
-        </div>
-
-        <!-- CARACTERIZACIÓN ANTERIOR -->
-        <div class="sub-section anterior-section" style="margin-top:1rem;">
-          <div class="sub-section-title" style="color:var(--muted);">Período Anterior Acumulado (Caracterización)</div>
-          <div class="cards-row">
-            <div class="stat-card anterior-card"><div class="stat-label">Familias caracterizadas</div><div class="stat-value" id="a-ca-fam-ant">0</div></div>
-            <div class="stat-card anterior-card"><div class="stat-label">Familias Duplicadas</div><div class="stat-value" id="a-ca-fam-dup-ant">0</div></div>
-            <div class="stat-card anterior-card"><div class="stat-label">Integrantes caracterizados</div><div class="stat-value" id="a-ca-ind-ant">0</div></div>
-            <div class="stat-card anterior-card"><div class="stat-label">Integrantes Duplicados</div><div class="stat-value" id="a-ca-ind-dup-ant">0</div></div>
-            <div class="stat-card anterior-card"><div class="stat-label">Familias sin aseguramiento</div><div class="stat-value" id="a-ca-sinaseg-ant">0</div></div>
-          </div>
-        </div>
-
-        <div class="sub-section" style="margin-top: 1rem;">
-          <div class="sub-section-title">Grupos Poblacionales Identificados</div>
-          <div class="cards-row">
-            <div class="stat-card c-teal"><div class="stat-label">Gestantes</div><div class="stat-value" id="a-ca-ges">0</div></div>
-            <div class="stat-card c-green"><div class="stat-label">Menores de 5</div><div class="stat-value" id="a-ca-men">0</div></div>
-            <div class="stat-card c-purple"><div class="stat-label">Adultos 60+</div><div class="stat-value" id="a-ca-may">0</div></div>
-            <div class="stat-card c-gold"><div class="stat-label">Víctimas Conflicto</div><div class="stat-value" id="a-ca-vic">0</div></div>
-            <div class="stat-card c-navy"><div class="stat-label">Con Discapacidad</div><div class="stat-value" id="a-ca-disc">0</div></div>
-          </div>
-        </div>
-
-        <!-- GRUPOS POBLACIONALES ANTERIOR -->
-        <div class="sub-section anterior-section" style="margin-top:1rem;">
-          <div class="sub-section-title" style="color:var(--muted);">Período Anterior: Grupos Poblacionales</div>
-          <div class="cards-row">
-            <div class="stat-card anterior-card"><div class="stat-label">Gestantes</div><div class="stat-value" id="a-ca-ges-ant">0</div></div>
-            <div class="stat-card anterior-card"><div class="stat-label">Menores de 5</div><div class="stat-value" id="a-ca-men-ant">0</div></div>
-            <div class="stat-card anterior-card"><div class="stat-label">Adultos 60+</div><div class="stat-value" id="a-ca-may-ant">0</div></div>
-            <div class="stat-card anterior-card"><div class="stat-label">Víctimas Conflicto</div><div class="stat-value" id="a-ca-vic-ant">0</div></div>
-            <div class="stat-card anterior-card"><div class="stat-label">Con Discapacidad</div><div class="stat-value" id="a-ca-disc-ant">0</div></div>
-          </div>
-        </div>
-
-        <div class="cards-row" style="margin-top:1rem;">
-          <div class="sub-section" style="flex:1;">
-            <div class="sub-section-title">Perfil Social del Territorio</div>
-            <div style="display:flex;flex-wrap:wrap;gap:1.5rem;">
-              <div style="flex:1;min-width:200px;"><div style="font-size:.75rem;font-weight:bold;color:var(--teal);margin-bottom:.8rem;">TIPO DE FAMILIA</div><div id="listTipoFamilia"></div></div>
-              <div style="flex:1;min-width:200px;"><div style="font-size:.75rem;font-weight:bold;color:var(--navy);margin-bottom:.8rem;">ESTRATO SOCIOECONÓMICO</div><div id="listEstrato"></div></div>
-              <div style="flex:1;min-width:200px;"><div style="font-size:.75rem;font-weight:bold;color:var(--purple);margin-bottom:.8rem;">NIVEL EDUCATIVO</div><div id="listNivelEducativo"></div></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="sub-section" style="margin-top:1rem;">
-          <div class="sub-section-title">Composición Étnica</div>
-          <div class="cards-row">
-            <div class="stat-card c-navy"><div class="stat-label">Con Pertenencia Étnica</div><div class="stat-value" id="a-etn-con-pct">0%</div><span class="stat-badge badge-info" id="a-etn-con-tot">0 personas</span></div>
-            <div class="stat-card c-gold"><div class="stat-label">Sin Pertenencia Étnica</div><div class="stat-value" id="a-etn-sin-pct">0%</div></div>
-          </div>
-        </div>
-
-        <div class="sub-section" style="margin-top:1rem;">
-          <div class="sub-section-title">Tipos de Discapacidad (Frecuencia)</div>
-          <div class="chart-container"><canvas id="chartDiscapacidadAuditoria"></canvas></div>
-        </div>
-
-        <div class="sub-section" style="margin-top:1rem;">
-          <div class="sub-section-title">Reportes y Errores de Registro (Caracterización)</div>
-          <div class="cards-row">
-            <div class="stat-card c-red"><div class="stat-label">Errores Familiar</div><div class="stat-value" id="a-ca-err-f">0</div></div>
-            <div class="stat-card c-gold"><div class="stat-label">Errores Individual</div><div class="stat-value" id="a-ca-err-i">0</div></div>
-          </div>
-          <div style="margin-top:1.5rem;">
-            <div class="report-header">
-              <span style="font-size:.85rem;font-weight:bold;color:var(--orange);">1. Familias Duplicadas (Título o Geo/Códigos idénticos)</span>
-              <button class="btn-copy-small" style="background:var(--orange);" onclick="copiarTexto('txtCaFamDuplicadas')">📋 Copiar</button>
-            </div>
-            <textarea id="txtCaFamDuplicadas" class="report-box" style="background:var(--orange-lt);border-color:var(--orange);color:var(--orange);" readonly></textarea>
-          </div>
-          <div style="margin-top:1.5rem;">
-            <div class="report-header">
-              <span style="font-size:.85rem;font-weight:bold;color:var(--orange);">2. Integrantes Duplicados (Título idéntico)</span>
-              <button class="btn-copy-small" style="background:var(--orange);" onclick="copiarTexto('txtCaIndDuplicadas')">📋 Copiar</button>
-            </div>
-            <textarea id="txtCaIndDuplicadas" class="report-box" style="background:var(--orange-lt);border-color:var(--orange);color:var(--orange);" readonly></textarea>
-          </div>
-        </div>
-      </div>
-      <div class="divider"></div>
-
-      <!-- PLAN CUIDADO FAMILIAR GENERAL ACTUAL -->
-      <div class="section">
-        <div class="section-header">
-          <div class="section-icon" style="background:#e6f7f5;"><svg viewBox="0 0 24 24" fill="#00b09b"><path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/></svg></div>
-          <div><div class="section-title">Plan Cuidado Familiar (General)</div><div class="section-sub">Intervenciones del promotor/médico (Excluye Psicología)</div></div>
-        </div>
-        <div class="cards-row">
-          <div class="stat-card c-teal"><div class="stat-label">Familias intervenidas</div><div class="stat-value" id="a-pcf-fam">0</div></div>
-          <div class="stat-card c-orange"><div class="stat-label">Planes Duplicados</div><div class="stat-value" id="a-pcf-fam-dup">0</div><span class="stat-badge badge-orange">Descontados</span></div>
-          <div class="stat-card c-navy"><div class="stat-label">Integrantes intervenidos</div><div class="stat-value" id="a-pcf-int">0</div></div>
-          <div class="stat-card c-orange"><div class="stat-label">Integrantes Duplicados</div><div class="stat-value" id="a-pcf-int-dup">0</div><span class="stat-badge badge-orange">Descontados</span></div>
-        </div>
-
-        <!-- PLAN CUIDADO FAMILIAR GENERAL ANTERIOR -->
-        <div class="sub-section anterior-section" style="margin-top:1rem;">
-          <div class="sub-section-title" style="color:var(--muted);">Período Anterior Acumulado (PCF)</div>
-          <div class="cards-row">
-            <div class="stat-card anterior-card"><div class="stat-label">Familias intervenidas</div><div class="stat-value" id="a-pcf-fam-ant">0</div></div>
-            <div class="stat-card anterior-card"><div class="stat-label">Planes Duplicados</div><div class="stat-value" id="a-pcf-fam-dup-ant">0</div></div>
-            <div class="stat-card anterior-card"><div class="stat-label">Integrantes intervenidos</div><div class="stat-value" id="a-pcf-int-ant">0</div></div>
-            <div class="stat-card anterior-card"><div class="stat-label">Integrantes Duplicados</div><div class="stat-value" id="a-pcf-int-dup-ant">0</div></div>
-          </div>
-        </div>
-
-        <div class="sub-section" style="margin-top:1rem;">
-          <div class="sub-section-title">Reportes Detallados de Plan Cuidado Familiar (General)</div>
-          <div style="display:flex;flex-direction:column;gap:1.5rem;">
-            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--teal);">1. Intervenciones Familiares Realizadas</span><button class="btn-copy-small" style="background:var(--teal);" onclick="copiarTexto('txtPcfRealizados')">📋 Copiar</button></div><textarea id="txtPcfRealizados" class="report-box" readonly style="border-color:var(--teal-lt);"></textarea></div>
-            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--red);">2. Errores de Registro</span><button class="btn-copy-small" style="background:var(--red);" onclick="copiarTexto('txtPcfErrores')">📋 Copiar</button></div><textarea id="txtPcfErrores" class="report-box" style="background:#fde8e8;border-color:var(--red-lt);color:var(--red);" readonly></textarea></div>
-            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--orange);">3. Planes Duplicados (Territorio/Códigos idénticos)</span><button class="btn-copy-small" style="background:var(--orange);" onclick="copiarTexto('txtPcfDuplicados')">📋 Copiar</button></div><textarea id="txtPcfDuplicados" class="report-box" style="background:var(--orange-lt);border-color:var(--orange);color:var(--orange);" readonly></textarea></div>
-            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--orange);">4. Integrantes Duplicados (Título idéntico)</span><button class="btn-copy-small" style="background:var(--orange);" onclick="copiarTexto('txtPcfIndDuplicados')">📋 Copiar</button></div><textarea id="txtPcfIndDuplicados" class="report-box" style="background:var(--orange-lt);border-color:var(--orange);color:var(--orange);" readonly></textarea></div>
-          </div>
-        </div>
-      </div>
-      <div class="divider"></div>
-
-      <!-- PLAN CUIDADO PSICOLOGÍA -->
-      <div class="section">
-        <div class="section-header">
-          <div class="section-icon" style="background:#ede8fb;"><svg viewBox="0 0 24 24" fill="#6c3fc5"><path d="M11.5 2C6.81 2 3 5.81 3 10.5S6.81 19 11.5 19h.5v3c4.86-2.34 8-7 8-11.5C20 5.81 16.19 2 11.5 2zm1 14.5h-2v-2h2v2zm0-4h-2c0-3.25 3-3 3-5 0-1.1-.9-2-2-2s-2 .9-2 2h-2c0-2.21 1.79-4 4-4s4 1.79 4 4c0 2.5-3 2.75-3 5z"/></svg></div>
-          <div><div class="section-title">Plan Cuidado Familiar — Psicología</div><div class="section-sub">Intervenciones registradas con el perfil Profesional Psicología</div></div>
-        </div>
-        <div class="cards-row">
-          <div class="stat-card c-purple"><div class="stat-label">Intervenciones familiares (Nuevas)</div><div class="stat-value" id="a-psi-fam">0</div></div>
-          <div class="stat-card c-teal"><div class="stat-label">Familias Anteriores</div><div class="stat-value" id="a-psi-fam-ant">0</div><span class="stat-badge badge-info">De meses pasados</span></div>
-          <div class="stat-card c-orange"><div class="stat-label">Familias Duplicadas</div><div class="stat-value" id="a-psi-fam-dup">0</div></div>
-        </div>
-        <div class="cards-row">
-          <div class="stat-card c-navy"><div class="stat-label">Integrantes intervenidos</div><div class="stat-value" id="a-psi-int">0</div></div>
-          <div class="stat-card c-orange"><div class="stat-label">Integrantes Duplicados</div><div class="stat-value" id="a-psi-ind-dup">0</div></div>
-          <div class="stat-card c-teal"><div class="stat-label">Total Seguimientos Realizados</div><div class="stat-value" id="a-psi-seg">0</div></div>
-        </div>
-
-        <div class="sub-section" style="margin-top:1rem;">
-          <div class="sub-section-title">Tipos de Seguimiento</div>
-          <div class="cards-row" id="cardsTiposSeguimiento"></div>
-          <table class="data-table" id="tablaTiposSeguimiento">
-            <thead>
-              <tr>
-                <th>Tipo de Seguimiento</th>
-                <th style="width:150px;text-align:center;">Total Registrados</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-            <tfoot>
-              <tr>
-                <td style="text-align:right;">TOTAL DE SEGUIMIENTOS DESGLOSADOS</td>
-                <td id="tdTotalSeg" style="text-align:center; font-family:monospace; font-size:1.05rem;">0</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-
-        <div class="sub-section" style="margin-top:1rem;">
-          <div class="sub-section-title">Motivos de Consulta y Continuidad en Seguimientos</div>
-
-          <div class="cards-row" style="margin-top: 0.5rem;">
-            <div class="stat-card c-gold" style="max-width: 280px;">
-              <div class="stat-label">Requiere Continuidad (1. SI)</div>
-              <div class="stat-value" id="a-psi-cont-si">0</div>
-            </div>
-            <div class="stat-card c-navy" style="max-width: 280px;">
-              <div class="stat-label">No Requiere (2. NO)</div>
-              <div class="stat-value" id="a-psi-cont-no">0</div>
-            </div>
-          </div>
-
-          <div style="margin-top:1.5rem;">
-            <div class="report-header">
-              <span style="font-size:.85rem;font-weight:bold;color:var(--teal);">Detalle de Motivos de Consulta</span>
-              <button class="btn-copy-small" style="background:var(--teal);" onclick="copiarTexto('txtPsicoMotivos')">📋 Copiar</button>
-            </div>
-            <textarea id="txtPsicoMotivos" class="report-box" style="border-color:var(--teal-lt);" readonly></textarea>
-          </div>
-        </div>
-
-        <div class="sub-section" style="margin-top:1rem;">
-          <div class="sub-section-title">Reportes Detallados de Psicología</div>
-          <div style="display:flex;flex-direction:column;gap:1.5rem;">
-            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--purple);">1. Intervenciones Familiares</span><button class="btn-copy-small" style="background:var(--purple);" onclick="copiarTexto('txtPsicoRealizados')">📋 Copiar</button></div><textarea id="txtPsicoRealizados" class="report-box" readonly style="border-color:var(--purple-lt);"></textarea></div>
-            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--teal);">2. Trazabilidad de Seguimientos</span><button class="btn-copy-small" style="background:var(--teal);" onclick="copiarTexto('txtPsicoSeguimientos')">📋 Copiar</button></div><textarea id="txtPsicoSeguimientos" class="report-box" style="border-color:var(--teal-lt);" readonly></textarea></div>
-            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--red);">3. Errores de Registro</span><button class="btn-copy-small" style="background:var(--red);" onclick="copiarTexto('txtPsicoErrores')">📋 Copiar</button></div><textarea id="txtPsicoErrores" class="report-box" style="background:#fde8e8;border-color:var(--red-lt);color:var(--red);" readonly></textarea></div>
-            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--navy);">4. Compromisos de Seguimientos</span><button class="btn-copy-small" style="background:var(--navy);" onclick="copiarTexto('txtPsicoCompromisos')">📋 Copiar</button></div><textarea id="txtPsicoCompromisos" class="report-box" readonly style="border-color:var(--border);"></textarea></div>
-            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--teal);">5. Evaluación de Seguimientos</span><button class="btn-copy-small" style="background:var(--teal);" onclick="copiarTexto('txtPsicoEvaluacion')">📋 Copiar</button></div><textarea id="txtPsicoEvaluacion" class="report-box" readonly style="border-color:var(--teal-lt);"></textarea></div>
-            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--orange);">6. Familias Duplicadas (Territorio/Códigos idénticos)</span><button class="btn-copy-small" style="background:var(--orange);" onclick="copiarTexto('txtPsicoFamDuplicadas')">📋 Copiar</button></div><textarea id="txtPsicoFamDuplicadas" class="report-box" style="background:var(--orange-lt);border-color:var(--orange);color:var(--orange);" readonly></textarea></div>
-            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--orange);">7. Integrantes Duplicados (Título idéntico)</span><button class="btn-copy-small" style="background:var(--orange);" onclick="copiarTexto('txtPsicoIndDuplicadas')">📋 Copiar</button></div><textarea id="txtPsicoIndDuplicadas" class="report-box" style="background:var(--orange-lt);border-color:var(--orange);color:var(--orange);" readonly></textarea></div>
-          </div>
-        </div>
-      </div>
-      <div class="divider"></div>
-
-      <!-- TRÁMITES -->
-      <div class="section">
-        <div class="section-header">
-          <div class="section-icon" style="background:#fef7e0;"><svg viewBox="0 0 24 24" fill="#f0a500"><path d="M20 6h-2.18c.07-.44.18-.86.18-1a3 3 0 0 0-6 0c0 .14.11.56.18 1H10c-.36 0-.96.15-.96.96v13c0 .57.39 1.04.96 1.04h10c.57 0 1-.47 1-1.04V6.96c0-.81-.57-.96-1-.96zM14 3a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm2 16H8V7h2v2h4V7h2v12z"/></svg></div>
-          <div><div class="section-title">Trámites Realizados</div><div class="section-sub">Gestión documental generada por este encuestador</div></div>
-        </div>
-
-        <div class="cards-row">
-          <div class="stat-card c-purple">
-            <div class="stat-label">Personas con trámite</div>
-            <div class="stat-value loading" id="tr-registros">—</div>
-            <span class="stat-badge badge-info">Registros únicos</span>
-          </div>
-          <div class="stat-card c-navy">
-            <div class="stat-label">Familias intervenidas</div>
-            <div class="stat-value loading" id="tr-familias">—</div>
-            <span class="stat-badge badge-info">Hogares/Familias</span>
-          </div>
-          <div class="stat-card c-gold">
-            <div class="stat-label">Total trámites gestionados</div>
-            <div class="stat-value loading" id="a-tr-tot">—</div>
+          <div class="stat-card c-teal">
+            <div class="stat-label">Gestantes</div>
+            <div class="stat-value loading" id="ca-gestantes">—</div>
           </div>
           <div class="stat-card c-green">
-            <div class="stat-label">Total de Trámites Resueltos</div>
-            <div class="stat-value loading" id="a-tr-res">—</div>
-            <span class="stat-badge badge-ok">Resolutividad</span>
+            <div class="stat-label">Menores de 5 años</div>
+            <div class="stat-value loading" id="ca-menores5">—</div>
           </div>
-          <div class="stat-card c-orange">
-            <div class="stat-label">Trámites Duplicados</div>
-            <div class="stat-value loading" id="a-tr-dup">—</div>
-            <span class="stat-badge badge-orange">Descontados</span>
+          <div class="stat-card c-gold">
+            <div class="stat-label">Adultos mayores (60+)</div>
+            <div class="stat-value loading" id="ca-adultos60">—</div>
           </div>
           <div class="stat-card c-red">
-            <div class="stat-label">Con error de registro</div>
-            <div class="stat-value loading" id="a-tr-err">—</div>
-            <span class="stat-badge badge-error">Revisar</span>
+            <div class="stat-label">Víctimas conflicto</div>
+            <div class="stat-value loading" id="ca-victimas">—</div>
           </div>
-        </div>
-
-        <div class="sub-section" style="margin-top:1rem;">
-          <div class="sub-section-title">Desglose por tipo de trámite</div>
-          <div class="chart-container"><canvas id="chartTramitesAuditoria"></canvas></div>
-
-          <table class="data-table" id="tablaDesgloseTramites">
-            <thead>
-              <tr>
-                <th>Tipo de Trámite</th>
-                <th style="width:110px;text-align:center;">Cant. Total</th>
-                <th style="width:110px;text-align:center;">Resueltos</th>
-                <th style="width:100px;text-align:center;">Efectividad</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-            <tfoot>
-              <tr>
-                <td style="text-align:right;">TOTAL DE TRÁMITES</td>
-                <td id="tdTotal" style="text-align:center; font-family:monospace; font-size:1.05rem;">0</td>
-                <td id="tdRes" style="text-align:center; font-family:monospace; font-size:1.05rem; color:var(--green);">0</td>
-                <td id="tdPct" style="text-align:center; font-family:monospace; font-size:1.05rem;">0%</td>
-              </tr>
-            </tfoot>
-          </table>
-
-        </div>
-        <div class="sub-section" style="margin-top:1rem;">
-          <div class="sub-section-title">Reportes Detallados de Trámites</div>
-          <div style="display:flex;flex-direction:column;gap:1.5rem;">
-            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--navy);">1. Trámites Realizados</span><button class="btn-copy-small" style="background:var(--navy);" onclick="copiarTexto('txtTramRealizados')">📋 Copiar</button></div><textarea id="txtTramRealizados" class="report-box" readonly></textarea></div>
-            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--green);">2. Trámites Resueltos</span><button class="btn-copy-small" style="background:var(--green);" onclick="copiarTexto('txtTramResueltos')">📋 Copiar</button></div><textarea id="txtTramResueltos" class="report-box" style="border-color:var(--green-lt);" readonly></textarea></div>
-            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--red);">3. Trámites con Errores</span><button class="btn-copy-small" style="background:var(--red);" onclick="copiarTexto('txtTramErrores')">📋 Copiar</button></div><textarea id="txtTramErrores" class="report-box" style="background:#fde8e8;border-color:var(--red-lt);color:var(--red);" readonly></textarea></div>
-            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--orange);">4. Trámites Duplicados (Mismo paciente, misma fecha)</span><button class="btn-copy-small" style="background:var(--orange);" onclick="copiarTexto('txtTramDuplicados')">📋 Copiar</button></div><textarea id="txtTramDuplicados" class="report-box" style="background:var(--orange-lt);border-color:var(--orange);color:var(--orange);" readonly></textarea></div>
-            <div>
-              <div class="report-header">
-                <span style="font-size:.85rem;font-weight:bold;color:var(--gold);">5. Observaciones Trámites Adicionales</span>
-                <button class="btn-copy-small" style="background:var(--gold);" onclick="copiarTexto('txtTramObservaciones')">📋 Copiar</button>
-              </div>
-              <textarea id="txtTramObservaciones" class="report-box" style="border-color:var(--gold-lt);" readonly></textarea>
-            </div>
+          <div class="stat-card c-purple">
+            <div class="stat-label">Población étnica</div>
+            <div class="stat-value loading" id="ca-etnica">—</div>
+          </div>
+          <div class="stat-card c-navy">
+            <div class="stat-label">Con Discapacidad</div>
+            <div class="stat-value loading" id="ca-disc">—</div>
           </div>
         </div>
       </div>
 
+      <div class="sub-section">
+        <div class="sub-section-title">Perfil Social del Territorio</div>
+        <div class="charts-row">
+          <div class="chart-card">
+            <div class="chart-card-title">Tipo de familia predominante</div>
+            <div class="chart-container"><canvas id="chartTipoFamilia"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card-title">Estrato socioeconómico</div>
+            <div class="chart-container"><canvas id="chartEstrato"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card-title">Nivel educativo más frecuente</div>
+            <div class="chart-container"><canvas id="chartEducacion"></canvas></div>
+          </div>
+        </div>
+        <div class="chart-card" style="margin-top:1rem;">
+          <div class="chart-card-title">Composición Étnica</div>
+          <div class="etnia-bar">
+            <div class="etnia-fill" id="etnia-fill-bar" style="width:0%"></div>
+          </div>
+          <div class="etnia-labels">
+            <span id="etnia-con-label">— Con pertenencia étnica</span>
+            <span id="etnia-sin-label">— Sin pertenencia étnica</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sub-section" style="margin-top:1rem;">
+        <div class="sub-section-title">Tipos de Discapacidad (Frecuencia)</div>
+        <div class="chart-container"><canvas id="chartDiscapacidad"></canvas></div>
+      </div>
+
+      <div class="cards-row" style="margin-top:.75rem;">
+        <div class="stat-card c-gold">
+          <div class="stat-label">Errores en caracterización familiar</div>
+          <div class="stat-value loading" id="ca-err-fam">—</div>
+          <span class="stat-badge badge-warn">Sin consentimiento o vacíos</span>
+        </div>
+        <div class="stat-card c-gold">
+          <div class="stat-label">Errores en caracterización individual</div>
+          <div class="stat-value loading" id="ca-err-ind">—</div>
+          <span class="stat-badge badge-warn">Registros incompletos</span>
+        </div>
+      </div>
     </div>
 
-  </div>
-</div>
+    <div class="divider"></div>
+    <div class="section" id="sec-hogares">
+      <div class="section-header">
+        <div class="section-icon" style="background:var(--teal-lt);">
+          <svg viewBox="0 0 24 24" fill="var(--teal)"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+        </div>
+        <div>
+          <div class="section-title">Hogares por Territorio y Microterritorio</div>
+          <div class="section-sub">Caracterización vs Planes de Cuidado (Concertados)</div>
+        </div>
+      </div>
 
-<div id="loadingOverlay">
-  <div class="loading-spinner"></div>
-  <div class="loading-text" id="loadingText">Consultando base de datos...</div>
-</div>
+      <div class="cards-row">
+        <div class="stat-card c-purple">
+          <div class="stat-label">Hogares Caracterizados</div>
+          <div class="stat-value loading" id="ht-caract">—</div>
+          <span class="stat-badge badge-purple">Identificados en campo</span>
+        </div>
+        <div class="stat-card c-teal">
+          <div class="stat-label">Hogares con Plan de Cuidado</div>
+          <div class="stat-value loading" id="ht-pcf">—</div>
+          <span class="stat-badge badge-info">Intervenidos</span>
+        </div>
+        <div class="stat-card c-green">
+          <div class="stat-label">Hogares Concertados</div>
+          <div class="stat-value loading" id="ht-conc">—</div>
+          <span class="stat-badge badge-ok" id="ht-conc-pct">0% Cobertura Efectiva</span>
+        </div>
+      </div>
 
-<div class="modal-overlay" id="customModal">
-  <div class="modal-content">
-    <div class="modal-icon success" id="modalIcon">
-      <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M20 6L9 17l-5-5"></path></svg>
+      <div class="sub-section">
+         <div class="chart-card-title">Cobertura por Territorio y Microterritorio</div>
+         <div class="chart-container" style="height:350px;"><canvas id="chartHogaresTerritorio"></canvas></div>
+
+         <table class="data-table" id="tablaDesgloseHogares" style="margin-top: 20px;">
+           <thead>
+             <tr>
+               <th>Territorio y Microterritorio</th>
+               <th style="width:120px;text-align:center;">Caracterizados</th>
+               <th style="width:120px;text-align:center;">Planes Cuidado</th>
+               <th style="width:120px;text-align:center;">Concertados</th>
+               <th style="width:100px;text-align:center;">Cobertura</th>
+             </tr>
+           </thead>
+           <tbody></tbody>
+         </table>
+      </div>
     </div>
-    <div class="modal-title" id="modalTitle">Atención</div>
-    <div class="modal-text" id="modalText">Mensaje</div>
-    <button class="modal-btn" onclick="closeModal()">Entendido</button>
+    <div class="divider"></div>
+
+    <div class="section" id="sec-pcf">
+      <div class="section-header">
+        <div class="section-icon" style="background:#e6f7f5;">
+          <svg viewBox="0 0 24 24" fill="#00b09b"><path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/></svg>
+        </div>
+        <div>
+          <div class="section-title">Plan Cuidado Familiar</div>
+          <div class="section-sub">Intervenciones familiares (excluye Psicología)</div>
+        </div>
+      </div>
+      <div class="cards-row">
+        <div class="stat-card c-teal">
+          <div class="stat-label">Familias intervenidas</div>
+          <div class="stat-value loading" id="pcf-fam">—</div>
+        </div>
+        <div class="stat-card c-orange">
+          <div class="stat-label">Planes Duplicados</div>
+          <div class="stat-value loading" id="pcf-fam-dup">—</div>
+          <span class="stat-badge badge-orange">Descontados</span>
+        </div>
+        <div class="stat-card c-navy">
+          <div class="stat-label">Integrantes intervenidos</div>
+          <div class="stat-value loading" id="pcf-integ">—</div>
+        </div>
+        <div class="stat-card c-orange">
+          <div class="stat-label">Integrantes Duplicados</div>
+          <div class="stat-value loading" id="pcf-int-dup">—</div>
+          <span class="stat-badge badge-orange">Descontados</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="section" id="sec-pcf-psi">
+      <div class="section-header">
+        <div class="section-icon" style="background:#ede8fb;">
+          <svg viewBox="0 0 24 24" fill="#6c3fc5"><path d="M11.5 2C6.81 2 3 5.81 3 10.5S6.81 19 11.5 19h.5v3c4.86-2.34 8-7 8-11.5C20 5.81 16.19 2 11.5 2zm1 14.5h-2v-2h2v2zm0-4h-2c0-3.25 3-3 3-5 0-1.1-.9-2-2-2s-2 .9-2 2h-2c0-2.21 1.79-4 4-4s4 1.79 4 4c0 2.5-3 2.75-3 5z"/></svg>
+        </div>
+        <div>
+          <div class="section-title">Plan Cuidado Familiar — Psicología</div>
+          <div class="section-sub">Intervenciones del perfil Profesional Psicología</div>
+        </div>
+      </div>
+      <div class="cards-row">
+        <div class="stat-card c-purple">
+          <div class="stat-label">Intervenciones familiares</div>
+          <div class="stat-value loading" id="psi-interv">—</div>
+        </div>
+        <div class="stat-card c-orange">
+          <div class="stat-label">Familias Duplicadas</div>
+          <div class="stat-value loading" id="psi-fam-dup">—</div>
+          <span class="stat-badge badge-orange">Descontadas</span>
+        </div>
+        <div class="stat-card c-navy">
+          <div class="stat-label">Integrantes intervenidos</div>
+          <div class="stat-value loading" id="psi-integ">—</div>
+        </div>
+        <div class="stat-card c-teal">
+          <div class="stat-label">Seguimientos realizados</div>
+          <div class="stat-value loading" id="psi-seg">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="section" id="sec-tramites">
+      <div class="section-header">
+        <div class="section-icon" style="background:#fef7e0;">
+          <svg viewBox="0 0 24 24" fill="#f0a500"><path d="M20 6h-2.18c.07-.44.18-.86.18-1a3 3 0 0 0-6 0c0 .14.11.56.18 1H10c-.36 0-.96.15-.96.96v13c0 .57.39 1.04.96 1.04h10c.57 0 1-.47 1-1.04V6.96c0-.81-.57-.96-1-.96zM14 3a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm2 16H8V7h2v2h4V7h2v12z"/></svg>
+        </div>
+        <div>
+          <div class="section-title">Trámites</div>
+          <div class="section-sub">Gestión y resolución de trámites realizados</div>
+        </div>
+      </div>
+
+      <div class="cards-row">
+        <div class="stat-card c-purple">
+          <div class="stat-label">Personas con trámite</div>
+          <div class="stat-value loading" id="tr-registros">—</div>
+          <span class="stat-badge badge-info">Registros únicos</span>
+        </div>
+        <div class="stat-card c-navy">
+          <div class="stat-label">Familias intervenidas</div>
+          <div class="stat-value loading" id="tr-familias">—</div>
+          <span class="stat-badge badge-info">Hogares/Familias</span>
+        </div>
+        <div class="stat-card c-gold">
+          <div class="stat-label">Total trámites gestionados</div>
+          <div class="stat-value loading" id="tr-total">—</div>
+        </div>
+        <div class="stat-card c-green">
+          <div class="stat-label">Total de Trámites Resueltos</div>
+          <div class="stat-value loading" id="tr-resol">—</div>
+          <span class="stat-badge badge-ok">Resolutividad</span>
+        </div>
+        <div class="stat-card c-red">
+          <div class="stat-label">Con error de registro</div>
+          <div class="stat-value loading" id="tr-error">—</div>
+          <span class="stat-badge badge-error">Revisar</span>
+        </div>
+      </div>
+
+      <div class="sub-section" style="margin-top:.5rem;">
+        <div class="sub-section-title">Desglose por tipo de trámite</div>
+        <div class="chart-card" style="box-shadow:none;padding:0;">
+          <div class="chart-container" style="height:220px;">
+            <canvas id="chartTramites"></canvas>
+          </div>
+        </div>
+
+        <table class="data-table" id="tablaDesgloseTramites">
+          <thead>
+            <tr>
+              <th>Tipo de Trámite</th>
+              <th style="width:110px;text-align:center;">Cant. Total</th>
+              <th style="width:110px;text-align:center;">Resueltos</th>
+              <th style="width:100px;text-align:center;">Efectividad</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+          <tfoot>
+            <tr>
+              <td style="text-align:right;">TOTAL DE TRÁMITES</td>
+              <td id="tdTotal" style="text-align:center; font-family:monospace; font-size:1.05rem;">0</td>
+              <td id="tdRes" style="text-align:center; font-family:monospace; font-size:1.05rem; color:var(--green);">0</td>
+              <td id="tdPct" style="text-align:center; font-family:monospace; font-size:1.05rem;">0%</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="section" id="sec-sihos" style="display:block;">
+      <div class="section-header">
+        <div class="section-icon" style="background:var(--purple-lt);">
+          <svg viewBox="0 0 24 24" fill="var(--purple)"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+        </div>
+        <div>
+          <div class="section-title">Análisis Clínico y Facturación (SIHOS)</div>
+          <div class="section-sub">Registros facturados en sede APS</div>
+        </div>
+      </div>
+      <div class="cards-row">
+        <div class="stat-card c-purple">
+          <div class="stat-label">Total Atenciones Clínicas</div>
+          <div class="stat-value" id="sihos-total">0</div>
+          <span class="stat-badge badge-purple">Facturaciones</span>
+        </div>
+        <div class="stat-card c-teal">
+          <div class="stat-label">Cumplimiento RIAS General</div>
+          <div class="stat-value" id="sihos-rias">0</div>
+          <span class="stat-badge badge-info">PyP Realizado</span>
+        </div>
+      </div>
+      <div class="sub-section">
+        <div class="sub-section-title">Servicios Destacados SIHOS</div>
+        <div class="cards-row">
+          <div class="stat-card c-navy">
+            <div class="stat-label">Consultas Medicina</div>
+            <div class="stat-value" id="sihos-med">0</div>
+          </div>
+          <div class="stat-card c-green">
+            <div class="stat-label">Consultas Enfermería</div>
+            <div class="stat-value" id="sihos-enf">0</div>
+          </div>
+          <div class="stat-card c-gold">
+            <div class="stat-label">Salud Mental y Psicología</div>
+            <div class="stat-value" id="sihos-psi">0</div>
+          </div>
+        </div>
+      </div>
+      <div class="sub-section">
+        <div class="charts-row" style="grid-template-columns: 1fr 1fr;">
+          <div class="chart-card" style="box-shadow:none; padding:0;">
+            <div class="chart-card-title">Distribución por Género (SIHOS)</div>
+            <div class="chart-container" style="height:150px;"><canvas id="chartSihosGenero"></canvas></div>
+          </div>
+          <div class="chart-card" style="box-shadow:none; padding:0;">
+            <div class="chart-card-title">Tipo de Servicio Facturado</div>
+            <div class="chart-container" style="height:150px;"><canvas id="chartSihosServicio"></canvas></div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
+
+  <!-- ESTE CONTENEDOR ES REQUERIDO POR dashboard.js PARA LA IMPRESIÓN DEL PDF -->
+  <div id="seccionImprimible"></div>
 </div>
 
-<script>
-  const API_BASE = window.location.protocol === 'file:' ? 'http://127.0.0.1:5001' : window.location.origin;
+<div id="loadingOverlay"><div class="loading-spinner"></div><div class="loading-text">Cargando y cruzando estadísticas generales...</div></div>
 
-  const token = localStorage.getItem('informes_token');
-  if (!token) { window.location.href = '/login'; }
+<!-- ARCHIVOS JS SEPARADOS Y MODULARIZADOS -->
+<script src="/static/js/auth.js"></script>
+<script src="/static/js/dashboard.js"></script>
 
-  const userInfo = JSON.parse(localStorage.getItem('informes_user') || '{}');
-  document.getElementById('sidebarNombre').textContent = userInfo.nombre || '—';
-  document.getElementById('sidebarRol').textContent    = userInfo.rol   || '—';
-
-  const setValInput = (id, val) => { const e = document.getElementById(id); if(e) e.value = val; };
-
-  let todosLosCorreos = [];
-  let todosLosNombres = [];
-  const inputUser = document.getElementById('inputUser');
-  const dropdown  = document.getElementById('customDropdown');
-
-  const inputName = document.getElementById('inputName');
-  const dropdownName = document.getElementById('customDropdownName');
-
-  let isSearching = false;
-
-  async function cargarFiltros() {
-    try {
-      const resp1 = await fetch(`${API_BASE}/api/encuestadores`, { headers:{ 'Authorization':'Bearer '+token } });
-      if (resp1.ok) { todosLosCorreos = await resp1.json(); }
-
-      const resp2 = await fetch(`${API_BASE}/api/nombres_profesionales`, { headers:{ 'Authorization':'Bearer '+token } });
-      if (resp2.ok) { todosLosNombres = await resp2.json(); }
-    } catch(e) {}
-  }
-
-  cargarFiltros();
-
-  function filtrarCorreos(query) {
-    dropdown.innerHTML = '';
-    if (!todosLosCorreos.length) return;
-    const filtrados = todosLosCorreos.filter(c => c.toLowerCase().includes(query.toLowerCase()));
-
-    if (filtrados.length === 0) { dropdown.style.display = 'none'; return; }
-    filtrados.forEach(c => {
-      const div = document.createElement('div');
-      div.className = 'custom-dropdown-item';
-      div.textContent = c;
-      div.onmousedown = () => { inputUser.value = c; inputName.value = ''; dropdown.style.display = 'none'; };
-      dropdown.appendChild(div);
-    });
-    dropdown.style.display = 'block';
-  }
-
-  function filtrarNombres(query) {
-    dropdownName.innerHTML = '';
-    if (!todosLosNombres.length) return;
-    const filtrados = todosLosNombres.filter(n => n.toLowerCase().includes(query.toLowerCase()));
-
-    if (filtrados.length === 0) { dropdownName.style.display = 'none'; return; }
-    filtrados.forEach(n => {
-      const div = document.createElement('div');
-      div.className = 'custom-dropdown-item';
-      div.textContent = n;
-      div.onmousedown = () => { inputName.value = n; inputUser.value = ''; dropdownName.style.display = 'none'; };
-      dropdownName.appendChild(div);
-    });
-    dropdownName.style.display = 'block';
-  }
-
-  inputUser.addEventListener('input', () => { inputName.value = ''; filtrarCorreos(inputUser.value); });
-  inputUser.addEventListener('focus', () => filtrarCorreos(inputUser.value));
-
-  inputName.addEventListener('input', () => { inputUser.value = ''; filtrarNombres(inputName.value); });
-  inputName.addEventListener('focus', () => filtrarNombres(inputName.value));
-
-  document.addEventListener('click', (e) => {
-    if (e.target !== inputUser && e.target !== dropdown) { dropdown.style.display = 'none'; }
-    if (e.target !== inputName && e.target !== dropdownName) { dropdownName.style.display = 'none'; }
-  });
-
-  async function logout() {
-    try { await fetch(`${API_BASE}/api/logout`, { method:'POST', headers:{'Authorization':'Bearer '+token} }); } catch(e){}
-    localStorage.removeItem('informes_token');
-    localStorage.removeItem('informes_user');
-    window.location.href = '/login';
-  }
-
-  function copiarTexto(id) {
-    navigator.clipboard.writeText(document.getElementById(id).value)
-      .then(() => alert('¡Texto copiado!'))
-      .catch(err => alert('Error al copiar: ' + err));
-  }
-
-  function fmt(n) { return Number(n||0).toLocaleString('es-CO'); }
-
-  function setVal(id, v) {
-      const el = document.getElementById(id);
-      if(el) { el.textContent = fmt(v); el.classList.remove('loading'); }
-  }
-
-  function renderList(cid, arr) {
-    const c = document.getElementById(cid);
-    if (!c) return;
-    c.innerHTML = '';
-    if (!arr || !arr.length) { c.innerHTML = '<div style="font-size:.8rem;color:var(--muted);">Sin registros</div>'; return; }
-    arr.forEach(i => {
-      c.innerHTML += `<div class="list-row"><span style="color:var(--muted);">${i.label}</span><span style="font-weight:bold;color:var(--navy);">${i.total}</span></div>`;
-    });
-  }
-
-  const chartInstances = {};
-  const PALETTE = ['#00b09b','#0a1f3d','#f0a500','#6c3fc5','#e53935','#1e9c6e','#06b6d4'];
-
-  function renderBarChart(cid, labels, data) {
-    const ctx = document.getElementById(cid);
-    if (!ctx) return;
-    if (chartInstances[cid]) chartInstances[cid].destroy();
-
-    chartInstances[cid] = new Chart(ctx, {
-      type:'bar',
-      data:{ labels, datasets:[{ data, backgroundColor:PALETTE.map(c=>c+'cc'), borderColor:PALETTE, borderWidth:0, borderRadius:6 }] },
-      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ font:{ family:'Sora', size:10 } } }, x:{ ticks:{ font:{ family:'Sora', size:9 } } } } }
-    });
-  }
-
-  async function buscarAuditoria() {
-    if (isSearching) return;
-
-    const email = document.getElementById('inputUser').value.trim();
-    const nombre = document.getElementById('inputName').value.trim();
-    const fi    = document.getElementById('inputInicio').value;
-    const ff    = document.getElementById('inputFin').value;
-    const btn   = document.getElementById('btnBuscar');
-
-    dropdown.style.display = 'none';
-    dropdownName.style.display = 'none';
-
-    if ((!email && !nombre) || !fi || !ff) {
-        alert('Por favor ingresa el correo o el nombre del profesional y el rango de fechas completo.');
-        return;
-    }
-
-    isSearching = true;
-    btn.disabled = true;
-    document.getElementById('loadingOverlay').style.display = 'flex';
-    document.getElementById('emptyState').style.display     = 'none';
-    document.getElementById('resultadosAuditoria').style.display = 'none';
-
-    try {
-      let urlParam = email ? `usuario=${encodeURIComponent(email)}` : `nombre=${encodeURIComponent(nombre)}`;
-
-      let isActualizacion = window.location.pathname.includes("auditoria_actualizacion");
-      let endpoint = isActualizacion ? "auditoria_actualizacion" : "auditoria";
-
-      const resp = await fetch(`${API_BASE}/api/${endpoint}?${urlParam}&fecha_inicio=${fi}&fecha_fin=${ff}`, {
-        headers:{ 'Authorization':'Bearer '+token }
-      });
-      if (resp.status === 401) { logout(); return; }
-
-      const data = await resp.json();
-      if (data.error) { alert(data.error); document.getElementById('emptyState').style.display='block'; return; }
-
-      const nom = data.encuestador_nombre && data.encuestador_nombre !== 'Sin registro de nombre' ? data.encuestador_nombre : (email || nombre);
-      const perf = data.encuestador_perfil ? data.encuestador_perfil.toUpperCase() : 'PERFIL DESCONOCIDO';
-
-      document.getElementById('topbarTitle').textContent = nom;
-      document.getElementById('topbarMeta').textContent = perf;
-
-      // ==========================================================
-      // MÓDULO: DESISTIMIENTOS
-      // ==========================================================
-      setVal('a-des-tot',  data.desistimientos?.total);
-      setVal('a-des-err',  data.desistimientos?.con_error);
-
-      // ==========================================================
-      // MÓDULO: PLAN CUIDADO COMUNITARIO (PCC)
-      // ==========================================================
-      setVal('a-pcc-pla',  data.pcc?.planes);
-      setVal('a-pcc-int',  data.pcc?.integrantes);
-      setVal('a-pcc-err',  data.pcc?.con_error);
-      setValInput('txtPccDetalles', data.pcc?.reporte_detalles);
-
-      // MODULO ACTUAL: Caracterización
-      setVal('a-ca-fam',   data.caracterizacion?.familias);
-      setVal('a-ca-fam-dup', data.caracterizacion?.familias_duplicadas);
-      setVal('a-ca-ind',   data.caracterizacion?.individuos);
-      setVal('a-ca-ind-dup', data.caracterizacion?.individuos_duplicadas);
-      setVal('a-ca-sinaseg',    data.caracterizacion?.sin_aseguramiento);
-
-      // MODULO ANTERIOR: Caracterización
-      setVal('a-ca-fam-ant',   data.caracterizacion_ant?.familias);
-      setVal('a-ca-fam-dup-ant', data.caracterizacion_ant?.familias_duplicadas);
-      setVal('a-ca-ind-ant',   data.caracterizacion_ant?.individuos);
-      setVal('a-ca-ind-dup-ant', data.caracterizacion_ant?.individuos_duplicadas);
-      setVal('a-ca-sinaseg-ant', data.caracterizacion_ant?.sin_aseguramiento);
-
-      // MODULO ACTUAL: Población
-      setVal('a-ca-ges',   data.poblacion?.gestantes || data.caracterizacion?.gestantes);
-      setVal('a-ca-men',   data.poblacion?.menores_5 || data.caracterizacion?.menores_5);
-      setVal('a-ca-may',   data.poblacion?.adultos_60 || data.caracterizacion?.adultos_60);
-      setVal('a-ca-vic',   data.poblacion?.victimas_conflicto || data.caracterizacion?.victimas_conflicto);
-      setVal('a-ca-disc',  data.poblacion?.discapacidad_total || data.caracterizacion?.discapacidad_total);
-
-      // MODULO ANTERIOR: Población
-      setVal('a-ca-ges-ant',   data.poblacion_ant?.gestantes);
-      setVal('a-ca-men-ant',   data.poblacion_ant?.menores_5);
-      setVal('a-ca-may-ant',   data.poblacion_ant?.adultos_60);
-      setVal('a-ca-vic-ant',   data.poblacion_ant?.victimas_conflicto);
-      setVal('a-ca-disc-ant',  data.poblacion_ant?.discapacidad_total);
-
-      renderList('listTipoFamilia',   data.caracterizacion?.tipo_familia);
-      renderList('listEstrato',        data.caracterizacion?.estrato);
-      renderList('listNivelEducativo', data.caracterizacion?.nivel_educativo);
-
-      document.getElementById('a-etn-con-pct').textContent = (data.caracterizacion?.etnia_con_pct||0)+'%';
-      document.getElementById('a-etn-con-tot').textContent = (data.caracterizacion?.etnia_con_total||0)+' personas';
-      document.getElementById('a-etn-sin-pct').textContent = (data.caracterizacion?.etnia_sin_pct||0)+'%';
-
-      const disc = data.caracterizacion?.discapacidades_chart || [];
-      renderBarChart('chartDiscapacidadAuditoria', disc.map(x=>x.label), disc.map(x=>x.total));
-
-      // MODULO ACTUAL: PCF
-      setVal('a-pcf-fam', data.pcf?.familias_intervenidas);
-      setVal('a-pcf-fam-dup', data.pcf?.familias_duplicadas);
-      setVal('a-pcf-int', data.pcf?.integrantes_intervenidos);
-      setVal('a-pcf-int-dup', data.pcf?.integrantes_duplicados);
-
-      // MODULO ANTERIOR: PCF
-      setVal('a-pcf-fam-ant', data.pcf_ant?.familias_intervenidas);
-      setVal('a-pcf-fam-dup-ant', data.pcf_ant?.familias_duplicadas);
-      setVal('a-pcf-int-ant', data.pcf_ant?.integrantes_intervenidos);
-      setVal('a-pcf-int-dup-ant', data.pcf_ant?.integrantes_duplicados);
-
-      // PSICOLOGIA
-      setVal('a-psi-fam', data.pcf_psicologia?.intervenciones_familiares);
-      setVal('a-psi-fam-ant', data.pcf_psicologia?.familias_anteriores);
-      setVal('a-psi-fam-dup', data.pcf_psicologia?.familias_duplicadas);
-      setVal('a-psi-int', data.pcf_psicologia?.integrantes);
-      setVal('a-psi-ind-dup', data.pcf_psicologia?.integrantes_duplicados);
-      setVal('a-psi-seg', data.pcf_psicologia?.seguimientos);
-      setVal('a-psi-cont-si', data.pcf_psicologia?.requiere_continuidad_si);
-      setVal('a-psi-cont-no', data.pcf_psicologia?.requiere_continuidad_no);
-
-      const contTiposSeg = document.getElementById('cardsTiposSeguimiento');
-      const tbodyTiposSeg = document.querySelector('#tablaTiposSeguimiento tbody');
-      const tdTotalSeg = document.getElementById('tdTotalSeg');
-
-      if (contTiposSeg && tbodyTiposSeg) {
-        contTiposSeg.innerHTML = '';
-        tbodyTiposSeg.innerHTML = '';
-        let totalSeguimientosTipos = 0;
-        const tipos = data.pcf_psicologia?.tipos_seguimiento || [];
-
-        if (!tipos.length) {
-          contTiposSeg.innerHTML = '<div style="font-size:0.8rem;color:var(--muted);">Sin tipos registrados</div>';
-          tbodyTiposSeg.innerHTML = '<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:2rem;">Sin datos en este periodo</td></tr>';
-          tdTotalSeg.textContent = '0';
-        } else {
-          tipos.forEach(t => {
-            totalSeguimientosTipos += t.total;
-            contTiposSeg.innerHTML += `<div class="stat-card c-purple" style="flex:1; min-width:160px;"><div class="stat-label" style="font-size:0.65rem;">${t.label}</div><div class="stat-value" style="font-size:1.5rem;">${fmt(t.total)}</div></div>`;
-            tbodyTiposSeg.innerHTML += `<tr><td style="font-weight:600;">${t.label}</td><td style="text-align:center; font-family:monospace; font-size:1rem; font-weight:700; color:var(--navy);">${fmt(t.total)}</td></tr>`;
-          });
-          tdTotalSeg.textContent = fmt(totalSeguimientosTipos);
-        }
-      }
-
-      setValInput('txtPsicoMotivos', (data.pcf_psicologia?.motivos_seguimiento||[]).map(m=>`• ${m.label} -> Total: ${fmt(m.total)} atenciones\n`).join('') || 'Sin motivos registrados.');
-
-      // TRAMITES
-      setVal('tr-registros', data.tramites?.total_registros);
-      setVal('tr-familias',  data.tramites?.total_familias);
-      setVal('a-tr-tot',  data.tramites?.total);
-      setVal('a-tr-res',  data.tramites?.resolutivos);
-      setVal('a-tr-err',  data.tramites?.con_error);
-      setVal('a-tr-dup',  data.tramites?.duplicados);
-
-      const tr = data.tramites?.por_tipo || [];
-      renderBarChart('chartTramitesAuditoria', tr.map(x=>x.label), tr.map(x=>x.total));
-
-      const tbodyTram = document.querySelector('#tablaDesgloseTramites tbody');
-      const elTot = document.getElementById('tdTotal');
-      const elRes = document.getElementById('tdRes');
-      const elPct = document.getElementById('tdPct');
-
-      if(tbodyTram) tbodyTram.innerHTML = '';
-      let sumTot = 0, sumRes = 0;
-
-      if (tr.length === 0) {
-          if(tbodyTram) tbodyTram.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:2rem;">Sin datos en este periodo</td></tr>';
-          if(elTot) elTot.textContent = '0';
-          if(elRes) elRes.textContent = '0';
-          if(elPct) elPct.textContent = '0%';
-      } else {
-          tr.forEach(item => {
-              sumTot += item.total;
-              sumRes += item.resueltos;
-
-              let color = 'var(--text)';
-              if(item.porcentaje === 100) color = 'var(--green)';
-              else if(item.porcentaje === 0) color = 'var(--gold)';
-
-              if(tbodyTram) tbodyTram.innerHTML += `
-                <tr>
-                  <td style="font-weight:600;">${item.label}</td>
-                  <td style="text-align:center; font-family:monospace; font-size:1rem;">${fmt(item.total)}</td>
-                  <td style="text-align:center; font-family:monospace; font-size:1rem; font-weight:700; color:var(--navy);">${fmt(item.resueltos)}</td>
-                  <td style="text-align:center;"><span class="res-badge" style="color:${color}; background:${color}1a;">${item.porcentaje}%</span></td>
-                </tr>`;
-          });
-
-          if(elTot) elTot.textContent = fmt(sumTot);
-          if(elRes) elRes.textContent = fmt(sumRes);
-          let pctGlobal = sumTot > 0 ? ((sumRes / sumTot) * 100).toFixed(1) : 0;
-          if(elPct) elPct.textContent = pctGlobal + '%';
-      }
-
-      const panelErr = document.getElementById('panelErrores');
-      if (panelErr) panelErr.style.display = 'block';
-
-      setValInput('textoErroresGlobal', data.reporte_errores_texto);
-      setValInput('txtPccDetalles', data.pcc?.reporte_detalles);
-
-      setValInput('txtCaFamDuplicadas', data.caracterizacion?.reporte_duplicados_fam);
-      setValInput('txtCaIndDuplicadas', data.caracterizacion?.reporte_duplicados_ind);
-
-      setValInput('txtPcfRealizados', data.pcf?.reporte_familias);
-      setValInput('txtPcfErrores', data.pcf?.reporte_errores);
-      setValInput('txtPcfDuplicados', data.pcf?.reporte_duplicados_fam);
-      setValInput('txtPcfIndDuplicados', data.pcf?.reporte_duplicados_ind);
-
-      setValInput('txtPsicoRealizados', data.pcf_psicologia?.reporte_familias);
-      setValInput('txtPsicoSeguimientos', data.pcf_psicologia?.reporte_seguimientos);
-      setValInput('txtPsicoErrores', data.pcf_psicologia?.reporte_errores);
-      setValInput('txtPsicoCompromisos', data.pcf_psicologia?.reporte_compromisos);
-      setValInput('txtPsicoEvaluacion', data.pcf_psicologia?.reporte_evaluacion);
-      setValInput('txtPsicoFamDuplicadas', data.pcf_psicologia?.reporte_duplicados_fam);
-      setValInput('txtPsicoIndDuplicadas', data.pcf_psicologia?.reporte_duplicados_ind);
-
-      setValInput('txtTramRealizados', data.tramites?.reporte_realizados);
-      setValInput('txtTramResueltos', data.tramites?.reporte_resueltos);
-      setValInput('txtTramErrores', data.tramites?.reporte_errores);
-      setValInput('txtTramDuplicados', data.tramites?.reporte_duplicados);
-      setValInput('txtTramObservaciones', data.tramites?.reporte_observaciones);
-
-      document.getElementById('resultadosAuditoria').style.display = 'block';
-
-    } catch(err) {
-      console.error(err);
-      alert(`⚠️ Fallo en la consulta:\n\n${err.message}\n\nSi el error es 'Failed to fetch', revisa tu conexión de internet o avisa a soporte.`);
-      document.getElementById('emptyState').style.display = 'block';
-    } finally {
-      isSearching = false;
-      btn.disabled = false;
-      document.getElementById('loadingOverlay').style.display = 'none';
-    }
-  }
-
-  ['inputUser','inputInicio','inputFin'].forEach(id => {
-    document.getElementById(id).addEventListener('keydown', e => { if(e.key==='Enter') buscarAuditoria(); });
-  });
-
-  document.getElementById('inputName').addEventListener('keydown', e => { if(e.key==='Enter') buscarAuditoria(); });
-</script>
 </body>
 </html>
