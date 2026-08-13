@@ -548,365 +548,548 @@
 </div>
 
 <script>
-  const API_BASE = window.location.protocol === 'file:' ? 'http://127.0.0.1:5001' : window.location.origin;
+  /**
+ * Motor Frontend de Auditoría APS 2026
+ * Maneja la autenticación, carga dinámica de filtros, peticiones asíncronas al backend (API REST)
+ * y la inyección reactiva de datos en el DOM para la visualización de métricas.
+ */
 
-  const token = localStorage.getItem('informes_token');
-  if (!token) { window.location.href = '/login'; }
+const API_BASE = window.location.protocol === 'file:' ? 'http://127.0.0.1:5001' : window.location.origin;
 
-  const userInfo = JSON.parse(localStorage.getItem('informes_user') || '{}');
-  document.getElementById('sidebarNombre').textContent = userInfo.nombre || '—';
-  document.getElementById('sidebarRol').textContent    = userInfo.rol   || '—';
+// Validación de sesión activa mediante JWT
+const token = localStorage.getItem('informes_token');
+if (!token) {
+    window.location.href = '/login';
+}
 
-  const setValInput = (id, val) => { const e = document.getElementById(id); if(e) e.value = val; };
+// Restauración del contexto de usuario en la interfaz
+const userInfo = JSON.parse(localStorage.getItem('informes_user') || '{}');
+document.getElementById('sidebarNombre').textContent = userInfo.nombre || '—';
+document.getElementById('sidebarRol').textContent    = userInfo.rol   || '—';
 
-  let todosLosCorreos = [];
-  let todosLosNombres = [];
-  const inputUser = document.getElementById('inputUser');
-  const dropdown  = document.getElementById('customDropdown');
+// Utilidades de inyección y formateo
+const setValInput = (id, val) => {
+    const e = document.getElementById(id);
+    if(e) e.value = val;
+};
 
-  const inputName = document.getElementById('inputName');
-  const dropdownName = document.getElementById('customDropdownName');
+function fmt(n) {
+    return Number(n || 0).toLocaleString('es-CO');
+}
 
-  let isSearching = false;
+function setVal(id, v) {
+    const el = document.getElementById(id);
+    if(el) {
+        el.textContent = fmt(v);
+        el.classList.remove('loading');
+    } else {
+        console.warn(`Advertencia DOM: No se encontró el elemento con ID '${id}' para inyectar el valor '${v}'.`);
+    }
+}
 
-  async function cargarFiltros() {
+// Variables de estado global
+let todosLosCorreos = [];
+let todosLosNombres = [];
+let isSearching = false;
+
+// Referencias al DOM para filtros interactivos
+const inputUser = document.getElementById('inputUser');
+const dropdown  = document.getElementById('customDropdown');
+const inputName = document.getElementById('inputName');
+const dropdownName = document.getElementById('customDropdownName');
+
+// Inicialización de colecciones de Chart.js
+const chartInstances = {};
+const PALETTE = ['#00b09b','#0a1f3d','#f0a500','#6c3fc5','#e53935','#1e9c6e','#06b6d4'];
+
+/**
+ * Precarga de catálogos paramétricos (Correos y Nombres) al montar la vista
+ */
+async function cargarFiltros() {
     try {
-      const resp1 = await fetch(`${API_BASE}/api/encuestadores`, { headers:{ 'Authorization':'Bearer '+token } });
-      if (resp1.ok) { todosLosCorreos = await resp1.json(); }
+        const resp1 = await fetch(`${API_BASE}/api/encuestadores`, { headers:{ 'Authorization':'Bearer '+token } });
+        if (resp1.ok) { todosLosCorreos = await resp1.json(); }
 
-      const resp2 = await fetch(`${API_BASE}/api/nombres_profesionales`, { headers:{ 'Authorization':'Bearer '+token } });
-      if (resp2.ok) { todosLosNombres = await resp2.json(); }
-    } catch(e) {}
-  }
+        const resp2 = await fetch(`${API_BASE}/api/nombres_profesionales`, { headers:{ 'Authorization':'Bearer '+token } });
+        if (resp2.ok) { todosLosNombres = await resp2.json(); }
+    } catch(e) {
+        console.error("Fallo en la resolución de filtros:", e);
+    }
+}
 
-  cargarFiltros();
+// Disparador de precarga
+cargarFiltros();
 
-  function filtrarCorreos(query) {
+// Motor de autocompletado en cascada para Correos
+function filtrarCorreos(query) {
+    if (!dropdown) return;
     dropdown.innerHTML = '';
     if (!todosLosCorreos.length) return;
+
     const filtrados = todosLosCorreos.filter(c => c.toLowerCase().includes(query.toLowerCase()));
 
-    if (filtrados.length === 0) { dropdown.style.display = 'none'; return; }
+    if (filtrados.length === 0) {
+        dropdown.style.display = 'none';
+        return;
+    }
+
     filtrados.forEach(c => {
-      const div = document.createElement('div');
-      div.className = 'custom-dropdown-item';
-      div.textContent = c;
-      div.onmousedown = () => { inputUser.value = c; inputName.value = ''; dropdown.style.display = 'none'; };
-      dropdown.appendChild(div);
+        const div = document.createElement('div');
+        div.className = 'custom-dropdown-item';
+        div.textContent = c;
+        div.onmousedown = () => {
+            inputUser.value = c;
+            inputName.value = '';
+            dropdown.style.display = 'none';
+        };
+        dropdown.appendChild(div);
     });
     dropdown.style.display = 'block';
-  }
+}
 
-  function filtrarNombres(query) {
+// Motor de autocompletado en cascada para Nombres
+function filtrarNombres(query) {
+    if (!dropdownName) return;
     dropdownName.innerHTML = '';
     if (!todosLosNombres.length) return;
+
     const filtrados = todosLosNombres.filter(n => n.toLowerCase().includes(query.toLowerCase()));
 
-    if (filtrados.length === 0) { dropdownName.style.display = 'none'; return; }
+    if (filtrados.length === 0) {
+        dropdownName.style.display = 'none';
+        return;
+    }
+
     filtrados.forEach(n => {
-      const div = document.createElement('div');
-      div.className = 'custom-dropdown-item';
-      div.textContent = n;
-      div.onmousedown = () => { inputName.value = n; inputUser.value = ''; dropdownName.style.display = 'none'; };
-      dropdownName.appendChild(div);
+        const div = document.createElement('div');
+        div.className = 'custom-dropdown-item';
+        div.textContent = n;
+        div.onmousedown = () => {
+            inputName.value = n;
+            inputUser.value = '';
+            dropdownName.style.display = 'none';
+        };
+        dropdownName.appendChild(div);
     });
     dropdownName.style.display = 'block';
-  }
+}
 
-  inputUser.addEventListener('input', () => { inputName.value = ''; filtrarCorreos(inputUser.value); });
-  inputUser.addEventListener('focus', () => filtrarCorreos(inputUser.value));
+// Listeners de eventos de autocompletado
+if (inputUser) {
+    inputUser.addEventListener('input', () => { inputName.value = ''; filtrarCorreos(inputUser.value); });
+    inputUser.addEventListener('focus', () => filtrarCorreos(inputUser.value));
+}
 
-  inputName.addEventListener('input', () => { inputUser.value = ''; filtrarNombres(inputName.value); });
-  inputName.addEventListener('focus', () => filtrarNombres(inputName.value));
+if (inputName) {
+    inputName.addEventListener('input', () => { inputUser.value = ''; filtrarNombres(inputName.value); });
+    inputName.addEventListener('focus', () => filtrarNombres(inputName.value));
+}
 
-  document.addEventListener('click', (e) => {
-    if (e.target !== inputUser && e.target !== dropdown) { dropdown.style.display = 'none'; }
-    if (e.target !== inputName && e.target !== dropdownName) { dropdownName.style.display = 'none'; }
-  });
+// Cierre de dropdowns al hacer clic fuera del área de enfoque
+document.addEventListener('click', (e) => {
+    if (inputUser && dropdown && e.target !== inputUser && e.target !== dropdown) {
+        dropdown.style.display = 'none';
+    }
+    if (inputName && dropdownName && e.target !== inputName && e.target !== dropdownName) {
+        dropdownName.style.display = 'none';
+    }
+});
 
-  async function logout() {
-    try { await fetch(`${API_BASE}/api/logout`, { method:'POST', headers:{'Authorization':'Bearer '+token} }); } catch(e){}
+/**
+ * Cierre de sesión asíncrono y purga de tokens
+ */
+async function logout() {
+    try {
+        await fetch(`${API_BASE}/api/logout`, { method:'POST', headers:{'Authorization':'Bearer '+token} });
+    } catch(e) {
+        console.error("Fallo al cerrar sesión en el servidor:", e);
+    }
     localStorage.removeItem('informes_token');
     localStorage.removeItem('informes_user');
     window.location.href = '/login';
-  }
+}
 
-  function copiarTexto(id) {
-    navigator.clipboard.writeText(document.getElementById(id).value)
-      .then(() => alert('¡Texto copiado!'))
-      .catch(err => alert('Error al copiar: ' + err));
-  }
+/**
+ * Copia el contenido de textareas al portapapeles utilizando la API del navegador
+ */
+function copiarTexto(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    navigator.clipboard.writeText(el.value)
+      .then(() => alert('¡Texto copiado al portapapeles de manera exitosa!'))
+      .catch(err => alert('Fallo en la ejecución de copiado: ' + err));
+}
 
-  function fmt(n) { return Number(n||0).toLocaleString('es-CO'); }
-
-  function setVal(id, v) {
-      const el = document.getElementById(id);
-      if(el) { el.textContent = fmt(v); el.classList.remove('loading'); }
-  }
-
-  function renderList(cid, arr) {
+/**
+ * Renderiza listas descriptivas en el DOM
+ */
+function renderList(cid, arr) {
     const c = document.getElementById(cid);
     if (!c) return;
     c.innerHTML = '';
-    if (!arr || !arr.length) { c.innerHTML = '<div style="font-size:.8rem;color:var(--muted);">Sin registros</div>'; return; }
+    if (!arr || !arr.length) {
+        c.innerHTML = '<div style="font-size:.8rem;color:var(--muted);">Sin registros documentados</div>';
+        return;
+    }
     arr.forEach(i => {
-      c.innerHTML += `<div class="list-row"><span style="color:var(--muted);">${i.label}</span><span style="font-weight:bold;color:var(--navy);">${i.total}</span></div>`;
+        c.innerHTML += `<div class="list-row"><span style="color:var(--muted);">${i.label}</span><span style="font-weight:bold;color:var(--navy);">${i.total}</span></div>`;
     });
-  }
+}
 
-  const chartInstances = {};
-  const PALETTE = ['#00b09b','#0a1f3d','#f0a500','#6c3fc5','#e53935','#1e9c6e','#06b6d4'];
-
-  function renderBarChart(cid, labels, data) {
+/**
+ * Destruye instancias previas de Canvas e inicializa nuevos gráficos mediante Chart.js
+ */
+function renderBarChart(cid, labels, data) {
     const ctx = document.getElementById(cid);
     if (!ctx) return;
     if (chartInstances[cid]) chartInstances[cid].destroy();
 
     chartInstances[cid] = new Chart(ctx, {
-      type:'bar',
-      data:{ labels, datasets:[{ data, backgroundColor:PALETTE.map(c=>c+'cc'), borderColor:PALETTE, borderWidth:0, borderRadius:6 }] },
-      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ font:{ family:'Sora', size:10 } } }, x:{ ticks:{ font:{ family:'Sora', size:9 } } } } }
+        type:'bar',
+        data:{
+            labels,
+            datasets:[{
+                data,
+                backgroundColor:PALETTE.map(c=>c+'cc'),
+                borderColor:PALETTE,
+                borderWidth:0,
+                borderRadius:6
+            }]
+        },
+        options:{
+            responsive:true,
+            maintainAspectRatio:false,
+            plugins:{ legend:{ display:false } },
+            scales:{
+                y:{ beginAtZero:true, ticks:{ font:{ family:'Sora', size:10 } } },
+                x:{ ticks:{ font:{ family:'Sora', size:9 } } }
+            }
+        }
     });
-  }
+}
 
-  async function buscarAuditoria() {
+/**
+ * Orquestador central de peticiones asíncronas para la vista de Auditoría.
+ * Captura el payload JSON y bifurca los datos hacia las estructuras del DOM.
+ */
+async function buscarAuditoria() {
     if (isSearching) return;
 
-    const email = document.getElementById('inputUser').value.trim();
-    const nombre = document.getElementById('inputName').value.trim();
-    const fi    = document.getElementById('inputInicio').value;
-    const ff    = document.getElementById('inputFin').value;
+    const email = document.getElementById('inputUser') ? document.getElementById('inputUser').value.trim() : '';
+    const nombre = document.getElementById('inputName') ? document.getElementById('inputName').value.trim() : '';
+    const fi    = document.getElementById('inputInicio') ? document.getElementById('inputInicio').value : '';
+    const ff    = document.getElementById('inputFin') ? document.getElementById('inputFin').value : '';
     const btn   = document.getElementById('btnBuscar');
 
-    dropdown.style.display = 'none';
-    dropdownName.style.display = 'none';
+    if (dropdown) dropdown.style.display = 'none';
+    if (dropdownName) dropdownName.style.display = 'none';
 
     if ((!email && !nombre) || !fi || !ff) {
-        alert('Por favor ingresa el correo o el nombre del profesional y el rango de fechas completo.');
+        alert('Validación Fallida: Por favor ingresa el correo o el nombre del profesional y el rango de fechas completo.');
         return;
     }
 
     isSearching = true;
-    btn.disabled = true;
+    if(btn) btn.disabled = true;
+
+    // Transición de estados de UI
     document.getElementById('loadingOverlay').style.display = 'flex';
     document.getElementById('emptyState').style.display     = 'none';
     document.getElementById('resultadosAuditoria').style.display = 'none';
 
     try {
-      let urlParam = email ? `usuario=${encodeURIComponent(email)}` : `nombre=${encodeURIComponent(nombre)}`;
+        let urlParam = email ? `usuario=${encodeURIComponent(email)}` : `nombre=${encodeURIComponent(nombre)}`;
 
-      let isActualizacion = window.location.pathname.includes("auditoria_actualizacion");
-      let endpoint = isActualizacion ? "auditoria_actualizacion" : "auditoria";
+        // Enrutamiento dinámico dependiendo del contexto (Creación vs Actualización)
+        let isActualizacion = window.location.pathname.includes("auditoria_actualizacion");
+        let endpoint = isActualizacion ? "auditoria_actualizacion" : "auditoria";
 
-      const resp = await fetch(`${API_BASE}/api/${endpoint}?${urlParam}&fecha_inicio=${fi}&fecha_fin=${ff}`, {
-        headers:{ 'Authorization':'Bearer '+token }
-      });
-      if (resp.status === 401) { logout(); return; }
+        console.log(`Lanzando petición Fetch a: ${API_BASE}/api/${endpoint}?${urlParam}&fecha_inicio=${fi}&fecha_fin=${ff}`);
 
-      const data = await resp.json();
-      if (data.error) { alert(data.error); document.getElementById('emptyState').style.display='block'; return; }
+        const resp = await fetch(`${API_BASE}/api/${endpoint}?${urlParam}&fecha_inicio=${fi}&fecha_fin=${ff}`, {
+            headers:{ 'Authorization':'Bearer '+token }
+        });
 
-      const nom = data.encuestador_nombre && data.encuestador_nombre !== 'Sin registro de nombre' ? data.encuestador_nombre : (email || nombre);
-      const perf = data.encuestador_perfil ? data.encuestador_perfil.toUpperCase() : 'PERFIL DESCONOCIDO';
-
-      document.getElementById('topbarTitle').textContent = nom;
-      document.getElementById('topbarMeta').textContent = perf;
-
-      // ==========================================================
-      // MÓDULO: DESISTIMIENTOS
-      // ==========================================================
-      setVal('a-des-tot',  data.desistimientos?.total);
-      setVal('a-des-err',  data.desistimientos?.con_error);
-
-      // ==========================================================
-      // MÓDULO: PLAN CUIDADO COMUNITARIO (PCC)
-      // ==========================================================
-      setVal('a-pcc-pla',  data.pcc?.planes);
-      setVal('a-pcc-int',  data.pcc?.integrantes);
-      setVal('a-pcc-err',  data.pcc?.con_error);
-      setValInput('txtPccDetalles', data.pcc?.reporte_detalles);
-
-      // MODULO ACTUAL: Caracterización
-      setVal('a-ca-fam',   data.caracterizacion?.familias);
-      setVal('a-ca-fam-dup', data.caracterizacion?.familias_duplicadas);
-      setVal('a-ca-ind',   data.caracterizacion?.individuos);
-      setVal('a-ca-ind-dup', data.caracterizacion?.individuos_duplicadas);
-      setVal('a-ca-sinaseg',    data.caracterizacion?.sin_aseguramiento);
-
-      // MODULO ANTERIOR: Caracterización
-      setVal('a-ca-fam-ant',   data.caracterizacion_ant?.familias);
-      setVal('a-ca-fam-dup-ant', data.caracterizacion_ant?.familias_duplicadas);
-      setVal('a-ca-ind-ant',   data.caracterizacion_ant?.individuos);
-      setVal('a-ca-ind-dup-ant', data.caracterizacion_ant?.individuos_duplicadas);
-      setVal('a-ca-sinaseg-ant', data.caracterizacion_ant?.sin_aseguramiento);
-
-      // MODULO ACTUAL: Población
-      setVal('a-ca-ges',   data.poblacion?.gestantes || data.caracterizacion?.gestantes);
-      setVal('a-ca-men',   data.poblacion?.menores_5 || data.caracterizacion?.menores_5);
-      setVal('a-ca-may',   data.poblacion?.adultos_60 || data.caracterizacion?.adultos_60);
-      setVal('a-ca-vic',   data.poblacion?.victimas_conflicto || data.caracterizacion?.victimas_conflicto);
-      setVal('a-ca-disc',  data.poblacion?.discapacidad_total || data.caracterizacion?.discapacidad_total);
-
-      // MODULO ANTERIOR: Población
-      setVal('a-ca-ges-ant',   data.poblacion_ant?.gestantes);
-      setVal('a-ca-men-ant',   data.poblacion_ant?.menores_5);
-      setVal('a-ca-may-ant',   data.poblacion_ant?.adultos_60);
-      setVal('a-ca-vic-ant',   data.poblacion_ant?.victimas_conflicto);
-      setVal('a-ca-disc-ant',  data.poblacion_ant?.discapacidad_total);
-
-      renderList('listTipoFamilia',   data.caracterizacion?.tipo_familia);
-      renderList('listEstrato',        data.caracterizacion?.estrato);
-      renderList('listNivelEducativo', data.caracterizacion?.nivel_educativo);
-
-      document.getElementById('a-etn-con-pct').textContent = (data.caracterizacion?.etnia_con_pct||0)+'%';
-      document.getElementById('a-etn-con-tot').textContent = (data.caracterizacion?.etnia_con_total||0)+' personas';
-      document.getElementById('a-etn-sin-pct').textContent = (data.caracterizacion?.etnia_sin_pct||0)+'%';
-
-      const disc = data.caracterizacion?.discapacidades_chart || [];
-      renderBarChart('chartDiscapacidadAuditoria', disc.map(x=>x.label), disc.map(x=>x.total));
-
-      // MODULO ACTUAL: PCF
-      setVal('a-pcf-fam', data.pcf?.familias_intervenidas);
-      setVal('a-pcf-fam-dup', data.pcf?.familias_duplicadas);
-      setVal('a-pcf-int', data.pcf?.integrantes_intervenidos);
-      setVal('a-pcf-int-dup', data.pcf?.integrantes_duplicados);
-
-      // MODULO ANTERIOR: PCF
-      setVal('a-pcf-fam-ant', data.pcf_ant?.familias_intervenidas);
-      setVal('a-pcf-fam-dup-ant', data.pcf_ant?.familias_duplicadas);
-      setVal('a-pcf-int-ant', data.pcf_ant?.integrantes_intervenidos);
-      setVal('a-pcf-int-dup-ant', data.pcf_ant?.integrantes_duplicados);
-
-      // PSICOLOGIA
-      setVal('a-psi-fam', data.pcf_psicologia?.intervenciones_familiares);
-      setVal('a-psi-fam-ant', data.pcf_psicologia?.familias_anteriores);
-      setVal('a-psi-fam-dup', data.pcf_psicologia?.familias_duplicadas);
-      setVal('a-psi-int', data.pcf_psicologia?.integrantes);
-      setVal('a-psi-ind-dup', data.pcf_psicologia?.integrantes_duplicados);
-      setVal('a-psi-seg', data.pcf_psicologia?.seguimientos);
-      setVal('a-psi-cont-si', data.pcf_psicologia?.requiere_continuidad_si);
-      setVal('a-psi-cont-no', data.pcf_psicologia?.requiere_continuidad_no);
-
-      const contTiposSeg = document.getElementById('cardsTiposSeguimiento');
-      const tbodyTiposSeg = document.querySelector('#tablaTiposSeguimiento tbody');
-      const tdTotalSeg = document.getElementById('tdTotalSeg');
-
-      if (contTiposSeg && tbodyTiposSeg) {
-        contTiposSeg.innerHTML = '';
-        tbodyTiposSeg.innerHTML = '';
-        let totalSeguimientosTipos = 0;
-        const tipos = data.pcf_psicologia?.tipos_seguimiento || [];
-
-        if (!tipos.length) {
-          contTiposSeg.innerHTML = '<div style="font-size:0.8rem;color:var(--muted);">Sin tipos registrados</div>';
-          tbodyTiposSeg.innerHTML = '<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:2rem;">Sin datos en este periodo</td></tr>';
-          tdTotalSeg.textContent = '0';
-        } else {
-          tipos.forEach(t => {
-            totalSeguimientosTipos += t.total;
-            contTiposSeg.innerHTML += `<div class="stat-card c-purple" style="flex:1; min-width:160px;"><div class="stat-label" style="font-size:0.65rem;">${t.label}</div><div class="stat-value" style="font-size:1.5rem;">${fmt(t.total)}</div></div>`;
-            tbodyTiposSeg.innerHTML += `<tr><td style="font-weight:600;">${t.label}</td><td style="text-align:center; font-family:monospace; font-size:1rem; font-weight:700; color:var(--navy);">${fmt(t.total)}</td></tr>`;
-          });
-          tdTotalSeg.textContent = fmt(totalSeguimientosTipos);
+        if (resp.status === 401) {
+            logout();
+            return;
         }
-      }
 
-      setValInput('txtPsicoMotivos', (data.pcf_psicologia?.motivos_seguimiento||[]).map(m=>`• ${m.label} -> Total: ${fmt(m.total)} atenciones\n`).join('') || 'Sin motivos registrados.');
+        const data = await resp.json();
 
-      // TRAMITES
-      setVal('tr-registros', data.tramites?.total_registros);
-      setVal('tr-familias',  data.tramites?.total_familias);
-      setVal('a-tr-tot',  data.tramites?.total);
-      setVal('a-tr-res',  data.tramites?.resolutivos);
-      setVal('a-tr-err',  data.tramites?.con_error);
-      setVal('a-tr-dup',  data.tramites?.duplicados);
+        // Depuración profunda en consola para auditoría de variables
+        console.log("📦 Payload JSON recibido del servidor:", data);
 
-      const tr = data.tramites?.por_tipo || [];
-      renderBarChart('chartTramitesAuditoria', tr.map(x=>x.label), tr.map(x=>x.total));
+        if (data.error) {
+            alert(`Respuesta del Servidor: ${data.error}`);
+            document.getElementById('emptyState').style.display='block';
+            return;
+        }
 
-      const tbodyTram = document.querySelector('#tablaDesgloseTramites tbody');
-      const elTot = document.getElementById('tdTotal');
-      const elRes = document.getElementById('tdRes');
-      const elPct = document.getElementById('tdPct');
+        // --- RENDERIZADO DEL TOPBAR ---
+        const nom = data.encuestador_nombre && data.encuestador_nombre !== 'Sin registro de nombre' ? data.encuestador_nombre : (email || nombre);
+        const perf = data.encuestador_perfil ? data.encuestador_perfil.toUpperCase() : 'PERFIL DESCONOCIDO';
 
-      if(tbodyTram) tbodyTram.innerHTML = '';
-      let sumTot = 0, sumRes = 0;
+        document.getElementById('topbarTitle').textContent = nom;
+        document.getElementById('topbarMeta').textContent = perf;
 
-      if (tr.length === 0) {
-          if(tbodyTram) tbodyTram.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:2rem;">Sin datos en este periodo</td></tr>';
-          if(elTot) elTot.textContent = '0';
-          if(elRes) elRes.textContent = '0';
-          if(elPct) elPct.textContent = '0%';
-      } else {
-          tr.forEach(item => {
-              sumTot += item.total;
-              sumRes += item.resueltos;
+        // ==========================================================
+        // 🟢 INYECCIÓN DOM: DESISTIMIENTOS
+        // ==========================================================
+        setVal('a-des-tot',  data.desistimientos?.total);
+        setVal('a-des-err',  data.desistimientos?.con_error);
 
-              let color = 'var(--text)';
-              if(item.porcentaje === 100) color = 'var(--green)';
-              else if(item.porcentaje === 0) color = 'var(--gold)';
+        // ==========================================================
+        // 🟢 INYECCIÓN DOM: PLAN CUIDADO COMUNITARIO (PCC)
+        // Corrección de los selectores HTML para extracción de valores
+        // ==========================================================
+        if(data.pcc) {
+            console.log("Mapeando datos PCC:", data.pcc);
+            setVal('a-pcc-pla',  data.pcc.planes);
+            setVal('a-pcc-int',  data.pcc.integrantes);
+            setVal('a-pcc-err',  data.pcc.con_error);
+            setValInput('txtPccDetalles', data.pcc.reporte_detalles);
+        } else {
+            console.warn("El objeto data.pcc es indefinido o nulo desde el backend.");
+        }
 
-              if(tbodyTram) tbodyTram.innerHTML += `
-                <tr>
-                  <td style="font-weight:600;">${item.label}</td>
-                  <td style="text-align:center; font-family:monospace; font-size:1rem;">${fmt(item.total)}</td>
-                  <td style="text-align:center; font-family:monospace; font-size:1rem; font-weight:700; color:var(--navy);">${fmt(item.resueltos)}</td>
-                  <td style="text-align:center;"><span class="res-badge" style="color:${color}; background:${color}1a;">${item.porcentaje}%</span></td>
-                </tr>`;
-          });
+        // ==========================================================
+        // MÓDULO ACTUAL: CARACTERIZACIÓN E INDIVIDUOS
+        // ==========================================================
+        setVal('a-ca-fam',   data.caracterizacion?.familias);
+        setVal('a-ca-fam-dup', data.caracterizacion?.familias_duplicadas);
+        setVal('a-ca-ind',   data.caracterizacion?.individuos);
+        setVal('a-ca-ind-dup', data.caracterizacion?.individuos_duplicadas);
+        setVal('a-ca-sinaseg', data.caracterizacion?.sin_aseguramiento);
 
-          if(elTot) elTot.textContent = fmt(sumTot);
-          if(elRes) elRes.textContent = fmt(sumRes);
-          let pctGlobal = sumTot > 0 ? ((sumRes / sumTot) * 100).toFixed(1) : 0;
-          if(elPct) elPct.textContent = pctGlobal + '%';
-      }
+        // ==========================================================
+        // MÓDULO ANTERIOR ACUMULADO: CARACTERIZACIÓN
+        // ==========================================================
+        setVal('a-ca-fam-ant',   data.caracterizacion_ant?.familias);
+        setVal('a-ca-fam-dup-ant', data.caracterizacion_ant?.familias_duplicadas);
+        setVal('a-ca-ind-ant',   data.caracterizacion_ant?.individuos);
+        setVal('a-ca-ind-dup-ant', data.caracterizacion_ant?.individuos_duplicadas);
+        setVal('a-ca-sinaseg-ant', data.caracterizacion_ant?.sin_aseguramiento);
 
-      const panelErr = document.getElementById('panelErrores');
-      if (panelErr) panelErr.style.display = 'block';
+        // ==========================================================
+        // MÓDULO ACTUAL: GRUPOS POBLACIONALES
+        // Soporte retroactivo para arquitecturas previas (data.poblacion || data.caracterizacion)
+        // ==========================================================
+        setVal('a-ca-ges',   data.poblacion?.gestantes || data.caracterizacion?.gestantes);
+        setVal('a-ca-men',   data.poblacion?.menores_5 || data.caracterizacion?.menores_5);
+        setVal('a-ca-may',   data.poblacion?.adultos_60 || data.caracterizacion?.adultos_60);
+        setVal('a-ca-vic',   data.poblacion?.victimas_conflicto || data.caracterizacion?.victimas_conflicto);
+        setVal('a-ca-disc',  data.poblacion?.discapacidad_total || data.caracterizacion?.discapacidad_total);
 
-      setValInput('textoErroresGlobal', data.reporte_errores_texto);
-      setValInput('txtPccDetalles', data.pcc?.reporte_detalles);
+        // ==========================================================
+        // MÓDULO ANTERIOR: GRUPOS POBLACIONALES
+        // ==========================================================
+        setVal('a-ca-ges-ant',   data.poblacion_ant?.gestantes);
+        setVal('a-ca-men-ant',   data.poblacion_ant?.menores_5);
+        setVal('a-ca-may-ant',   data.poblacion_ant?.adultos_60);
+        setVal('a-ca-vic-ant',   data.poblacion_ant?.victimas_conflicto);
+        setVal('a-ca-disc-ant',  data.poblacion_ant?.discapacidad_total);
 
-      setValInput('txtCaFamDuplicadas', data.caracterizacion?.reporte_duplicados_fam);
-      setValInput('txtCaIndDuplicadas', data.caracterizacion?.reporte_duplicados_ind);
+        // Listas dinámicas de Perfil Social
+        renderList('listTipoFamilia',   data.caracterizacion?.tipo_familia);
+        renderList('listEstrato',        data.caracterizacion?.estrato);
+        renderList('listNivelEducativo', data.caracterizacion?.nivel_educativo);
 
-      setValInput('txtPcfRealizados', data.pcf?.reporte_familias);
-      setValInput('txtPcfErrores', data.pcf?.reporte_errores);
-      setValInput('txtPcfDuplicados', data.pcf?.reporte_duplicados_fam);
-      setValInput('txtPcfIndDuplicados', data.pcf?.reporte_duplicados_ind);
+        // Composiciones porcentuales de Etnias
+        const elEtnConPct = document.getElementById('a-etn-con-pct');
+        const elEtnConTot = document.getElementById('a-etn-con-tot');
+        const elEtnSinPct = document.getElementById('a-etn-sin-pct');
 
-      setValInput('txtPsicoRealizados', data.pcf_psicologia?.reporte_familias);
-      setValInput('txtPsicoSeguimientos', data.pcf_psicologia?.reporte_seguimientos);
-      setValInput('txtPsicoErrores', data.pcf_psicologia?.reporte_errores);
-      setValInput('txtPsicoCompromisos', data.pcf_psicologia?.reporte_compromisos);
-      setValInput('txtPsicoEvaluacion', data.pcf_psicologia?.reporte_evaluacion);
-      setValInput('txtPsicoFamDuplicadas', data.pcf_psicologia?.reporte_duplicados_fam);
-      setValInput('txtPsicoIndDuplicadas', data.pcf_psicologia?.reporte_duplicados_ind);
+        if(elEtnConPct) elEtnConPct.textContent = (data.caracterizacion?.etnia_con_pct||0)+'%';
+        if(elEtnConTot) elEtnConTot.textContent = (data.caracterizacion?.etnia_con_total||0)+' personas';
+        if(elEtnSinPct) elEtnSinPct.textContent = (data.caracterizacion?.etnia_sin_pct||0)+'%';
 
-      setValInput('txtTramRealizados', data.tramites?.reporte_realizados);
-      setValInput('txtTramResueltos', data.tramites?.reporte_resueltos);
-      setValInput('txtTramErrores', data.tramites?.reporte_errores);
-      setValInput('txtTramDuplicados', data.tramites?.reporte_duplicados);
-      setValInput('txtTramObservaciones', data.tramites?.reporte_observaciones);
+        // Renderizado del Canvas Chart.js para Discapacidades
+        const disc = data.caracterizacion?.discapacidades_chart || [];
+        renderBarChart('chartDiscapacidadAuditoria', disc.map(x=>x.label), disc.map(x=>x.total));
 
-      document.getElementById('resultadosAuditoria').style.display = 'block';
+        // ==========================================================
+        // MÓDULO ACTUAL: PLAN DE CUIDADO FAMILIAR GENERAL (PCF)
+        // ==========================================================
+        setVal('a-pcf-fam', data.pcf?.familias_intervenidas);
+        setVal('a-pcf-fam-dup', data.pcf?.familias_duplicadas);
+        setVal('a-pcf-int', data.pcf?.integrantes_intervenidos);
+        setVal('a-pcf-int-dup', data.pcf?.integrantes_duplicados);
+
+        // ==========================================================
+        // MÓDULO ANTERIOR: PLAN DE CUIDADO FAMILIAR GENERAL (PCF)
+        // ==========================================================
+        setVal('a-pcf-fam-ant', data.pcf_ant?.familias_intervenidas);
+        setVal('a-pcf-fam-dup-ant', data.pcf_ant?.familias_duplicadas);
+        setVal('a-pcf-int-ant', data.pcf_ant?.integrantes_intervenidos);
+        setVal('a-pcf-int-dup-ant', data.pcf_ant?.integrantes_duplicados);
+
+        // ==========================================================
+        // MÓDULO: PSICOLOGÍA
+        // ==========================================================
+        setVal('a-psi-fam', data.pcf_psicologia?.intervenciones_familiares);
+        setVal('a-psi-fam-ant', data.pcf_psicologia?.familias_anteriores);
+        setVal('a-psi-fam-dup', data.pcf_psicologia?.familias_duplicadas);
+        setVal('a-psi-int', data.pcf_psicologia?.integrantes);
+        setVal('a-psi-ind-dup', data.pcf_psicologia?.integrantes_duplicados);
+        setVal('a-psi-seg', data.pcf_psicologia?.seguimientos);
+        setVal('a-psi-cont-si', data.pcf_psicologia?.requiere_continuidad_si);
+        setVal('a-psi-cont-no', data.pcf_psicologia?.requiere_continuidad_no);
+
+        // Manipulación dinámica de las tarjetas y tabla de Tipos de Seguimiento
+        const contTiposSeg = document.getElementById('cardsTiposSeguimiento');
+        const tbodyTiposSeg = document.querySelector('#tablaTiposSeguimiento tbody');
+        const tdTotalSeg = document.getElementById('tdTotalSeg');
+
+        if (contTiposSeg && tbodyTiposSeg) {
+            contTiposSeg.innerHTML = '';
+            tbodyTiposSeg.innerHTML = '';
+            let totalSeguimientosTipos = 0;
+            const tipos = data.pcf_psicologia?.tipos_seguimiento || [];
+
+            if (!tipos.length) {
+                contTiposSeg.innerHTML = '<div style="font-size:0.8rem;color:var(--muted);">Sin tipos registrados en este estrato temporal.</div>';
+                tbodyTiposSeg.innerHTML = '<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:2rem;">Sin datos documentados</td></tr>';
+                if(tdTotalSeg) tdTotalSeg.textContent = '0';
+            } else {
+                tipos.forEach(t => {
+                    totalSeguimientosTipos += t.total;
+                    contTiposSeg.innerHTML += `
+                        <div class="stat-card c-purple" style="flex:1; min-width:160px;">
+                            <div class="stat-label" style="font-size:0.65rem;">${t.label}</div>
+                            <div class="stat-value" style="font-size:1.5rem;">${fmt(t.total)}</div>
+                        </div>`;
+                    tbodyTiposSeg.innerHTML += `
+                        <tr>
+                            <td style="font-weight:600;">${t.label}</td>
+                            <td style="text-align:center; font-family:monospace; font-size:1rem; font-weight:700; color:var(--navy);">${fmt(t.total)}</td>
+                        </tr>`;
+                });
+                if(tdTotalSeg) tdTotalSeg.textContent = fmt(totalSeguimientosTipos);
+            }
+        }
+
+        // Extracción y formato de motivos de Psicología
+        const mapeoMotivos = (data.pcf_psicologia?.motivos_seguimiento || []).map(m => `• ${m.label} -> Total: ${fmt(m.total)} atenciones\n`).join('');
+        setValInput('txtPsicoMotivos', mapeoMotivos || 'Sin motivos registrados en el periodo.');
+
+        // ==========================================================
+        // MÓDULO: TRÁMITES ADMINISTRATIVOS
+        // ==========================================================
+        setVal('tr-registros', data.tramites?.total_registros);
+        setVal('tr-familias',  data.tramites?.total_familias);
+        setVal('a-tr-tot',  data.tramites?.total);
+        setVal('a-tr-res',  data.tramites?.resolutivos);
+        setVal('a-tr-err',  data.tramites?.con_error);
+        setVal('a-tr-dup',  data.tramites?.duplicados);
+
+        // Desglose Gráfico y Tabla de Trámites
+        const tr = data.tramites?.por_tipo || [];
+        renderBarChart('chartTramitesAuditoria', tr.map(x=>x.label), tr.map(x=>x.total));
+
+        const tbodyTram = document.querySelector('#tablaDesgloseTramites tbody');
+        const elTot = document.getElementById('tdTotal');
+        const elRes = document.getElementById('tdRes');
+        const elPct = document.getElementById('tdPct');
+
+        if(tbodyTram) tbodyTram.innerHTML = '';
+        let sumTot = 0, sumRes = 0;
+
+        if (tr.length === 0) {
+            if(tbodyTram) tbodyTram.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:2rem;">Ausencia de transacciones documentales</td></tr>';
+            if(elTot) elTot.textContent = '0';
+            if(elRes) elRes.textContent = '0';
+            if(elPct) elPct.textContent = '0%';
+        } else {
+            tr.forEach(item => {
+                sumTot += item.total;
+                sumRes += item.resueltos;
+
+                // Colorimetría condicional basada en resolutividad
+                let color = 'var(--text)';
+                if(item.porcentaje === 100) color = 'var(--green)';
+                else if(item.porcentaje === 0) color = 'var(--gold)';
+
+                if(tbodyTram) tbodyTram.innerHTML += `
+                  <tr>
+                    <td style="font-weight:600;">${item.label}</td>
+                    <td style="text-align:center; font-family:monospace; font-size:1rem;">${fmt(item.total)}</td>
+                    <td style="text-align:center; font-family:monospace; font-size:1rem; font-weight:700; color:var(--navy);">${fmt(item.resueltos)}</td>
+                    <td style="text-align:center;"><span class="res-badge" style="color:${color}; background:${color}1a;">${item.porcentaje}%</span></td>
+                  </tr>`;
+            });
+
+            if(elTot) elTot.textContent = fmt(sumTot);
+            if(elRes) elRes.textContent = fmt(sumRes);
+
+            let pctGlobal = sumTot > 0 ? ((sumRes / sumTot) * 100).toFixed(1) : 0;
+            if(elPct) elPct.textContent = pctGlobal + '%';
+        }
+
+        // ==========================================================
+        // INYECCIÓN DE METADATOS Y REPORTES EN TEXTAREAS
+        // ==========================================================
+        const panelErr = document.getElementById('panelErrores');
+        if (panelErr) panelErr.style.display = 'block';
+
+        setValInput('textoErroresGlobal', data.reporte_errores_texto);
+
+        // Detalles de Caracterización
+        setValInput('txtCaFamDuplicadas', data.caracterizacion?.reporte_duplicados_fam);
+        setValInput('txtCaIndDuplicadas', data.caracterizacion?.reporte_duplicados_ind);
+
+        // Detalles PCF
+        setValInput('txtPcfRealizados', data.pcf?.reporte_familias);
+        setValInput('txtPcfErrores', data.pcf?.reporte_errores);
+        setValInput('txtPcfDuplicados', data.pcf?.reporte_duplicados_fam);
+        setValInput('txtPcfIndDuplicados', data.pcf?.reporte_duplicados_ind);
+
+        // Detalles Psicología
+        setValInput('txtPsicoRealizados', data.pcf_psicologia?.reporte_familias);
+        setValInput('txtPsicoSeguimientos', data.pcf_psicologia?.reporte_seguimientos);
+        setValInput('txtPsicoErrores', data.pcf_psicologia?.reporte_errores);
+        setValInput('txtPsicoCompromisos', data.pcf_psicologia?.reporte_compromisos);
+        setValInput('txtPsicoEvaluacion', data.pcf_psicologia?.reporte_evaluacion);
+        setValInput('txtPsicoFamDuplicadas', data.pcf_psicologia?.reporte_duplicados_fam);
+        setValInput('txtPsicoIndDuplicadas', data.pcf_psicologia?.reporte_duplicados_ind);
+
+        // Detalles Trámites
+        setValInput('txtTramRealizados', data.tramites?.reporte_realizados);
+        setValInput('txtTramResueltos', data.tramites?.reporte_resueltos);
+        setValInput('txtTramErrores', data.tramites?.reporte_errores);
+        setValInput('txtTramDuplicados', data.tramites?.reporte_duplicados);
+        setValInput('txtTramObservaciones', data.tramites?.reporte_observaciones);
+
+        // Revelado final de la interfaz
+        document.getElementById('resultadosAuditoria').style.display = 'block';
 
     } catch(err) {
-      console.error(err);
-      alert(`⚠️ Fallo en la consulta:\n\n${err.message}\n\nSi el error es 'Failed to fetch', revisa tu conexión de internet o avisa a soporte.`);
-      document.getElementById('emptyState').style.display = 'block';
+        console.error("Excepción crítica capturada en bloque Catch:", err);
+        alert(`⚠️ Interrupción en la Transacción:\n\n${err.message}\n\nVerifica la integridad de la red o la disponibilidad del servidor WSGI.`);
+        document.getElementById('emptyState').style.display = 'block';
     } finally {
-      isSearching = false;
-      btn.disabled = false;
-      document.getElementById('loadingOverlay').style.display = 'none';
+        isSearching = false;
+        if(btn) btn.disabled = false;
+        document.getElementById('loadingOverlay').style.display = 'none';
     }
-  }
+}
 
-  ['inputUser','inputInicio','inputFin'].forEach(id => {
-    document.getElementById(id).addEventListener('keydown', e => { if(e.key==='Enter') buscarAuditoria(); });
-  });
+// Vinculación de eventos de teclado (Enter) para disparo de consultas
+['inputUser','inputInicio','inputFin'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) {
+        el.addEventListener('keydown', e => {
+            if(e.key === 'Enter') buscarAuditoria();
+        });
+    }
+});
 
-  document.getElementById('inputName').addEventListener('keydown', e => { if(e.key==='Enter') buscarAuditoria(); });
+const inputNameEvent = document.getElementById('inputName');
+if(inputNameEvent){
+    inputNameEvent.addEventListener('keydown', e => {
+        if(e.key === 'Enter') buscarAuditoria();
+    });
+}
 </script>
 </body>
 </html>
