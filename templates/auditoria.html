@@ -13,6 +13,104 @@
 
   <!-- ESTILOS GLOBALES (Reemplaza los miles de líneas de CSS inline) -->
   <link rel="stylesheet" href="/static/css/global.css"/>
+  <style>
+    /* ═══════════════════════════════════════════════════════════════
+       ESTILOS PANTALLA
+    ═══════════════════════════════════════════════════════════════ */
+    :root {
+      --bg:#f0f4fa;--surface:#ffffff;--navy:#0a1f3d;--navy-lt:#122848;
+      --teal:#00b09b;--teal-lt:#e6f7f5;--teal-mid:#b3e8e3;
+      --gold:#f0a500;--gold-lt:#fef7e0;--red:#e53935;--red-lt:#fde8e8;
+      --orange:#f97316;--orange-lt:#ffedd5;
+      --purple:#6c3fc5;--purple-lt:#ede8fb;--green:#1e9c6e;--green-lt:#e5f7f0;
+      --border:#dde4ef;--text:#1a2840;--muted:#5d7290;
+      --sidebar-w:240px;--radius:14px;
+      --shadow:0 2px 16px rgba(10,31,61,.07);--shadow-md:0 4px 28px rgba(10,31,61,.11);
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html{scroll-behavior:smooth;}
+    body{font-family:'Sora',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;}
+
+    .sidebar{width:var(--sidebar-w);background:var(--navy);height:100vh;position:fixed;left:0;top:0;display:flex;flex-direction:column;padding:1.5rem 0;z-index:100;box-shadow:4px 0 24px rgba(0,0,0,.18);}
+    .sidebar-brand{display:flex;align-items:center;gap:.75rem;padding:0 1.4rem 1.5rem;border-bottom:1px solid rgba(255,255,255,.08);}
+    .brand-logo{width:36px;height:36px;background:linear-gradient(135deg,var(--teal),#00d4b8);border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .brand-logo svg{width:20px;height:20px;fill:#fff;}
+    .brand-name{font-family:'Fraunces',serif;font-size:1rem;color:#fff;}
+    .brand-sub{font-size:.62rem;color:rgba(255,255,255,.4);letter-spacing:.1em;text-transform:uppercase;}
+    .nav{flex:1;padding:1.2rem 0;}
+    .nav-item{display:flex;align-items:center;gap:.75rem;padding:.7rem 1.4rem;color:rgba(255,255,255,.55);font-size:.83rem;font-weight:500;cursor:pointer;transition:all .18s;text-decoration:none;margin:.1rem 0;}
+    .nav-item:hover{color:#fff;background:rgba(255,255,255,.06);}
+    .nav-item.active{color:var(--teal);background:rgba(0,176,155,.12);border-right:3px solid var(--teal);}
+    .nav-item svg{width:18px;height:18px;flex-shrink:0;}
+    .nav-section-title{padding:.9rem 1.4rem .3rem;font-size:.62rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.25);}
+    .sidebar-user{padding:1rem 1.4rem;border-top:1px solid rgba(255,255,255,.08);}
+    .user-name{font-size:.82rem;color:#fff;font-weight:600;margin-bottom:.15rem;}
+    .user-role{font-size:.68rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.1em;}
+    .btn-logout{margin-top:.75rem;width:100%;background:rgba(229,57,53,.15);border:1px solid rgba(229,57,53,.3);color:#ff8a80;border-radius:8px;padding:.45rem;font-family:'Sora',sans-serif;font-size:.75rem;cursor:pointer;transition:background .2s;}
+    .btn-logout:hover{background:rgba(229,57,53,.25);}
+
+    .main{margin-left:var(--sidebar-w);flex:1;min-height:100vh;}
+    .topbar{background:var(--surface);padding:1rem 2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:var(--shadow);}
+    .topbar-title{font-family:'Fraunces',serif;font-size:1.1rem;font-weight:700;color:var(--navy);text-transform: capitalize;}
+    .topbar-meta{font-size:.75rem;color:var(--muted);}
+    .content{padding:1.75rem 2rem 4rem;}
+
+    .auditoria-filters{display:flex;gap:1rem;margin-bottom:2rem;background:var(--surface);padding:1.5rem;border-radius:var(--radius);box-shadow:var(--shadow);flex-wrap:wrap;align-items:flex-end;}
+    .filter-group{flex:1;min-width:200px; position:relative;}
+    .filter-group label{display:block;font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.45rem;}
+    .auditoria-filters input{width:100%;border:1.5px solid var(--border);border-radius:8px;padding:.8rem 1rem;font-family:'Sora',sans-serif;font-size:.9rem;color:var(--text);outline:none;transition:border-color .2s;}
+    .auditoria-filters input:focus{border-color:var(--teal);}
+    .btn-search{background:var(--navy);color:#fff;border:none;padding:.9rem 2rem;border-radius:8px;font-weight:600;font-family:'Sora',sans-serif;cursor:pointer;transition:background .2s;white-space:nowrap;height:46px;}
+    .btn-search:hover:not(:disabled){background:var(--teal);}
+    .btn-search:disabled{background:var(--muted);cursor:not-allowed;opacity:0.6;}
+
+    .custom-dropdown { position:absolute; top:100%; left:0; right:0; background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow-md); max-height:200px; overflow-y:auto; z-index:1000; display:none; margin-top:4px; }
+    .custom-dropdown-item { padding:.7rem 1rem; font-size:.85rem; color:var(--text); cursor:pointer; transition:background .2s; }
+    .custom-dropdown-item:hover { background:var(--teal-lt); color:var(--teal); }
+
+    .section{margin-bottom:2.5rem;animation:fadeIn .4s ease;}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    .section-header{display:flex;align-items:center;gap:.75rem;margin-bottom:1.1rem;}
+    .section-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .section-icon svg{width:20px;height:20px;}
+    .section-title{font-family:'Fraunces',serif;font-size:1.1rem;color:var(--navy);}
+    .section-sub{font-size:.75rem;color:var(--muted);}
+    .cards-row{display:flex;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;}
+    .stat-card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.2rem 1.4rem;flex:1;min-width:160px;border-top:3px solid transparent;transition:box-shadow .2s,transform .2s;}
+    .stat-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px);}
+    .stat-card.c-teal{border-top-color:var(--teal)}.stat-card.c-gold{border-top-color:var(--gold)}.stat-card.c-red{border-top-color:var(--red)}.stat-card.c-purple{border-top-color:var(--purple)}.stat-card.c-green{border-top-color:var(--green)}.stat-card.c-navy{border-top-color:var(--navy)}.stat-card.c-orange{border-top-color:var(--orange)}
+    .stat-label{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.45rem;}
+    .stat-value{font-family:'Fraunces',serif;font-size:2rem;font-weight:700;color:var(--navy);line-height:1;margin-bottom:.2rem;}
+    .stat-badge{display:inline-block;padding:.15rem .55rem;border-radius:20px;font-size:.68rem;font-weight:600;}
+    .badge-error{background:var(--red-lt);color:var(--red)}.badge-ok{background:var(--green-lt);color:var(--green)}.badge-warn{background:var(--gold-lt);color:var(--gold)}.badge-info{background:var(--teal-lt);color:var(--teal)}.badge-orange{background:var(--orange-lt);color:var(--orange)}
+    .sub-section{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.2rem 1.4rem;margin-bottom:1rem;}
+    .sub-section-title{font-size:.73rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem;padding-bottom:.6rem;border-bottom:1px solid var(--border);}
+    .chart-container{position:relative;height:220px;}
+    .divider{height:1px;background:var(--border);margin:1.8rem 0;}
+    .list-row{display:flex;justify-content:space-between;margin-bottom:.4rem;font-size:.8rem;border-bottom:1px solid var(--border);padding-bottom:.2rem;}
+
+    .data-table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem; }
+    .data-table th { background: var(--navy); color: #fff; padding: 0.8rem; text-align: left; font-weight: 600; border-right: 1px solid rgba(255,255,255,0.1); }
+    .data-table td { padding: 0.8rem; border-bottom: 1px solid var(--border); color: var(--text); border-right: 1px solid var(--border); }
+    .data-table tfoot td { background: var(--teal-lt); font-weight: 700; color: var(--navy); border-top: 2px solid var(--teal); }
+    .res-badge { display:inline-block; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:700; background:var(--green-lt); color:var(--green); }
+
+    #loadingOverlay{position:fixed;inset:0;background:rgba(240,244,250,.8);z-index:999;display:none;flex-direction:column;align-items:center;justify-content:center;gap:1rem;}
+    .loading-spinner{width:40px;height:40px;border:3px solid rgba(0,176,155,.2);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .loading-text{font-size:.85rem;color:var(--muted);}
+    .empty-state{text-align:center;padding:4rem 2rem;color:var(--muted);}
+    .empty-state svg{width:60px;margin-bottom:1rem;opacity:.4;}
+
+    .report-box{width:100%;height:120px;background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:.75rem;font-family:monospace;font-size:.8rem;resize:none;outline:none;}
+    .report-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;}
+    .btn-copy-small{padding:.4rem 1rem;font-size:.75rem;border-radius:6px;border:none;color:#fff;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;}
+
+    /* ESTILO PERIODO ANTERIOR */
+    .anterior-card { border: 1px dashed var(--muted) !important; background: var(--bg); opacity: 0.85;}
+    .anterior-card:hover { opacity: 1; border-color: var(--teal) !important;}
+    .anterior-section { background: transparent; border: 1px dashed var(--border); box-shadow: none; padding: 1rem; }
+  </style>
 </head>
 <body>
 
@@ -81,6 +179,7 @@
 
     <div id="resultadosAuditoria" style="display:none;">
 
+      <!-- ERRORES GLOBALES -->
       <div id="panelErrores" style="display:none; margin-bottom: 2.5rem;">
         <div class="section-header" style="justify-content:space-between;">
           <div style="display:flex;align-items:center;gap:.75rem;">
@@ -137,7 +236,7 @@
       </div>
       <div class="divider"></div>
 
-      <!-- CARACTERIZACIÓN -->
+      <!-- CARACTERIZACIÓN ACTUAL -->
       <div class="section">
         <div class="section-header">
           <div class="section-icon" style="background:#ede8fb;"><svg viewBox="0 0 24 24" fill="#6c3fc5"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></div>
@@ -151,7 +250,7 @@
           <div class="stat-card c-red"><div class="stat-label">Familias sin aseguramiento</div><div class="stat-value" id="a-ca-sinaseg">—</div><span class="stat-badge badge-error">No afiliadas</span></div>
         </div>
 
-        <!-- PERIODO ANTERIOR (Caracterización) -->
+        <!-- CARACTERIZACIÓN ANTERIOR -->
         <div class="sub-section anterior-section" style="margin-top:1rem;">
           <div class="sub-section-title" style="color:var(--muted);">Período Anterior Acumulado (Caracterización)</div>
           <div class="cards-row">
@@ -174,7 +273,7 @@
           </div>
         </div>
 
-        <!-- PERIODO ANTERIOR (Grupos Poblacionales) -->
+        <!-- GRUPOS POBLACIONALES ANTERIOR -->
         <div class="sub-section anterior-section" style="margin-top:1rem;">
           <div class="sub-section-title" style="color:var(--muted);">Período Anterior: Grupos Poblacionales</div>
           <div class="cards-row">
@@ -234,7 +333,7 @@
       </div>
       <div class="divider"></div>
 
-      <!-- PLAN CUIDADO FAMILIAR GENERAL -->
+      <!-- PLAN CUIDADO FAMILIAR GENERAL ACTUAL -->
       <div class="section">
         <div class="section-header">
           <div class="section-icon" style="background:#e6f7f5;"><svg viewBox="0 0 24 24" fill="#00b09b"><path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/></svg></div>
@@ -247,9 +346,9 @@
           <div class="stat-card c-orange"><div class="stat-label">Integrantes Duplicados</div><div class="stat-value" id="a-pcf-int-dup">0</div><span class="stat-badge badge-orange">Descontados</span></div>
         </div>
 
-        <!-- PERIODO ANTERIOR (PCF) -->
+        <!-- PLAN CUIDADO FAMILIAR GENERAL ANTERIOR -->
         <div class="sub-section anterior-section" style="margin-top:1rem;">
-          <div class="sub-section-title" style="color:var(--muted);">Período Anterior Acumulado (Plan Cuidado Familiar)</div>
+          <div class="sub-section-title" style="color:var(--muted);">Período Anterior Acumulado (PCF)</div>
           <div class="cards-row">
             <div class="stat-card anterior-card"><div class="stat-label">Familias intervenidas</div><div class="stat-value" id="a-pcf-fam-ant">0</div></div>
             <div class="stat-card anterior-card"><div class="stat-label">Planes Duplicados</div><div class="stat-value" id="a-pcf-fam-dup-ant">0</div></div>
@@ -279,11 +378,11 @@
         <div class="cards-row">
           <div class="stat-card c-purple"><div class="stat-label">Intervenciones familiares (Nuevas)</div><div class="stat-value" id="a-psi-fam">0</div></div>
           <div class="stat-card c-teal"><div class="stat-label">Familias Anteriores</div><div class="stat-value" id="a-psi-fam-ant">0</div><span class="stat-badge badge-info">De meses pasados</span></div>
-          <div class="stat-card c-orange"><div class="stat-label">Familias Duplicadas</div><div class="stat-value" id="a-psi-fam-dup">0</div><span class="stat-badge badge-orange">Descontadas</span></div>
+          <div class="stat-card c-orange"><div class="stat-label">Familias Duplicadas</div><div class="stat-value" id="a-psi-fam-dup">0</div></div>
         </div>
         <div class="cards-row">
           <div class="stat-card c-navy"><div class="stat-label">Integrantes intervenidos</div><div class="stat-value" id="a-psi-int">0</div></div>
-          <div class="stat-card c-orange"><div class="stat-label">Integrantes Duplicados</div><div class="stat-value" id="a-psi-ind-dup">0</div><span class="stat-badge badge-orange">Descontados</span></div>
+          <div class="stat-card c-orange"><div class="stat-label">Integrantes Duplicados</div><div class="stat-value" id="a-psi-ind-dup">0</div></div>
           <div class="stat-card c-teal"><div class="stat-label">Total Seguimientos Realizados</div><div class="stat-value" id="a-psi-seg">0</div></div>
         </div>
 
@@ -448,28 +547,115 @@
   </div>
 </div>
 
-<!-- SCRIPTS EXTERNOS REFACTORIZADOS -->
-<script src="/static/js/auth.js"></script>
-<script src="/static/js/filtros.js"></script>
-
 <script>
-  // Utilidades locales para UI
+  const API_BASE = window.location.protocol === 'file:' ? 'http://127.0.0.1:5001' : window.location.origin;
+
+  const token = localStorage.getItem('informes_token');
+  if (!token) { window.location.href = '/login'; }
+
+  const userInfo = JSON.parse(localStorage.getItem('informes_user') || '{}');
+  document.getElementById('sidebarNombre').textContent = userInfo.nombre || '—';
+  document.getElementById('sidebarRol').textContent    = userInfo.rol   || '—';
+
   const setValInput = (id, val) => { const e = document.getElementById(id); if(e) e.value = val; };
+
+  let todosLosCorreos = [];
+  let todosLosNombres = [];
+  const inputUser = document.getElementById('inputUser');
+  const dropdown  = document.getElementById('customDropdown');
+
+  const inputName = document.getElementById('inputName');
+  const dropdownName = document.getElementById('customDropdownName');
+
   let isSearching = false;
+
+  async function cargarFiltros() {
+    try {
+      const resp1 = await fetch(`${API_BASE}/api/encuestadores`, { headers:{ 'Authorization':'Bearer '+token } });
+      if (resp1.ok) { todosLosCorreos = await resp1.json(); }
+
+      const resp2 = await fetch(`${API_BASE}/api/nombres_profesionales`, { headers:{ 'Authorization':'Bearer '+token } });
+      if (resp2.ok) { todosLosNombres = await resp2.json(); }
+    } catch(e) {}
+  }
+
+  cargarFiltros();
+
+  function filtrarCorreos(query) {
+    dropdown.innerHTML = '';
+    if (!todosLosCorreos.length) return;
+    const filtrados = todosLosCorreos.filter(c => c.toLowerCase().includes(query.toLowerCase()));
+
+    if (filtrados.length === 0) { dropdown.style.display = 'none'; return; }
+    filtrados.forEach(c => {
+      const div = document.createElement('div');
+      div.className = 'custom-dropdown-item';
+      div.textContent = c;
+      div.onmousedown = () => { inputUser.value = c; inputName.value = ''; dropdown.style.display = 'none'; };
+      dropdown.appendChild(div);
+    });
+    dropdown.style.display = 'block';
+  }
+
+  function filtrarNombres(query) {
+    dropdownName.innerHTML = '';
+    if (!todosLosNombres.length) return;
+    const filtrados = todosLosNombres.filter(n => n.toLowerCase().includes(query.toLowerCase()));
+
+    if (filtrados.length === 0) { dropdownName.style.display = 'none'; return; }
+    filtrados.forEach(n => {
+      const div = document.createElement('div');
+      div.className = 'custom-dropdown-item';
+      div.textContent = n;
+      div.onmousedown = () => { inputName.value = n; inputUser.value = ''; dropdownName.style.display = 'none'; };
+      dropdownName.appendChild(div);
+    });
+    dropdownName.style.display = 'block';
+  }
+
+  inputUser.addEventListener('input', () => { inputName.value = ''; filtrarCorreos(inputUser.value); });
+  inputUser.addEventListener('focus', () => filtrarCorreos(inputUser.value));
+
+  inputName.addEventListener('input', () => { inputUser.value = ''; filtrarNombres(inputName.value); });
+  inputName.addEventListener('focus', () => filtrarNombres(inputName.value));
+
+  document.addEventListener('click', (e) => {
+    if (e.target !== inputUser && e.target !== dropdown) { dropdown.style.display = 'none'; }
+    if (e.target !== inputName && e.target !== dropdownName) { dropdownName.style.display = 'none'; }
+  });
+
+  async function logout() {
+    try { await fetch(`${API_BASE}/api/logout`, { method:'POST', headers:{'Authorization':'Bearer '+token} }); } catch(e){}
+    localStorage.removeItem('informes_token');
+    localStorage.removeItem('informes_user');
+    window.location.href = '/login';
+  }
+
+  function copiarTexto(id) {
+    navigator.clipboard.writeText(document.getElementById(id).value)
+      .then(() => alert('¡Texto copiado!'))
+      .catch(err => alert('Error al copiar: ' + err));
+  }
+
+  function fmt(n) { return Number(n||0).toLocaleString('es-CO'); }
+
+  function setVal(id, v) {
+      const el = document.getElementById(id);
+      if(el) { el.textContent = fmt(v); el.classList.remove('loading'); }
+  }
+
+  function renderList(cid, arr) {
+    const c = document.getElementById(cid);
+    if (!c) return;
+    c.innerHTML = '';
+    if (!arr || !arr.length) { c.innerHTML = '<div style="font-size:.8rem;color:var(--muted);">Sin registros</div>'; return; }
+    arr.forEach(i => {
+      c.innerHTML += `<div class="list-row"><span style="color:var(--muted);">${i.label}</span><span style="font-weight:bold;color:var(--navy);">${i.total}</span></div>`;
+    });
+  }
+
   const chartInstances = {};
   const PALETTE = ['#00b09b','#0a1f3d','#f0a500','#6c3fc5','#e53935','#1e9c6e','#06b6d4'];
-
-  function showModal(title, text, type='warning') {
-    document.getElementById('modalTitle').innerText = title;
-    document.getElementById('modalText').innerText  = text;
-    const svgOk  = '<svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M20 6L9 17l-5-5"></path></svg>';
-    const svgWrn = '<svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2.5" fill="none"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>';
-    const el = document.getElementById('modalIcon');
-    el.className = 'modal-icon ' + type;
-    el.innerHTML = type === 'success' ? svgOk : svgWrn;
-    document.getElementById('customModal').classList.add('active');
-  }
-  function closeModal() { document.getElementById('customModal').classList.remove('active'); }
 
   function renderBarChart(cid, labels, data) {
     const ctx = document.getElementById(cid);
@@ -483,7 +669,6 @@
     });
   }
 
-  // ── LÓGICA ESPECÍFICA DE LA VISTA ──
   async function buscarAuditoria() {
     if (isSearching) return;
 
@@ -493,11 +678,8 @@
     const ff    = document.getElementById('inputFin').value;
     const btn   = document.getElementById('btnBuscar');
 
-    const dropdown = document.getElementById('customDropdown');
-    const dropdownName = document.getElementById('customDropdownName');
-
-    if (dropdown) dropdown.style.display = 'none';
-    if (dropdownName) dropdownName.style.display = 'none';
+    dropdown.style.display = 'none';
+    dropdownName.style.display = 'none';
 
     if ((!email && !nombre) || !fi || !ff) {
         alert('Por favor ingresa el correo o el nombre del profesional y el rango de fechas completo.');
@@ -511,11 +693,12 @@
     document.getElementById('resultadosAuditoria').style.display = 'none';
 
     try {
-      const token = localStorage.getItem('informes_token');
       let urlParam = email ? `usuario=${encodeURIComponent(email)}` : `nombre=${encodeURIComponent(nombre)}`;
 
-      // Endpoint fijo de auditoria (created_at) [source: 23]
-      const resp = await fetch(`${API_BASE}/api/auditoria?${urlParam}&fecha_inicio=${fi}&fecha_fin=${ff}`, {
+      let isActualizacion = window.location.pathname.includes("auditoria_actualizacion");
+      let endpoint = isActualizacion ? "auditoria_actualizacion" : "auditoria";
+
+      const resp = await fetch(`${API_BASE}/api/${endpoint}?${urlParam}&fecha_inicio=${fi}&fecha_fin=${ff}`, {
         headers:{ 'Authorization':'Bearer '+token }
       });
       if (resp.status === 401) { logout(); return; }
@@ -528,6 +711,20 @@
 
       document.getElementById('topbarTitle').textContent = nom;
       document.getElementById('topbarMeta').textContent = perf;
+
+      // ==========================================================
+      // MÓDULO: DESISTIMIENTOS
+      // ==========================================================
+      setVal('a-des-tot',  data.desistimientos?.total);
+      setVal('a-des-err',  data.desistimientos?.con_error);
+
+      // ==========================================================
+      // MÓDULO: PLAN CUIDADO COMUNITARIO (PCC)
+      // ==========================================================
+      setVal('a-pcc-pla',  data.pcc?.planes);
+      setVal('a-pcc-int',  data.pcc?.integrantes);
+      setVal('a-pcc-err',  data.pcc?.con_error);
+      setValInput('txtPccDetalles', data.pcc?.reporte_detalles);
 
       // MODULO ACTUAL: Caracterización
       setVal('a-ca-fam',   data.caracterizacion?.familias);
