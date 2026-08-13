@@ -16,11 +16,11 @@ class Config:
 
     if USE_CLOUD_DB:
         # ☁️ CREDENCIALES NUBE (AIVEN)
-        DB_USER = os.getenv("DB_USER_AIVEN", "avnadmin")
-        DB_PASSWORD = os.getenv("DB_PASSWORD_AIVEN", "")
-        DB_HOST = os.getenv("DB_HOST_AIVEN", "aps-aps-sihos.g.aivencloud.com")
-        DB_PORT = os.getenv("DB_PORT_AIVEN", "23508")
-        DB_NAME = os.getenv("DB_NAME_AIVEN", "defaultdb")
+        DB_USER = os.getenv("DB_USER_AIVEN")
+        DB_PASSWORD = os.getenv("DB_PASSWORD_AIVEN")
+        DB_HOST = os.getenv("DB_HOST_AIVEN")
+        DB_PORT = os.getenv("DB_PORT_AIVEN")
+        DB_NAME = os.getenv("DB_NAME_AIVEN")
         SSL_MODE = "?sslmode=require"
     else:
         # 🏠 CREDENCIALES LOCALES (PC)
