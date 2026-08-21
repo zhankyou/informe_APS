@@ -11,12 +11,9 @@
   <!-- LIBRERÍAS EXTERNAS -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 
-  <!-- ESTILOS GLOBALES (Reemplaza los miles de líneas de CSS inline) -->
+  <!-- ESTILOS GLOBALES -->
   <link rel="stylesheet" href="/static/css/global.css"/>
   <style>
-    /* ═══════════════════════════════════════════════════════════════
-       ESTILOS PANTALLA
-    ═══════════════════════════════════════════════════════════════ */
     :root {
       --bg:#f0f4fa;--surface:#ffffff;--navy:#0a1f3d;--navy-lt:#122848;
       --teal:#00b09b;--teal-lt:#e6f7f5;--teal-mid:#b3e8e3;
@@ -106,7 +103,6 @@
     .report-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;}
     .btn-copy-small{padding:.4rem 1rem;font-size:.75rem;border-radius:6px;border:none;color:#fff;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;}
 
-    /* ESTILO PERIODO ANTERIOR */
     .anterior-card { border: 1px dashed var(--muted) !important; background: var(--bg); opacity: 0.85;}
     .anterior-card:hover { opacity: 1; border-color: var(--teal) !important;}
     .anterior-section { background: transparent; border: 1px dashed var(--border); box-shadow: none; padding: 1rem; }
@@ -179,7 +175,7 @@
 
     <div id="resultadosAuditoria" style="display:none;">
 
-      <!-- ERRORES GLOBALES -->
+      <!-- ERRORES GLOBALES CONSOLIDADOS DE TODAS LAS TABLAS -->
       <div id="panelErrores" style="display:none; margin-bottom: 2.5rem;">
         <div class="section-header" style="justify-content:space-between;">
           <div style="display:flex;align-items:center;gap:.75rem;">
@@ -188,12 +184,12 @@
             </div>
             <div>
               <div class="section-title">Reporte de Inconsistencias Global</div>
-              <div class="section-sub">Consolidado de errores de TODAS las tablas</div>
+              <div class="section-sub">Consolidado de errores de TODAS las tablas (auditoria_errores_2026)</div>
             </div>
           </div>
-          <button class="btn-search" style="background:var(--teal);" onclick="copiarTexto('textoErroresGlobal')">📋 Copiar Reporte</button>
+          <button class="btn-search" style="background:var(--teal);" onclick="copiarTexto('textoErroresGlobal')">📋 Copiar Reporte Completo</button>
         </div>
-        <textarea id="textoErroresGlobal" readonly style="width:100%;height:280px;background:#0a1f3d;color:#00d4b8;font-family:monospace;font-size:.85rem;padding:1.5rem;border-radius:12px;border:2px solid var(--teal-mid);resize:none;outline:none;box-shadow:inset 0 4px 10px rgba(0,0,0,.5);"></textarea>
+        <textarea id="textoErroresGlobal" readonly style="width:100%;height:320px;background:#0a1f3d;color:#00d4b8;font-family:monospace;font-size:.85rem;padding:1.5rem;border-radius:12px;border:2px solid var(--teal-mid);resize:vertical;outline:none;box-shadow:inset 0 4px 10px rgba(0,0,0,.5);line-height:1.4;"></textarea>
       </div>
 
       <!-- DESISTIMIENTOS -->
@@ -536,41 +532,21 @@
   <div class="loading-text" id="loadingText">Consultando base de datos...</div>
 </div>
 
-<div class="modal-overlay" id="customModal">
-  <div class="modal-content">
-    <div class="modal-icon success" id="modalIcon">
-      <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M20 6L9 17l-5-5"></path></svg>
-    </div>
-    <div class="modal-title" id="modalTitle">Atención</div>
-    <div class="modal-text" id="modalText">Mensaje</div>
-    <button class="modal-btn" onclick="closeModal()">Entendido</button>
-  </div>
-</div>
-
 <script>
-  /**
- * Motor Frontend de Auditoría APS 2026
- * Maneja la autenticación, carga dinámica de filtros, peticiones asíncronas al backend (API REST)
- * y la inyección reactiva de datos en el DOM para la visualización de métricas.
- */
-
 const API_BASE = window.location.protocol === 'file:' ? 'http://127.0.0.1:5001' : window.location.origin;
 
-// Validación de sesión activa mediante JWT
 const token = localStorage.getItem('informes_token');
 if (!token) {
     window.location.href = '/login';
 }
 
-// Restauración del contexto de usuario en la interfaz
 const userInfo = JSON.parse(localStorage.getItem('informes_user') || '{}');
 document.getElementById('sidebarNombre').textContent = userInfo.nombre || '—';
 document.getElementById('sidebarRol').textContent    = userInfo.rol   || '—';
 
-// Utilidades de inyección y formateo
 const setValInput = (id, val) => {
     const e = document.getElementById(id);
-    if(e) e.value = val;
+    if(e) e.value = val || '';
 };
 
 function fmt(n) {
@@ -582,29 +558,21 @@ function setVal(id, v) {
     if(el) {
         el.textContent = fmt(v);
         el.classList.remove('loading');
-    } else {
-        console.warn(`Advertencia DOM: No se encontró el elemento con ID '${id}' para inyectar el valor '${v}'.`);
     }
 }
 
-// Variables de estado global
 let todosLosCorreos = [];
 let todosLosNombres = [];
 let isSearching = false;
 
-// Referencias al DOM para filtros interactivos
 const inputUser = document.getElementById('inputUser');
 const dropdown  = document.getElementById('customDropdown');
 const inputName = document.getElementById('inputName');
 const dropdownName = document.getElementById('customDropdownName');
 
-// Inicialización de colecciones de Chart.js
 const chartInstances = {};
 const PALETTE = ['#00b09b','#0a1f3d','#f0a500','#6c3fc5','#e53935','#1e9c6e','#06b6d4'];
 
-/**
- * Precarga de catálogos paramétricos (Correos y Nombres) al montar la vista
- */
 async function cargarFiltros() {
     try {
         const resp1 = await fetch(`${API_BASE}/api/encuestadores`, { headers:{ 'Authorization':'Bearer '+token } });
@@ -617,10 +585,8 @@ async function cargarFiltros() {
     }
 }
 
-// Disparador de precarga
 cargarFiltros();
 
-// Motor de autocompletado en cascada para Correos
 function filtrarCorreos(query) {
     if (!dropdown) return;
     dropdown.innerHTML = '';
@@ -647,7 +613,6 @@ function filtrarCorreos(query) {
     dropdown.style.display = 'block';
 }
 
-// Motor de autocompletado en cascada para Nombres
 function filtrarNombres(query) {
     if (!dropdownName) return;
     dropdownName.innerHTML = '';
@@ -674,7 +639,6 @@ function filtrarNombres(query) {
     dropdownName.style.display = 'block';
 }
 
-// Listeners de eventos de autocompletado
 if (inputUser) {
     inputUser.addEventListener('input', () => { inputName.value = ''; filtrarCorreos(inputUser.value); });
     inputUser.addEventListener('focus', () => filtrarCorreos(inputUser.value));
@@ -685,7 +649,6 @@ if (inputName) {
     inputName.addEventListener('focus', () => filtrarNombres(inputName.value));
 }
 
-// Cierre de dropdowns al hacer clic fuera del área de enfoque
 document.addEventListener('click', (e) => {
     if (inputUser && dropdown && e.target !== inputUser && e.target !== dropdown) {
         dropdown.style.display = 'none';
@@ -695,9 +658,6 @@ document.addEventListener('click', (e) => {
     }
 });
 
-/**
- * Cierre de sesión asíncrono y purga de tokens
- */
 async function logout() {
     try {
         await fetch(`${API_BASE}/api/logout`, { method:'POST', headers:{'Authorization':'Bearer '+token} });
@@ -709,9 +669,6 @@ async function logout() {
     window.location.href = '/login';
 }
 
-/**
- * Copia el contenido de textareas al portapapeles utilizando la API del navegador
- */
 function copiarTexto(id) {
     const el = document.getElementById(id);
     if (!el) return;
@@ -720,9 +677,6 @@ function copiarTexto(id) {
       .catch(err => alert('Fallo en la ejecución de copiado: ' + err));
 }
 
-/**
- * Renderiza listas descriptivas en el DOM
- */
 function renderList(cid, arr) {
     const c = document.getElementById(cid);
     if (!c) return;
@@ -736,9 +690,6 @@ function renderList(cid, arr) {
     });
 }
 
-/**
- * Destruye instancias previas de Canvas e inicializa nuevos gráficos mediante Chart.js
- */
 function renderBarChart(cid, labels, data) {
     const ctx = document.getElementById(cid);
     if (!ctx) return;
@@ -768,10 +719,6 @@ function renderBarChart(cid, labels, data) {
     });
 }
 
-/**
- * Orquestador central de peticiones asíncronas para la vista de Auditoría.
- * Captura el payload JSON y bifurca los datos hacia las estructuras del DOM.
- */
 async function buscarAuditoria() {
     if (isSearching) return;
 
@@ -792,19 +739,14 @@ async function buscarAuditoria() {
     isSearching = true;
     if(btn) btn.disabled = true;
 
-    // Transición de estados de UI
     document.getElementById('loadingOverlay').style.display = 'flex';
     document.getElementById('emptyState').style.display     = 'none';
     document.getElementById('resultadosAuditoria').style.display = 'none';
 
     try {
         let urlParam = email ? `usuario=${encodeURIComponent(email)}` : `nombre=${encodeURIComponent(nombre)}`;
-
-        // Enrutamiento dinámico dependiendo del contexto (Creación vs Actualización)
         let isActualizacion = window.location.pathname.includes("auditoria_actualizacion");
         let endpoint = isActualizacion ? "auditoria_actualizacion" : "auditoria";
-
-        console.log(`Lanzando petición Fetch a: ${API_BASE}/api/${endpoint}?${urlParam}&fecha_inicio=${fi}&fecha_fin=${ff}`);
 
         const resp = await fetch(`${API_BASE}/api/${endpoint}?${urlParam}&fecha_inicio=${fi}&fecha_fin=${ff}`, {
             headers:{ 'Authorization':'Bearer '+token }
@@ -816,9 +758,6 @@ async function buscarAuditoria() {
         }
 
         const data = await resp.json();
-
-        // Depuración profunda en consola para auditoría de variables
-        console.log("📦 Payload JSON recibido del servidor:", data);
 
         if (data.error) {
             alert(`Respuesta del Servidor: ${data.error}`);
@@ -833,69 +772,47 @@ async function buscarAuditoria() {
         document.getElementById('topbarTitle').textContent = nom;
         document.getElementById('topbarMeta').textContent = perf;
 
-        // ==========================================================
-        // 🟢 INYECCIÓN DOM: DESISTIMIENTOS
-        // ==========================================================
+        // --- DESISTIMIENTOS ---
         setVal('a-des-tot',  data.desistimientos?.total);
         setVal('a-des-err',  data.desistimientos?.con_error);
 
-        // ==========================================================
-        // 🟢 INYECCIÓN DOM: PLAN CUIDADO COMUNITARIO (PCC)
-        // Corrección de los selectores HTML para extracción de valores
-        // ==========================================================
+        // --- PCC ---
         if(data.pcc) {
-            console.log("Mapeando datos PCC:", data.pcc);
             setVal('a-pcc-pla',  data.pcc.planes);
             setVal('a-pcc-int',  data.pcc.integrantes);
             setVal('a-pcc-err',  data.pcc.con_error);
             setValInput('txtPccDetalles', data.pcc.reporte_detalles);
-        } else {
-            console.warn("El objeto data.pcc es indefinido o nulo desde el backend.");
         }
 
-        // ==========================================================
-        // MÓDULO ACTUAL: CARACTERIZACIÓN E INDIVIDUOS
-        // ==========================================================
+        // --- CARACTERIZACIÓN ---
         setVal('a-ca-fam',   data.caracterizacion?.familias);
         setVal('a-ca-fam-dup', data.caracterizacion?.familias_duplicadas);
         setVal('a-ca-ind',   data.caracterizacion?.individuos);
         setVal('a-ca-ind-dup', data.caracterizacion?.individuos_duplicadas);
         setVal('a-ca-sinaseg', data.caracterizacion?.sin_aseguramiento);
 
-        // ==========================================================
-        // MÓDULO ANTERIOR ACUMULADO: CARACTERIZACIÓN
-        // ==========================================================
         setVal('a-ca-fam-ant',   data.caracterizacion_ant?.familias);
         setVal('a-ca-fam-dup-ant', data.caracterizacion_ant?.familias_duplicadas);
         setVal('a-ca-ind-ant',   data.caracterizacion_ant?.individuos);
         setVal('a-ca-ind-dup-ant', data.caracterizacion_ant?.individuos_duplicadas);
         setVal('a-ca-sinaseg-ant', data.caracterizacion_ant?.sin_aseguramiento);
 
-        // ==========================================================
-        // MÓDULO ACTUAL: GRUPOS POBLACIONALES
-        // Soporte retroactivo para arquitecturas previas (data.poblacion || data.caracterizacion)
-        // ==========================================================
         setVal('a-ca-ges',   data.poblacion?.gestantes || data.caracterizacion?.gestantes);
         setVal('a-ca-men',   data.poblacion?.menores_5 || data.caracterizacion?.menores_5);
         setVal('a-ca-may',   data.poblacion?.adultos_60 || data.caracterizacion?.adultos_60);
         setVal('a-ca-vic',   data.poblacion?.victimas_conflicto || data.caracterizacion?.victimas_conflicto);
         setVal('a-ca-disc',  data.poblacion?.discapacidad_total || data.caracterizacion?.discapacidad_total);
 
-        // ==========================================================
-        // MÓDULO ANTERIOR: GRUPOS POBLACIONALES
-        // ==========================================================
         setVal('a-ca-ges-ant',   data.poblacion_ant?.gestantes);
         setVal('a-ca-men-ant',   data.poblacion_ant?.menores_5);
         setVal('a-ca-may-ant',   data.poblacion_ant?.adultos_60);
         setVal('a-ca-vic-ant',   data.poblacion_ant?.victimas_conflicto);
         setVal('a-ca-disc-ant',  data.poblacion_ant?.discapacidad_total);
 
-        // Listas dinámicas de Perfil Social
         renderList('listTipoFamilia',   data.caracterizacion?.tipo_familia);
         renderList('listEstrato',        data.caracterizacion?.estrato);
         renderList('listNivelEducativo', data.caracterizacion?.nivel_educativo);
 
-        // Composiciones porcentuales de Etnias
         const elEtnConPct = document.getElementById('a-etn-con-pct');
         const elEtnConTot = document.getElementById('a-etn-con-tot');
         const elEtnSinPct = document.getElementById('a-etn-sin-pct');
@@ -904,29 +821,21 @@ async function buscarAuditoria() {
         if(elEtnConTot) elEtnConTot.textContent = (data.caracterizacion?.etnia_con_total||0)+' personas';
         if(elEtnSinPct) elEtnSinPct.textContent = (data.caracterizacion?.etnia_sin_pct||0)+'%';
 
-        // Renderizado del Canvas Chart.js para Discapacidades
         const disc = data.caracterizacion?.discapacidades_chart || [];
         renderBarChart('chartDiscapacidadAuditoria', disc.map(x=>x.label), disc.map(x=>x.total));
 
-        // ==========================================================
-        // MÓDULO ACTUAL: PLAN DE CUIDADO FAMILIAR GENERAL (PCF)
-        // ==========================================================
+        // --- PCF GENERAL ---
         setVal('a-pcf-fam', data.pcf?.familias_intervenidas);
         setVal('a-pcf-fam-dup', data.pcf?.familias_duplicadas);
         setVal('a-pcf-int', data.pcf?.integrantes_intervenidos);
         setVal('a-pcf-int-dup', data.pcf?.integrantes_duplicados);
 
-        // ==========================================================
-        // MÓDULO ANTERIOR: PLAN DE CUIDADO FAMILIAR GENERAL (PCF)
-        // ==========================================================
         setVal('a-pcf-fam-ant', data.pcf_ant?.familias_intervenidas);
         setVal('a-pcf-fam-dup-ant', data.pcf_ant?.familias_duplicadas);
         setVal('a-pcf-int-ant', data.pcf_ant?.integrantes_intervenidos);
         setVal('a-pcf-int-dup-ant', data.pcf_ant?.integrantes_duplicados);
 
-        // ==========================================================
-        // MÓDULO: PSICOLOGÍA
-        // ==========================================================
+        // --- PSICOLOGÍA ---
         setVal('a-psi-fam', data.pcf_psicologia?.intervenciones_familiares);
         setVal('a-psi-fam-ant', data.pcf_psicologia?.familias_anteriores);
         setVal('a-psi-fam-dup', data.pcf_psicologia?.familias_duplicadas);
@@ -936,7 +845,6 @@ async function buscarAuditoria() {
         setVal('a-psi-cont-si', data.pcf_psicologia?.requiere_continuidad_si);
         setVal('a-psi-cont-no', data.pcf_psicologia?.requiere_continuidad_no);
 
-        // Manipulación dinámica de las tarjetas y tabla de Tipos de Seguimiento
         const contTiposSeg = document.getElementById('cardsTiposSeguimiento');
         const tbodyTiposSeg = document.querySelector('#tablaTiposSeguimiento tbody');
         const tdTotalSeg = document.getElementById('tdTotalSeg');
@@ -969,13 +877,10 @@ async function buscarAuditoria() {
             }
         }
 
-        // Extracción y formato de motivos de Psicología
         const mapeoMotivos = (data.pcf_psicologia?.motivos_seguimiento || []).map(m => `• ${m.label} -> Total: ${fmt(m.total)} atenciones\n`).join('');
         setValInput('txtPsicoMotivos', mapeoMotivos || 'Sin motivos registrados en el periodo.');
 
-        // ==========================================================
-        // MÓDULO: TRÁMITES ADMINISTRATIVOS
-        // ==========================================================
+        // --- TRÁMITES ---
         setVal('tr-registros', data.tramites?.total_registros);
         setVal('tr-familias',  data.tramites?.total_familias);
         setVal('a-tr-tot',  data.tramites?.total);
@@ -983,7 +888,6 @@ async function buscarAuditoria() {
         setVal('a-tr-err',  data.tramites?.con_error);
         setVal('a-tr-dup',  data.tramites?.duplicados);
 
-        // Desglose Gráfico y Tabla de Trámites
         const tr = data.tramites?.por_tipo || [];
         renderBarChart('chartTramitesAuditoria', tr.map(x=>x.label), tr.map(x=>x.total));
 
@@ -1005,7 +909,6 @@ async function buscarAuditoria() {
                 sumTot += item.total;
                 sumRes += item.resueltos;
 
-                // Colorimetría condicional basada en resolutividad
                 let color = 'var(--text)';
                 if(item.porcentaje === 100) color = 'var(--green)';
                 else if(item.porcentaje === 0) color = 'var(--gold)';
@@ -1026,25 +929,23 @@ async function buscarAuditoria() {
             if(elPct) elPct.textContent = pctGlobal + '%';
         }
 
-        // ==========================================================
-        // INYECCIÓN DE METADATOS Y REPORTES EN TEXTAREAS
-        // ==========================================================
+        // --- INYECCIÓN DEL REPORTE CONSOLIDADO COMPLETO EN TEXTAREA GLOBAL ---
         const panelErr = document.getElementById('panelErrores');
         if (panelErr) panelErr.style.display = 'block';
 
-        setValInput('textoErroresGlobal', data.reporte_errores_texto);
+        // Mapeo explicito del reporte consolidado global sin filtros restictivos
+        const reporteTextoConsolidado = data.reporte_texto_global_consolidado || data.reporte_errores_texto || "✅ No se registraron inconsistencias en auditoría.";
+        setValInput('textoErroresGlobal', reporteTextoConsolidado);
 
-        // Detalles de Caracterización
+        // Detalles por sección
         setValInput('txtCaFamDuplicadas', data.caracterizacion?.reporte_duplicados_fam);
         setValInput('txtCaIndDuplicadas', data.caracterizacion?.reporte_duplicados_ind);
 
-        // Detalles PCF
         setValInput('txtPcfRealizados', data.pcf?.reporte_familias);
         setValInput('txtPcfErrores', data.pcf?.reporte_errores);
         setValInput('txtPcfDuplicados', data.pcf?.reporte_duplicados_fam);
         setValInput('txtPcfIndDuplicados', data.pcf?.reporte_duplicados_ind);
 
-        // Detalles Psicología
         setValInput('txtPsicoRealizados', data.pcf_psicologia?.reporte_familias);
         setValInput('txtPsicoSeguimientos', data.pcf_psicologia?.reporte_seguimientos);
         setValInput('txtPsicoErrores', data.pcf_psicologia?.reporte_errores);
@@ -1053,19 +954,17 @@ async function buscarAuditoria() {
         setValInput('txtPsicoFamDuplicadas', data.pcf_psicologia?.reporte_duplicados_fam);
         setValInput('txtPsicoIndDuplicadas', data.pcf_psicologia?.reporte_duplicados_ind);
 
-        // Detalles Trámites
         setValInput('txtTramRealizados', data.tramites?.reporte_realizados);
         setValInput('txtTramResueltos', data.tramites?.reporte_resueltos);
         setValInput('txtTramErrores', data.tramites?.reporte_errores);
         setValInput('txtTramDuplicados', data.tramites?.reporte_duplicados);
         setValInput('txtTramObservaciones', data.tramites?.reporte_observaciones);
 
-        // Revelado final de la interfaz
         document.getElementById('resultadosAuditoria').style.display = 'block';
 
     } catch(err) {
-        console.error("Excepción crítica capturada en bloque Catch:", err);
-        alert(`⚠️ Interrupción en la Transacción:\n\n${err.message}\n\nVerifica la integridad de la red o la disponibilidad del servidor WSGI.`);
+        console.error("Excepción al ejecutar la consulta de auditoría:", err);
+        alert(`⚠️ Interrupción en la Transacción:\n\n${err.message}`);
         document.getElementById('emptyState').style.display = 'block';
     } finally {
         isSearching = false;
@@ -1074,7 +973,6 @@ async function buscarAuditoria() {
     }
 }
 
-// Vinculación de eventos de teclado (Enter) para disparo de consultas
 ['inputUser','inputInicio','inputFin'].forEach(id => {
     const el = document.getElementById(id);
     if(el) {
