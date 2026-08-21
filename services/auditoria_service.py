@@ -842,24 +842,113 @@ class AuditoriaService(BaseService):
             "reporte_observaciones": texto_obs_tramites.strip() if texto_obs_tramites else "No hay observaciones de trámites en estas fechas."
         }
 
-        query_errores = text(f"""
-                             SELECT modulo, id_ficha, titulo_ficha, cantidad_errores, detalle_inconsistencias
-                             FROM auditoria_errores_2026
-                             WHERE LOWER(TRIM(CAST(usuario_creador AS text))) = LOWER(:email_res)
-                               AND {self.get_date_filter('fecha_creacion')}
-                             ORDER BY modulo, cantidad_errores DESC
-                             """)
-        lista_errores_texto = []
-        try:
-            with self.engine.connect() as conn:
-                for row in conn.execute(query_errores, params).mappings():
-                    lista_errores_texto.append(
-                        f"🛑 MÓDULO: {row['modulo']}\nFicha ID: {row['id_ficha']} | Título: {row['titulo_ficha']}\nErrores ({row['cantidad_errores']}): {row['detalle_inconsistencias']}\n--------------------------------------------------")
-        except:
-            pass
+        # Integración de la vista global consolidada clasificada por módulo
+        reporte_consolidado = self.obtener_reporte_inconsistencias_consolidadas()
+        data.update(reporte_consolidado)
 
-        lista_errores_texto.extend(errores_dinamicos)
-        data["reporte_errores_texto"] = "\n".join(
-            lista_errores_texto) if lista_errores_texto else "✅ ¡Felicitaciones! No se encontraron errores de auditoría para este encuestador en estas fechas."
+        # Mapeo garantizado del total de errores globales para el cuadro de texto principal
+        data["reporte_errores_texto"] = reporte_consolidado.get("reporte_texto_global_consolidado") or "✅ No se encontraron inconsistencias de auditoría en la base de datos."
 
         return data
+
+    def obtener_reporte_inconsistencias_consolidadas(self) -> dict:
+        """
+        Consulta la tabla 'auditoria_errores_2026', agrupa y clasifica TODOS los registros
+        de la tabla por la columna 'modulo', proyectando 'auditoria_errores_2026' como tabla origen
+        y asignando los íconos visuales (❌ Error vs ⚠️ Advertencia).
+        """
+        query = """
+            SELECT 
+                COALESCE(modulo, 'SIN_MODULO') AS modulo,
+                id_ficha,
+                COALESCE(usuario_creador, 'Desconocido') AS usuario_creador,
+                COALESCE(titulo_ficha, 'Sin Título') AS titulo_ficha,
+                fecha_creacion,
+                COALESCE(cantidad_errores, 0) AS cantidad_errores,
+                COALESCE(detalle_inconsistencias, '') AS detalle_inconsistencias,
+                'auditoria_errores_2026' AS tabla_origen
+            FROM auditoria_errores_2026
+            ORDER BY modulo ASC, fecha_creacion DESC;
+        """
+
+        modulos_agrupados = {}
+        reporte_texto_por_modulo = {}
+        total_registros = 0
+        total_errores = 0
+        total_advertencias = 0
+
+        try:
+            rows = self.ejecutar(query, {})
+            for row in rows:
+                total_registros += 1
+
+                mod = str(row['modulo']).strip().upper()
+                id_ficha = row['id_ficha']
+                usuario = row['usuario_creador']
+                titulo = row['titulo_ficha']
+                fecha = row['fecha_creacion'].strftime('%Y-%m-%d %H:%M:%S') if row.get('fecha_creacion') else 'N/A'
+                cant_errores = row['cantidad_errores']
+                detalle = row['detalle_inconsistencias']
+                tabla = row['tabla_origen']
+
+                # Clasificación de severidad basada en contenido y contador
+                detalle_upper = str(detalle).upper()
+                if any(k in detalle_upper for k in ['ADVERTENCIA', 'WARNING', 'ADV']) or cant_errores == 0:
+                    icono = "⚠️"
+                    tipo_normalizado = "ADVERTENCIA"
+                    total_advertencias += 1
+                else:
+                    icono = "❌"
+                    tipo_normalizado = "ERROR"
+                    total_errores += 1
+
+                registro_dict = {
+                    "icono": icono,
+                    "modulo": mod,
+                    "id_ficha": id_ficha,
+                    "usuario_creador": usuario,
+                    "titulo_ficha": titulo,
+                    "fecha_creacion": fecha,
+                    "cantidad_errores": cant_errores,
+                    "detalle_inconsistencias": detalle,
+                    "tabla_origen": tabla,
+                    "tipo_error": tipo_normalizado
+                }
+
+                if mod not in modulos_agrupados:
+                    modulos_agrupados[mod] = []
+                modulos_agrupados[mod].append(registro_dict)
+
+            for mod, lista_errores in modulos_agrupados.items():
+                lineas_texto = [f"=== MÓDULO: {mod} ({len(lista_errores)} registros) ==="]
+                for idx, err in enumerate(lista_errores, 1):
+                    lineas_texto.append(
+                        f"[{idx}] {err['icono']} [{err['tipo_error']}] | Tabla: {err['tabla_origen']} | "
+                        f"Ficha ID: {err['id_ficha']} | Título: {err['titulo_ficha']} | "
+                        f"Usuario: {err['usuario_creador']} | Fecha: {err['fecha_creacion']} | "
+                        f"Cant. Errores: {err['cantidad_errores']}\n"
+                        f"    Detalle: {err['detalle_inconsistencias']}\n"
+                    )
+                reporte_texto_por_modulo[mod] = "\n".join(lineas_texto)
+
+            reporte_global_str = "\n\n".join(reporte_texto_por_modulo.values())
+
+            return {
+                "modulos_consolidados": modulos_agrupados,
+                "reporte_texto_por_modulo_consolidado": reporte_texto_por_modulo,
+                "reporte_texto_global_consolidado": reporte_global_str if reporte_global_str else "✅ No se registraron inconsistencias en la tabla.",
+                "resumen_consolidado": {
+                    "total_registros": total_registros,
+                    "total_errores": total_errores,
+                    "total_advertencias": total_advertencias,
+                    "total_modulos": len(modulos_agrupados)
+                }
+            }
+        except Exception as e:
+            logger.error(f"Error al obtener consolidado desde auditoria_errores_2026: {str(e)}", exc_info=True)
+            return {
+                "modulos_consolidados": {},
+                "reporte_texto_por_modulo_consolidado": {},
+                "reporte_texto_global_consolidado": "Ocurrió un error al cargar la información consolidada de auditoría.",
+                "resumen_consolidado": {"total_registros": 0, "total_errores": 0, "total_advertencias": 0, "total_modulos": 0}
+            }
