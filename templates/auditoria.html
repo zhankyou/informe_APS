@@ -46,7 +46,7 @@
     .btn-logout{margin-top:.75rem;width:100%;background:rgba(229,57,53,.15);border:1px solid rgba(229,57,53,.3);color:#ff8a80;border-radius:8px;padding:.45rem;font-family:'Sora',sans-serif;font-size:.75rem;cursor:pointer;transition:background .2s;}
     .btn-logout:hover{background:rgba(229,57,53,.25);}
 
-    .main{margin-left:var(--sidebar-w);flex:1;min-height:100vh;}
+    .main{margin-left:var(--sidebar-w);flex:1;min-height:100vh;min-width:0;}
     .topbar{background:var(--surface);padding:1rem 2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:var(--shadow);}
     .topbar-title{font-family:'Fraunces',serif;font-size:1.1rem;font-weight:700;color:var(--navy);text-transform: capitalize;}
     .topbar-meta{font-size:.75rem;color:var(--muted);}
@@ -80,16 +80,33 @@
     .stat-value{font-family:'Fraunces',serif;font-size:2rem;font-weight:700;color:var(--navy);line-height:1;margin-bottom:.2rem;}
     .stat-badge{display:inline-block;padding:.15rem .55rem;border-radius:20px;font-size:.68rem;font-weight:600;}
     .badge-error{background:var(--red-lt);color:var(--red)}.badge-ok{background:var(--green-lt);color:var(--green)}.badge-warn{background:var(--gold-lt);color:var(--gold)}.badge-info{background:var(--teal-lt);color:var(--teal)}.badge-orange{background:var(--orange-lt);color:var(--orange)}
-    .sub-section{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.2rem 1.4rem;margin-bottom:1rem;}
+
+    /* Configuración de Ancho Restringido para Contenedores Flexibles */
+    .sub-section {background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.2rem 1.4rem;margin-bottom:1rem; min-width:0; max-width:100%;}
+
     .sub-section-title{font-size:.73rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem;padding-bottom:.6rem;border-bottom:1px solid var(--border);}
     .chart-container{position:relative;height:220px;}
     .divider{height:1px;background:var(--border);margin:1.8rem 0;}
     .list-row{display:flex;justify-content:space-between;margin-bottom:.4rem;font-size:.8rem;border-bottom:1px solid var(--border);padding-bottom:.2rem;}
 
-    .data-table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem; }
-    .data-table th { background: var(--navy); color: #fff; padding: 0.8rem; text-align: left; font-weight: 600; border-right: 1px solid rgba(255,255,255,0.1); }
-    .data-table td { padding: 0.8rem; border-bottom: 1px solid var(--border); color: var(--text); border-right: 1px solid var(--border); }
-    .data-table tfoot td { background: var(--teal-lt); font-weight: 700; color: var(--navy); border-top: 2px solid var(--teal); }
+    /* Contenedor Adaptativo de Tablas con Scroll Aislado */
+    .table-container {
+        width: 100%;
+        max-width: 100%;
+        max-height: 450px;
+        overflow-x: auto;
+        overflow-y: auto;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        display: block;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .data-table { width: 100%; min-width: max-content; border-collapse: collapse; font-size: 0.75rem; white-space: nowrap; margin-top: 0; }
+    .data-table th { background: var(--navy); color: #fff; padding: 0.6rem; text-align: left; font-weight: 600; border-right: 1px solid rgba(255,255,255,0.1); position: sticky; top: 0; z-index: 10;}
+    .data-table td { padding: 0.6rem; border-bottom: 1px solid var(--border); color: var(--text); border-right: 1px solid var(--border); }
+    .data-table tfoot td { background: var(--teal-lt); font-weight: 700; color: var(--navy); border-top: 2px solid var(--teal); position: sticky; bottom: 0;}
     .res-badge { display:inline-block; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:700; background:var(--green-lt); color:var(--green); }
 
     #loadingOverlay{position:fixed;inset:0;background:rgba(240,244,250,.8);z-index:999;display:none;flex-direction:column;align-items:center;justify-content:center;gap:1rem;}
@@ -184,7 +201,7 @@
             </div>
             <div>
               <div class="section-title">Reporte de Inconsistencias Global</div>
-              <div class="section-sub">Consolidado de errores de TODAS las tablas (auditoria_errores_2026)</div>
+              <div class="section-sub">Consolidado de errores de TODAS las tablas filtrado por encuestador y fecha</div>
             </div>
           </div>
           <button class="btn-search" style="background:var(--teal);" onclick="copiarTexto('textoErroresGlobal')">📋 Copiar Reporte Completo</button>
@@ -244,6 +261,47 @@
           <div class="stat-card c-navy"><div class="stat-label">Integrantes caracterizados</div><div class="stat-value" id="a-ca-ind">0</div></div>
           <div class="stat-card c-orange"><div class="stat-label">Integrantes Duplicados</div><div class="stat-value" id="a-ca-ind-dup">0</div><span class="stat-badge badge-orange">Descontados</span></div>
           <div class="stat-card c-red"><div class="stat-label">Familias sin aseguramiento</div><div class="stat-value" id="a-ca-sinaseg">—</div><span class="stat-badge badge-error">No afiliadas</span></div>
+        </div>
+
+        <!-- EXTRACCIÓN DE TABLAS COMPLETAS CARACTERIZACIÓN -->
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Muestra Tabular: Caracterización Familiar 2026</div>
+          <div class="table-container">
+            <table class="data-table" id="tablaCaractFamiliar">
+              <thead>
+                <tr>
+                  <th>ec5_uuid</th><th>created_at</th><th>uploaded_at</th><th>created_by</th><th>title</th>
+                  <th>12_4_territorio</th><th>13_5_microterritorio</th><th>lat_15_8</th><th>long_15_8</th>
+                  <th>18_10_cdigo_hogar</th><th>19_101_cdigo_hogar</th><th>21_11_cdigo_familia</th><th>22_111_cdigo_familia</th>
+                  <th>24_13_numero_hoga</th><th>25_14_numero_fami</th><th>26_15_numero_pers</th><th>27_22_cdigo_ficha</th>
+                  <th>31_19_nmero_ident</th><th>32_20_responsable</th><th>34_23_fecha_diligenc</th><th>64_41_tipo_famili</th>
+                  <th>65_42_nmero_perso</th><th>66_43_estructura</th><th>67_431_seleccione</th><th>69_45_funcionalidad</th>
+                  <th>70_451_evidencia_apg</th><th>71_46_en_familia</th><th>72_47_si_respuesta</th><th>73_471_imagen_escala</th>
+                  <th>74_48_interrelacione</th><th>99_41_identificacin</th><th>147_70_observaciones</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Muestra Tabular: Caracterización Individual 2026</div>
+          <div class="table-container">
+            <table class="data-table" id="tablaCaractIndividual">
+              <thead>
+                <tr>
+                  <th>ec5_branch_owner_uuid</th><th>ec5_branch_uuid</th><th>created_at</th><th>uploaded_at</th>
+                  <th>created_by</th><th>title</th><th>100_1_primer_nombre</th><th>102_3_primer_apellid</th>
+                  <th>104_5_tipo_identi</th><th>105_6_numero_iden</th><th>106_numero_celular</th><th>107_7_fecha_nacim</th>
+                  <th>108_8_sexo</th><th>109_9_encuentra_e</th><th>110_10_rol_dentro</th><th>111_11_ocupacion</th>
+                  <th>112_12_nivel_educati</th><th>113_13_rgimen_afi</th><th>114_14_eapb</th><th>115_15_pertenencia_a</th>
+                  <th>116_16_pertenencia_t</th><th>119_19_reconoce_algu</th><th>127_25_cumple_con_el</th><th>128_26_a_qu_etapa_de</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
         </div>
 
         <!-- CARACTERIZACIÓN ANTERIOR -->
@@ -719,6 +777,27 @@ function renderBarChart(cid, labels, data) {
     });
 }
 
+function renderTabla(tbodyId, dataList, cols) {
+    const tbody = document.querySelector(`#${tbodyId} tbody`);
+    if(!tbody) return;
+    tbody.innerHTML = '';
+
+    if(!dataList || dataList.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${cols.length}" style="text-align:center; padding: 2rem;">No hay registros asociados a este encuestador y fecha.</td></tr>`;
+        return;
+    }
+
+    dataList.forEach(row => {
+        const tr = document.createElement('tr');
+        cols.forEach(col => {
+            const td = document.createElement('td');
+            td.textContent = row[col] || '';
+            tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+    });
+}
+
 async function buscarAuditoria() {
     if (isSearching) return;
 
@@ -790,6 +869,26 @@ async function buscarAuditoria() {
         setVal('a-ca-ind',   data.caracterizacion?.individuos);
         setVal('a-ca-ind-dup', data.caracterizacion?.individuos_duplicadas);
         setVal('a-ca-sinaseg', data.caracterizacion?.sin_aseguramiento);
+
+        // POBLACIÓN DE TABLAS DE CARACTERIZACIÓN
+        renderTabla('tablaCaractFamiliar', data.caracterizacion?.tabla_familiar, [
+            "ec5_uuid", "created_at", "uploaded_at", "created_by", "title", "12_4_territorio", "13_5_microterritorio",
+            "lat_15_8_geo_punto_georr", "long_15_8_geo_punto_georr", "18_10_cdigo_hogar", "19_101_cdigo_hogar",
+            "21_11_cdigo_familia", "22_111_cdigo_familia", "24_13_numero_de_hoga", "25_14_numero_de_fami",
+            "26_15_numero_de_pers", "27_22_cdigo_de_la_fi", "31_19_nmero_de_ident", "32_20_responsable_de",
+            "34_23_fecha_diligenc", "64_41_tipo_de_famili", "65_42_nmero_de_perso", "66_43_estructura_y_d",
+            "67_431_seleccione_el", "69_45_funcionalidad_", "70_451_evidencia_apg", "71_46_en_la_familia_",
+            "72_47_si_la_respuest", "73_471_imagen_escala", "74_48_interrelacione", "99_41_identificacin_", "147_70_observaciones"
+        ]);
+
+        renderTabla('tablaCaractIndividual', data.caracterizacion?.tabla_individual, [
+            "ec5_branch_owner_uuid", "ec5_branch_uuid", "created_at", "uploaded_at", "created_by", "title",
+            "100_1_primer_nombre", "102_3_primer_apellid", "104_5_tipo_de_identi", "105_6_numero_de_iden",
+            "106_numero_celular", "107_7_fecha_de_nacim", "108_8_sexo", "109_9_se_encuentra_e",
+            "110_10_rol_dentro_de", "111_11_ocupacion", "112_12_nivel_educati", "113_13_rgimen_de_afi",
+            "114_14_eapb", "115_15_pertenencia_a", "116_16_pertenencia_t", "119_19_reconoce_algu",
+            "127_25_cumple_con_el", "128_26_a_qu_etapa_de"
+        ]);
 
         setVal('a-ca-fam-ant',   data.caracterizacion_ant?.familias);
         setVal('a-ca-fam-dup-ant', data.caracterizacion_ant?.familias_duplicadas);
@@ -933,8 +1032,7 @@ async function buscarAuditoria() {
         const panelErr = document.getElementById('panelErrores');
         if (panelErr) panelErr.style.display = 'block';
 
-        // Mapeo explicito del reporte consolidado global sin filtros restictivos
-        const reporteTextoConsolidado = data.reporte_texto_global_consolidado || data.reporte_errores_texto || "✅ No se registraron inconsistencias en auditoría.";
+        const reporteTextoConsolidado = data.reporte_errores_texto || "✅ No se registraron inconsistencias en auditoría.";
         setValInput('textoErroresGlobal', reporteTextoConsolidado);
 
         // Detalles por sección
