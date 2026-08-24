@@ -1,1102 +1,1260 @@
-# -*- coding: utf-8 -*-
-import re
-from collections import Counter
-import logging
-from database.db_core import BaseService
-from sqlalchemy import text
-
-logger = logging.getLogger("AuditoriaService")
-
-
-class AuditoriaService(BaseService):
-
-    def obtener_datos(self, correo: str, nombre: str, fecha_ini: str, fecha_fin: str,
-                      tipo_fecha: str = 'created_at') -> dict:
-        f_ini = fecha_ini or "2000-01-01"
-        f_fin = fecha_fin or "2099-12-31"
-
-        email_res = correo if correo else self.resolver_correo(nombre)
-        params = {"correo": correo, "nombre": nombre, "email_res": email_res, "f_ini": f_ini, "f_fin": f_fin}
-
-        if correo:
-            w_desist = "LOWER(TRIM(CAST(created_by AS text))) = LOWER(:correo)"
-            w_pcc_prin = "LOWER(TRIM(CAST(created_by AS text))) = LOWER(:correo)"
-            w_pcc_int = "LOWER(TRIM(CAST(p.created_by AS text))) = LOWER(:correo)"
-            j_caract_ind = ""
-            w_caract_fam = "LOWER(TRIM(CAST(created_by AS text))) = LOWER(:correo)"
-            w_caract_ind = "LOWER(TRIM(CAST(tbl.created_by AS text))) = LOWER(:correo)"
-            w_pcf_prin = "LOWER(TRIM(CAST(created_by AS text))) = LOWER(:correo)"
-            w_pcf_int = "LOWER(TRIM(CAST(p.created_by AS text))) = LOWER(:correo)"
-            j_psico_prin = ""
-            w_psico_prin = "LOWER(TRIM(CAST(tbl.created_by AS text))) = LOWER(:correo)"
-            j_psico_seg = "JOIN pcf_psicologia_principal_2026 i_seg ON tbl.ec5_branch_owner_uuid = i_seg.ec5_uuid JOIN pcf_planes_principal_2026 p ON i_seg.ec5_parent_uuid = p.ec5_uuid"
-            w_psico_seg = "LOWER(TRIM(CAST(p.created_by AS text))) = LOWER(:correo)"
-            w_tramites = "LOWER(TRIM(CAST(created_by AS text))) = LOWER(:correo)"
-            w_psico_ant_fam = "LOWER(TRIM(CAST(f.created_by AS text))) = LOWER(:correo)"
-            j_psico_ant_ind = ""
-            w_psico_ant_ind = "LOWER(TRIM(CAST(i.created_by AS text))) = LOWER(:correo)"
-        else:
-            w_desist = "LOWER(TRIM(CAST(\"13_10_nombre_profesi\" AS text))) = LOWER(:nombre)"
-            w_pcc_prin = "LOWER(TRIM(CAST(\"4_4_nombre_del_profe\" AS text))) = LOWER(:nombre)"
-            w_pcc_int = "LOWER(TRIM(CAST(p.\"4_4_nombre_del_profe\" AS text))) = LOWER(:nombre)"
-            w_caract_fam = "LOWER(TRIM(CAST(\"32_20_responsable_de\" AS text))) = LOWER(:nombre)"
-            j_caract_ind = "JOIN caracterizacion_si_aps_familiar_2026 f ON tbl.ec5_branch_owner_uuid = f.ec5_uuid"
-            w_caract_ind = "LOWER(TRIM(CAST(f.\"32_20_responsable_de\" AS text))) = LOWER(:nombre)"
-            w_pcf_prin = "LOWER(TRIM(CAST(\"5_4_nombre_del_profe\" AS text))) = LOWER(:nombre)"
-            w_pcf_int = "LOWER(TRIM(CAST(p.\"5_4_nombre_del_profe\" AS text))) = LOWER(:nombre)"
-            j_psico_prin = "JOIN pcf_planes_principal_2026 p ON tbl.ec5_parent_uuid = p.ec5_uuid"
-            w_psico_prin = "LOWER(TRIM(CAST(p.\"5_4_nombre_del_profe\" AS text))) = LOWER(:nombre)"
-            j_psico_seg = "JOIN pcf_psicologia_principal_2026 i_seg ON tbl.ec5_branch_owner_uuid = i_seg.ec5_uuid JOIN pcf_planes_principal_2026 p ON i_seg.ec5_parent_uuid = p.ec5_uuid"
-            w_psico_seg = "LOWER(TRIM(CAST(p.\"5_4_nombre_del_profe\" AS text))) = LOWER(:nombre)"
-            w_tramites = "LOWER(TRIM(CAST(\"10_7_nombre_profesio\" AS text))) = LOWER(:nombre)"
-            w_psico_ant_fam = "LOWER(TRIM(CAST(f.\"5_4_nombre_del_profe\" AS text))) = LOWER(:nombre)"
-            j_psico_ant_ind = "JOIN pcf_planes_principal_2026 f ON i.ec5_parent_uuid = f.ec5_uuid"
-            w_psico_ant_ind = "LOWER(TRIM(CAST(f.\"5_4_nombre_del_profe\" AS text))) = LOWER(:nombre)"
-
-        data = {"usuario": correo or nombre, "rango_fechas": f"{f_ini} / {f_fin}"}
-
-        # 1. PERFIL
-        query_perfil = f"""
-                       SELECT "5_4_nombre_del_profe" as nombre, "4_3_perfil_profesion" as perfil, COUNT(*) as qty
-                       FROM pcf_planes_principal_2026
-                       WHERE {w_pcf_prin}
-                         AND {self.get_date_filter(tipo_fecha)}
-                         AND "5_4_nombre_del_profe" IS NOT NULL
-                       GROUP BY 1, 2
-                       ORDER BY qty DESC LIMIT 1
-                       """
-        res_perfil = self.ejecutar(query_perfil, params)
-        if res_perfil:
-            data["encuestador_nombre"] = res_perfil[0]["nombre"]
-            data["encuestador_perfil"] = res_perfil[0]["perfil"]
-        else:
-            data["encuestador_nombre"] = "Sin registro de nombre"
-            data["encuestador_perfil"] = "Sin registro de perfil"
-
-        data["desistimientos"] = {
-            "total": self.safe_count(
-                f"SELECT COUNT(*) FROM desistimiento_aps_2026 WHERE {w_desist} AND {self.get_date_filter(tipo_fecha)}",
-                params),
-            "con_error": self.safe_count(
-                f"SELECT COUNT(*) FROM auditoria_errores_2026 WHERE LOWER(TRIM(CAST(usuario_creador AS text))) = LOWER(:email_res) AND modulo = 'DESISTIMIENTOS' AND {self.get_date_filter('fecha_creacion')}",
-                params)
-        }
-
-        query_pcc_int = f"""
-                        SELECT COUNT(*)
-                        FROM pcc_integrantes_2026 b
-                        JOIN pcc_principal_2026 p ON b.ec5_branch_owner_uuid = p.ec5_uuid
-                        WHERE {w_pcc_int}
-                          AND {self.get_date_filter(f'p.{tipo_fecha}')}
-                        """
-        pcc_planes_count = self.safe_count(
-            f"SELECT COUNT(*) FROM pcc_principal_2026 WHERE {w_pcc_prin} AND {self.get_date_filter(tipo_fecha)}",
-            params)
-
-        texto_pcc_detalles = ""
-        if pcc_planes_count > 0:
-            try:
-                res_pcc = self.ejecutar(f"""
-                                   SELECT ec5_uuid, {tipo_fecha} as fecha_base, "20_14_detalles_jorna"
-                                   FROM pcc_principal_2026
-                                   WHERE {w_pcc_prin} AND {self.get_date_filter(tipo_fecha)}
-                                   """, params)
-                for idx, r in enumerate(res_pcc, 1):
-                    uid_ficha = r.get('ec5_uuid', 'N/A')
-                    fecha = str(r.get('fecha_base', ''))[:10]
-                    detalle = str(r.get("20_14_detalles_jorna", "")).replace('\n', ' ')
-                    if not detalle or detalle == 'None': detalle = "Sin detalles registrados."
-                    texto_pcc_detalles += f"Plan {idx} [{uid_ficha}] - {fecha}: {detalle}\n\n"
-            except:
-                pass
-
-        data["pcc"] = {
-            "planes": pcc_planes_count,
-            "integrantes": self.safe_count(query_pcc_int, params),
-            "con_error": self.safe_count(
-                f"SELECT COUNT(*) FROM auditoria_errores_2026 WHERE LOWER(TRIM(CAST(usuario_creador AS text))) = LOWER(:email_res) AND modulo LIKE 'PCC%' AND {self.get_date_filter('fecha_creacion')}",
-                params),
-            "reporte_detalles": texto_pcc_detalles.strip() if texto_pcc_detalles else "No hay detalles de planes comunitarios registrados."
-        }
-
-        query_edades_aud = f"""
-                           WITH fechas_limpias AS (
-                               SELECT CASE 
-                                           WHEN CAST(tbl.{tipo_fecha} AS text) ~ '^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}' THEN to_date(LEFT(CAST(tbl.{tipo_fecha} AS text), 10), 'YYYY-MM-DD') 
-                                           WHEN CAST(tbl.{tipo_fecha} AS text) ~ '^[0-9]{{2}}/[0-9]{{2}}/[0-9]{{4}}' THEN to_date(LEFT(CAST(tbl.{tipo_fecha} AS text), 10), 'DD/MM/YYYY') 
-                                           ELSE NULL END as f_crea,
-                                      TRIM(CAST(tbl."107_7_fecha_de_nacim" AS text)) as f_nac_raw
-                               FROM caracterizacion_si_aps_individual_2026 tbl
-                               {j_caract_ind}
-                               WHERE {w_caract_ind}
-                                 AND {self.get_date_filter(f'tbl.{tipo_fecha}')}
-                                 AND tbl."107_7_fecha_de_nacim" IS NOT NULL
-                           ),
-                           edades AS (
-                               SELECT f_crea,
-                                      CASE
-                                          WHEN f_nac_raw ~ '^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}' THEN to_date(LEFT(f_nac_raw, 10), 'YYYY-MM-DD')
-                                          WHEN f_nac_raw ~ '^[0-9]{{2}}/[0-9]{{2}}/[0-9]{{4}}' THEN to_date(LEFT(f_nac_raw, 10), 'DD/MM/YYYY')
-                                          ELSE NULL
-                                          END as f_nac
-                               FROM fechas_limpias
-                           )
-                           SELECT COUNT(*) FILTER (WHERE EXTRACT(YEAR FROM AGE(f_crea, f_nac)) < 5) as menores, 
-                                  COUNT(*) FILTER (WHERE EXTRACT(YEAR FROM AGE(f_crea, f_nac)) >= 60) as mayores
-                           FROM edades WHERE f_nac IS NOT NULL
-                           """
-        res_edades_aud = self.ejecutar(query_edades_aud, params)
-        men_5_aud = res_edades_aud[0]["menores"] if res_edades_aud else 0
-        may_60_aud = res_edades_aud[0]["mayores"] if res_edades_aud else 0
-
-        tipo_familia_aud = self.safe_group(f"""
-                                      SELECT "64_41_tipo_de_famili", COUNT(*) as total
-                                      FROM caracterizacion_si_aps_familiar_2026
-                                      WHERE {w_caract_fam} AND {self.get_date_filter(tipo_fecha)} AND "64_41_tipo_de_famili" IS NOT NULL
-                                      GROUP BY 1 ORDER BY 2 DESC
-                                      """, params)
-
-        estrato_aud = self.safe_group(f"""
-                                 SELECT "23_12_estrato_socioe", COUNT(*) as total
-                                 FROM caracterizacion_si_aps_familiar_2026
-                                 WHERE {w_caract_fam} AND {self.get_date_filter(tipo_fecha)} AND "23_12_estrato_socioe" IS NOT NULL
-                                 GROUP BY 1 ORDER BY 1
-                                 """, params)
-
-        nivel_educativo_aud = self.safe_group(f"""
-                                         SELECT tbl."112_12_nivel_educati", COUNT(*) as total
-                                         FROM caracterizacion_si_aps_individual_2026 tbl
-                                         {j_caract_ind}
-                                         WHERE {w_caract_ind} AND {self.get_date_filter(f'tbl.{tipo_fecha}')} AND tbl."112_12_nivel_educati" IS NOT NULL
-                                         GROUP BY 1 ORDER BY 2 DESC
-                                         """, params)
-
-        etnia_comp_aud = self.ejecutar(f"""
-                                  SELECT COUNT(*) FILTER (WHERE tbl."116_16_pertenencia_t" = '7. Ninguna' OR tbl."116_16_pertenencia_t" IS NULL) AS sin_etnia, 
-                                         COUNT(*) FILTER (WHERE tbl."116_16_pertenencia_t" IS NOT NULL AND tbl."116_16_pertenencia_t" != '7. Ninguna') AS con_etnia, 
-                                         COUNT(*) AS total
-                                  FROM caracterizacion_si_aps_individual_2026 tbl
-                                  {j_caract_ind}
-                                  WHERE {w_caract_ind} AND {self.get_date_filter(f'tbl.{tipo_fecha}')}
-                                  """, params)
-
-        etnia_data_aud = etnia_comp_aud[0] if etnia_comp_aud else {"sin_etnia": 0, "con_etnia": 0, "total": 0}
-        total_etnia_aud = int(etnia_data_aud.get("total") or 1)
-        if total_etnia_aud == 0: total_etnia_aud = 1
-
-        query_disc_aud = f"""
-                         SELECT tbl.ec5_branch_owner_uuid as id_ficha, tbl."119_19_reconoce_algu" as disc
-                         FROM caracterizacion_si_aps_individual_2026 tbl
-                         {j_caract_ind}
-                         WHERE {w_caract_ind} AND {self.get_date_filter(f'tbl.{tipo_fecha}')} AND tbl."119_19_reconoce_algu" IS NOT NULL
-                         """
-        res_disc_aud = self.ejecutar(query_disc_aud, params)
-        total_discapacidad_aud = 0
-        conteo_disc_aud = {}
-        errores_dinamicos = []
-
-        for r in res_disc_aud:
-            texto = str(r["disc"])
-            if not texto or texto == 'None': continue
-            items = [x.strip() for x in texto.split(",")]
-            has_sin = any("Sin discapacidad" in x for x in items)
-
-            if has_sin:
-                if len(items) > 1:
-                    errores_dinamicos.append(
-                        f"❌ MÓDULO: CARACT_INDIVIDUAL\n"
-                        f"📄 Ficha ID: {r.get('id_ficha', 'N/A')} | 📝 Título: N/A\n"
-                        f"👤 Usuario: {email_res} | 📅 Fecha Creación: N/A\n"
-                        f"🔎 Errores (1): Contradicción en Selección Múltiple de Discapacidad\n"
-                        f"--------------------------------------------------"
-                    )
-            else:
-                total_discapacidad_aud += 1
-                for item in items:
-                    if item: conteo_disc_aud[item] = conteo_disc_aud.get(item, 0) + 1
-
-        disc_chart_aud = [{"label": k, "total": v} for k, v in
-                          sorted(conteo_disc_aud.items(), key=lambda x: x[1], reverse=True)]
-
-        # 🛑 DUPLICADOS EN FAMILIAS
-        raw_fam_aud = self.ejecutar(f"""
-            SELECT ec5_uuid, title, "1_1_consentimiento_i",
-                   created_by, "12_4_territorio", "13_5_microterritorio", "18_10_cdigo_hogar", "19_101_cdigo_hogar", "21_11_cdigo_familia", "22_111_cdigo_familia"
-            FROM caracterizacion_si_aps_familiar_2026
-            WHERE {w_caract_fam} AND {self.get_date_filter(tipo_fecha)}
-        """, params)
-
-        seen_t_aud = set()
-        seen_c_aud = set()
-        uniq_fam_aud = 0
-        dups_fam_list = []
-
-        for r in raw_fam_aud:
-            consent = str(r.get("1_1_consentimiento_i", "")).strip().upper()
-            if consent != '1. SI': continue
-
-            uid = str(r.get("ec5_uuid", ""))
-            t = str(r.get("title", "")).strip().lower()
-            t_key = t if t and t != "none" else None
-
-            c1 = str(r.get("created_by", "")).strip().lower()
-            c2 = str(r.get("12_4_territorio", "")).strip().lower()
-            c3 = str(r.get("13_5_microterritorio", "")).strip().lower()
-            c4 = str(r.get("18_10_cdigo_hogar", "")).strip().lower()
-            c5 = str(r.get("19_101_cdigo_hogar", "")).strip().lower()
-            c6 = str(r.get("21_11_cdigo_familia", "")).strip().lower()
-            c7 = str(r.get("22_111_cdigo_familia", "")).strip().lower()
-            c_key = f"{c1}|{c2}|{c3}|{c4}|{c5}|{c6}|{c7}"
-
-            is_dup = False
-            reasons = []
-
-            if t_key and t_key in seen_t_aud:
-                is_dup = True
-                reasons.append("Título repetido")
-            if c_key != "||||||" and c_key.replace("none", "").replace("|", "") != "":
-                if c_key in seen_c_aud:
-                    is_dup = True
-                    reasons.append("Códigos/Territorio concatenados repetidos")
-
-            if is_dup:
-                dups_fam_list.append(
-                    f"Ficha [{uid}] - {t.title() if t and t != 'none' else 'N/A'} -> Motivo: {' y '.join(reasons)}")
-            else:
-                if t_key: seen_t_aud.add(t_key)
-                if c_key != "||||||" and c_key.replace("none", "").replace("|", "") != "": seen_c_aud.add(c_key)
-                uniq_fam_aud += 1
-
-        texto_dups_fam = "\n".join(dups_fam_list) if dups_fam_list else "✅ No se detectaron familias duplicadas."
-        dups_fam_count = len(dups_fam_list)
-
-        # 🛑 DUPLICADOS EN INDIVIDUOS
-        raw_ind_aud = self.ejecutar(f"""
-            SELECT tbl.ec5_branch_uuid, tbl.title, tbl.{tipo_fecha}
-            FROM caracterizacion_si_aps_individual_2026 tbl
-            {j_caract_ind}
-            WHERE {w_caract_ind} AND {self.get_date_filter(f'tbl.{tipo_fecha}')}
-        """, params)
-
-        seen_t_ind_aud = set()
-        uniq_ind_aud = 0
-        dups_ind_list = []
-
-        for r in raw_ind_aud:
-            uid = str(r.get("ec5_branch_uuid", ""))
-            t = str(r.get("title", "")).strip().lower()
-            t_key = t if t and t != "none" else None
-
-            if t_key and t_key in seen_t_ind_aud:
-                dups_ind_list.append(
-                    f"Ficha [{uid}] - Nombre: {t.title() if t and t != 'none' else 'N/A'} -> Motivo: Integrante repetido (Título idéntico)")
-            else:
-                if t_key: seen_t_ind_aud.add(t_key)
-                uniq_ind_aud += 1
-
-        texto_dups_ind = "\n".join(dups_ind_list) if dups_ind_list else "✅ No se detectaron integrantes duplicados."
-        dups_ind_count = len(dups_ind_list)
-
-        # 🛑 EXTRACCIÓN DE TABLAS COMPLETAS PARA CARACTERIZACIÓN (Mapeo Específico) 🛑
-        query_tabla_fam = f"""
-            SELECT ec5_uuid, created_at, uploaded_at, created_by, title, 
-                   "12_4_territorio", "13_5_microterritorio", "lat_15_8_geo_punto_georr", "long_15_8_geo_punto_georr", 
-                   "18_10_cdigo_hogar", "19_101_cdigo_hogar", "21_11_cdigo_familia", "22_111_cdigo_familia", 
-                   "24_13_numero_de_hoga", "25_14_numero_de_fami", "26_15_numero_de_pers", "27_22_cdigo_de_la_fi", 
-                   "31_19_nmero_de_ident", "32_20_responsable_de", "34_23_fecha_diligenc", "64_41_tipo_de_famili", 
-                   "65_42_nmero_de_perso", "66_43_estructura_y_d", "67_431_seleccione_el", "69_45_funcionalidad_", 
-                   "70_451_evidencia_apg", "71_46_en_la_familia_", "72_47_si_la_respuest", "73_471_imagen_escala", 
-                   "74_48_interrelacione", "99_41_identificacin_", "147_70_observaciones"
-            FROM caracterizacion_si_aps_familiar_2026
-            WHERE {w_caract_fam} AND {self.get_date_filter(tipo_fecha)}
-        """
-        tabla_fam_raw = self.ejecutar(query_tabla_fam, params)
-        tabla_fam_data = []
-        for r in tabla_fam_raw:
-            tabla_fam_data.append({k: (
-                str(v)[:19] if "fecha" in k or "created" in k or "uploaded" in k else str(v)) if v is not None else ""
-                                   for k, v in r.items()})
-
-        query_tabla_ind = f"""
-            SELECT tbl.ec5_branch_owner_uuid, tbl.ec5_branch_uuid, tbl.created_at, tbl.uploaded_at, tbl.created_by, tbl.title, 
-                   tbl."100_1_primer_nombre", tbl."102_3_primer_apellid", tbl."104_5_tipo_de_identi", tbl."105_6_numero_de_iden", 
-                   tbl."106_numero_celular", tbl."107_7_fecha_de_nacim", tbl."108_8_sexo", tbl."109_9_se_encuentra_e", 
-                   tbl."110_10_rol_dentro_de", tbl."111_11_ocupacion", tbl."112_12_nivel_educati", tbl."113_13_rgimen_de_afi", 
-                   tbl."114_14_eapb", tbl."115_15_pertenencia_a", tbl."116_16_pertenencia_t", tbl."119_19_reconoce_algu", 
-                   tbl."127_25_cumple_con_el", tbl."128_26_a_qu_etapa_de"
-            FROM caracterizacion_si_aps_individual_2026 tbl
-            {j_caract_ind}
-            WHERE {w_caract_ind} AND {self.get_date_filter(f'tbl.{tipo_fecha}')}
-        """
-        tabla_ind_raw = self.ejecutar(query_tabla_ind, params)
-        tabla_ind_data = []
-        for r in tabla_ind_raw:
-            tabla_ind_data.append({k: (
-                str(v)[:19] if "fecha" in k or "created" in k or "uploaded" in k else str(v)) if v is not None else ""
-                                   for k, v in r.items()})
-
-        data["caracterizacion"] = {
-            "familias": uniq_fam_aud,
-            "familias_duplicadas": dups_fam_count,
-            "reporte_duplicados_fam": texto_dups_fam,
-            "individuos": uniq_ind_aud,
-            "individuos_duplicadas": dups_ind_count,
-            "reporte_duplicados_ind": texto_dups_ind,
-            "gestantes": self.safe_count(
-                f"SELECT COUNT(*) FROM caracterizacion_si_aps_individual_2026 tbl {j_caract_ind} WHERE {w_caract_ind} AND {self.get_date_filter(f'tbl.{tipo_fecha}')} AND tbl.\"109_9_se_encuentra_e\" = '1. SI'",
-                params),
-            "menores_5": men_5_aud, "adultos_60": may_60_aud,
-            "victimas_conflicto": self.safe_count(
-                f"SELECT COUNT(*) FROM caracterizacion_si_aps_familiar_2026 WHERE {w_caract_fam} AND {self.get_date_filter(tipo_fecha)} AND \"78_52_familia_vctima\" = '1. SI'",
-                params),
-            "poblacion_etnica": self.safe_count(
-                f"SELECT COUNT(*) FROM caracterizacion_si_aps_individual_2026 tbl {j_caract_ind} WHERE {w_caract_ind} AND {self.get_date_filter(f'tbl.{tipo_fecha}')} AND tbl.\"116_16_pertenencia_t\" IS NOT NULL AND tbl.\"116_16_pertenencia_t\" != '7. Ninguna'",
-                params),
-            "sin_aseguramiento": self.safe_count(
-                f"SELECT COUNT(*) FROM caracterizacion_si_aps_individual_2026 tbl {j_caract_ind} WHERE {w_caract_ind} AND {self.get_date_filter(f'tbl.{tipo_fecha}')} AND tbl.\"113_13_rgimen_de_afi\" = '5. No afiliado'",
-                params),
-            "discapacidad_total": total_discapacidad_aud, "discapacidades_chart": disc_chart_aud,
-            "error_familiar": self.safe_count(
-                f"SELECT COUNT(*) FROM auditoria_errores_2026 WHERE LOWER(TRIM(CAST(usuario_creador AS text))) = LOWER(:email_res) AND modulo = 'CARACT_FAMILIAR' AND {self.get_date_filter('fecha_creacion')}",
-                params),
-            "error_individual": self.safe_count(
-                f"SELECT COUNT(*) FROM auditoria_errores_2026 WHERE LOWER(TRIM(CAST(usuario_creador AS text))) = LOWER(:email_res) AND modulo = 'CARACT_INDIVIDUAL' AND {self.get_date_filter('fecha_creacion')}",
-                params),
-            "tipo_familia": tipo_familia_aud, "estrato": estrato_aud, "nivel_educativo": nivel_educativo_aud,
-            "etnia_sin_pct": round(int(etnia_data_aud.get("sin_etnia") or 0) / total_etnia_aud * 100, 1),
-            "etnia_con_pct": round(int(etnia_data_aud.get("con_etnia") or 0) / total_etnia_aud * 100, 1),
-            "etnia_con_total": int(etnia_data_aud.get("con_etnia") or 0),
-            "tabla_familiar": tabla_fam_data,
-            "tabla_individual": tabla_ind_data
-        }
-
-        # === BLOQUE CARACTERIZACIÓN (PERÍODO ANTERIOR ACUMULADO) ===
-        raw_fam_ant = self.ejecutar(
-            f"SELECT title, \"1_1_consentimiento_i\", created_by, \"12_4_territorio\", \"13_5_microterritorio\", \"18_10_cdigo_hogar\", \"19_101_cdigo_hogar\", \"21_11_cdigo_familia\", \"22_111_cdigo_familia\" FROM caracterizacion_si_aps_familiar_2026 WHERE {w_caract_fam} AND {self.get_date_filter_ant(tipo_fecha)}",
-            params)
-        seen_t_ant, seen_c_ant, uniq_fam_ant, dup_fam_ant = set(), set(), 0, 0
-        for r in raw_fam_ant:
-            if str(r.get("1_1_consentimiento_i", "")).strip().upper() != '1. SI': continue
-            t = str(r.get("title", "")).strip().lower()
-            t_key = t if t and t != "none" else None
-            c_key = f"{r.get('created_by', '')}|{r.get('12_4_territorio', '')}|{r.get('13_5_microterritorio', '')}|{r.get('18_10_cdigo_hogar', '')}|{r.get('19_101_cdigo_hogar', '')}|{r.get('21_11_cdigo_familia', '')}|{r.get('22_111_cdigo_familia', '')}".lower().strip()
-            is_dup = False
-            if t_key and t_key in seen_t_ant: is_dup = True
-            if c_key != "||||||" and c_key.replace("none", "").replace("|", "") != "":
-                if c_key in seen_c_ant: is_dup = True
-            if is_dup:
-                dup_fam_ant += 1
-            else:
-                if t_key: seen_t_ant.add(t_key)
-                if c_key != "||||||" and c_key.replace("none", "").replace("|", "") != "": seen_c_ant.add(c_key)
-                uniq_fam_ant += 1
-
-        raw_ind_ant = self.ejecutar(
-            f"SELECT tbl.title FROM caracterizacion_si_aps_individual_2026 tbl {j_caract_ind} WHERE {w_caract_ind} AND {self.get_date_filter_ant(f'tbl.{tipo_fecha}')}",
-            params)
-        seen_t_ind_ant, uniq_ind_ant, dup_ind_ant = set(), 0, 0
-        for r in raw_ind_ant:
-            t = str(r.get("title", "")).strip().lower()
-            t_key = t if t and t != "none" else None
-            if t_key and t_key in seen_t_ind_ant:
-                dup_ind_ant += 1
-            else:
-                if t_key: seen_t_ind_ant.add(t_key)
-                uniq_ind_ant += 1
-
-        sin_aseg_ant = self.safe_count(
-            f"SELECT COUNT(*) FROM caracterizacion_si_aps_individual_2026 tbl {j_caract_ind} WHERE {w_caract_ind} AND {self.get_date_filter_ant(f'tbl.{tipo_fecha}')} AND tbl.\"113_13_rgimen_de_afi\" = '5. No afiliado'",
-            params)
-        gestantes_ant = self.safe_count(
-            f"SELECT COUNT(*) FROM caracterizacion_si_aps_individual_2026 tbl {j_caract_ind} WHERE {w_caract_ind} AND {self.get_date_filter_ant(f'tbl.{tipo_fecha}')} AND tbl.\"109_9_se_encuentra_e\" = '1. SI'",
-            params)
-        victimas_ant = self.safe_count(
-            f"SELECT COUNT(*) FROM caracterizacion_si_aps_familiar_2026 WHERE {w_caract_fam} AND {self.get_date_filter_ant(tipo_fecha)} AND \"78_52_familia_vctima\" = '1. SI'",
-            params)
-
-        query_edades_ant = f"""
-            WITH fechas_limpias AS (SELECT CASE WHEN CAST(tbl.{tipo_fecha} AS text) ~ '^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}' THEN to_date(LEFT(CAST(tbl.{tipo_fecha} AS text), 10), 'YYYY-MM-DD') WHEN CAST(tbl.{tipo_fecha} AS text) ~ '^[0-9]{{2}}/[0-9]{{2}}/[0-9]{{4}}' THEN to_date(LEFT(CAST(tbl.{tipo_fecha} AS text), 10), 'DD/MM/YYYY') ELSE NULL END as f_crea, TRIM(CAST(tbl."107_7_fecha_de_nacim" AS text)) as f_nac_raw FROM caracterizacion_si_aps_individual_2026 tbl {j_caract_ind} WHERE {w_caract_ind} AND {self.get_date_filter_ant(f'tbl.{tipo_fecha}')} AND tbl."107_7_fecha_de_nacim" IS NOT NULL),
-            edades AS (SELECT f_crea, CASE WHEN f_nac_raw ~ '^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}' THEN to_date(LEFT(f_nac_raw, 10), 'YYYY-MM-DD') WHEN f_nac_raw ~ '^[0-9]{{2}}/[0-9]{{2}}/[0-9]{{4}}' THEN to_date(LEFT(f_nac_raw, 10), 'DD/MM/YYYY') ELSE NULL END as f_nac FROM fechas_limpias)
-            SELECT COUNT(*) FILTER (WHERE EXTRACT(YEAR FROM AGE(f_crea, f_nac)) < 5) as menores, COUNT(*) FILTER (WHERE EXTRACT(YEAR FROM AGE(f_crea, f_nac)) >= 60) as mayores FROM edades WHERE f_nac IS NOT NULL
-        """
-        res_edades_ant = self.ejecutar(query_edades_ant, params)
-
-        res_disc_ant = self.ejecutar(
-            f"SELECT tbl.\"119_19_reconoce_algu\" as disc FROM caracterizacion_si_aps_individual_2026 tbl {j_caract_ind} WHERE {w_caract_ind} AND {self.get_date_filter_ant(f'tbl.{tipo_fecha}')} AND tbl.\"119_19_reconoce_algu\" IS NOT NULL",
-            params)
-        disc_tot_ant = sum(1 for r in res_disc_ant if "Sin discapacidad" not in str(r["disc"]))
-
-        data["caracterizacion_ant"] = {
-            "familias": uniq_fam_ant, "familias_duplicadas": dup_fam_ant,
-            "individuos": uniq_ind_ant, "individuos_duplicadas": dup_ind_ant,
-            "sin_aseguramiento": sin_aseg_ant
-        }
-        data["poblacion_ant"] = {
-            "gestantes": gestantes_ant, "menores_5": res_edades_ant[0]["menores"] if res_edades_ant else 0,
-            "adultos_60": res_edades_ant[0]["mayores"] if res_edades_ant else 0,
-            "victimas_conflicto": victimas_ant, "discapacidad_total": disc_tot_ant
-        }
-
-        # 🛑 DUPLICADOS EN PCF GENERAL 🛑
-        raw_pcf_aud = self.ejecutar(f"""
-            SELECT ec5_uuid, title, {tipo_fecha} as fecha_base, created_by, 
-                   "9_7_territorio", "10_8_microterritorio", "11_9_identificacin_d", 
-                   "12_91_identificacin_", "13_10_identificacin_", "14_101_identificacin",
-                   "73_17_realizara_la_e"
-            FROM pcf_planes_principal_2026
-            WHERE {w_pcf_prin} AND {self.get_date_filter(tipo_fecha)}
-              AND ("4_3_perfil_profesion" IS NULL OR TRIM("4_3_perfil_profesion") != 'Profesional Psicología')
-        """, params)
-
-        seen_c_pcf_aud = set()
-        uniq_pcf_aud = 0
-        dups_pcf_list = []
-        texto_pcf_fam = ""
-        c_pcf_ok = 1
-        pcf_cerrados = 0
-        pcf_no_cerrados = 0
-
-        for r in raw_pcf_aud:
-            uid = str(r.get("ec5_uuid", "N/A"))
-            t = str(r.get("title", "")).strip().lower()
-            f = str(r.get("fecha_base", ""))[:10]
-
-            c1 = str(r.get("created_by", "")).strip().lower()
-            c2 = str(r.get("9_7_territorio", "")).strip().lower()
-            c3 = str(r.get("10_8_microterritorio", "")).strip().lower()
-            c4 = str(r.get("11_9_identificacin_d", "")).strip().lower()
-            c5 = str(r.get("12_91_identificacin_", "")).strip().lower()
-            c6 = str(r.get("13_10_identificacin_", "")).strip().lower()
-            c7 = str(r.get("14_101_identificacin", "")).strip().lower()
-            c_key = f"{c1}|{c2}|{c3}|{c4}|{c5}|{c6}|{c7}"
-
-            is_dup = False
-            if c_key != "||||||" and c_key.replace("none", "").replace("|", "") != "":
-                if c_key in seen_c_pcf_aud:
-                    is_dup = True
-
-            if is_dup:
-                dups_pcf_list.append(
-                    f"Ficha [{uid}] - {t.title() if t and t != 'none' else 'N/A'} -> Motivo: Identificación/Territorio repetido")
-            else:
-                if c_key != "||||||" and c_key.replace("none", "").replace("|", "") != "":
-                    seen_c_pcf_aud.add(c_key)
-                uniq_pcf_aud += 1
-                texto_pcf_fam += f"Intervención {c_pcf_ok}: Ficha [{uid}] - {f}\n"
-                c_pcf_ok += 1
-
-                # Cálculo de Planes Cerrados vs No Cerrados
-                cierre = str(r.get("73_17_realizara_la_e", "")).strip().upper()
-                if 'SI' in cierre or 'SÍ' in cierre:
-                    pcf_cerrados += 1
-                elif 'NO' in cierre:
-                    pcf_no_cerrados += 1
-
-        texto_dups_pcf = "\n".join(dups_pcf_list) if dups_pcf_list else "✅ No se detectaron planes duplicados."
-        dups_pcf_count = len(dups_pcf_list)
-
-        # 🛑 DUPLICADOS EN PCF INTEGRANTES 🛑
-        raw_pcf_ind_aud = self.ejecutar(f"""
-            SELECT b.ec5_branch_uuid, b.title, p.created_by
-            FROM pcf_planes_integrantes_2026 b
-            JOIN pcf_planes_principal_2026 p ON b.ec5_branch_owner_uuid = p.ec5_uuid
-            WHERE {w_pcf_int} AND {self.get_date_filter(f'p.{tipo_fecha}')}
-              AND (p."4_3_perfil_profesion" IS NULL OR TRIM(p."4_3_perfil_profesion") != 'Profesional Psicología')
-        """, params)
-
-        seen_ind_pcf_aud = set()
-        uniq_ind_pcf_aud = 0
-        dups_ind_pcf_aud_list = []
-
-        for r in raw_pcf_ind_aud:
-            uid = str(r.get("ec5_branch_uuid", "N/A"))
-            t = str(r.get("title", "")).strip().lower()
-            c = str(r.get("created_by", "")).strip().lower()
-
-            if not t or t == "none":
-                uniq_ind_pcf_aud += 1
-                continue
-
-            clave = f"{c}|{t}"
-            if clave in seen_ind_pcf_aud:
-                dups_ind_pcf_aud_list.append(
-                    f"Ficha [{uid}] - Integrante: {t.title()} -> Motivo: Nombre repetido por este encuestador")
-            else:
-                seen_ind_pcf_aud.add(clave)
-                uniq_ind_pcf_aud += 1
-
-        texto_dups_ind_pcf = "\n".join(
-            dups_ind_pcf_aud_list) if dups_ind_pcf_aud_list else "✅ No se detectaron integrantes duplicados."
-        dups_ind_pcf_aud_count = len(dups_ind_pcf_aud_list)
-
-        try:
-            res_err_pcf = self.ejecutar(f"""
-                                   SELECT id_ficha, detalle_inconsistencias, modulo
-                                   FROM auditoria_errores_2026
-                                   WHERE LOWER(TRIM(CAST(usuario_creador AS text))) = LOWER(:email_res)
-                                     AND modulo IN ('PCF_PRINCIPAL', 'PCF_INTEGRANTES')
-                                     AND {self.get_date_filter('fecha_creacion')}
-                                   """, params)
-            texto_err_pcf = "".join(
-                [f"{idx + 1}. [{r['modulo']}] Ficha [{r['id_ficha']}]: {r['detalle_inconsistencias']}\n" for idx, r in
-                 enumerate(res_err_pcf)])
-        except:
-            texto_err_pcf = ""
-
-        # 🛑 EXTRACCIÓN DE TABLAS COMPLETAS PARA PCF GENERAL 🛑
-        query_tabla_pcf_prin = f"""
-            SELECT ec5_uuid, created_at, uploaded_at, created_by, 
-                   "lat_1_1_geolocalizacin", "long_1_1_geolocalizacin", "2_2_fecha_visita", 
-                   "4_3_perfil_profesion", "5_4_nombre_del_profe", "9_7_territorio", 
-                   "10_8_microterritorio", "11_9_identificacin_d", "12_91_identificacin_", 
-                   "13_10_identificacin_", "14_101_identificacin", "27_16_cules_compromi", 
-                   "29_integrantes_inter", "73_17_realizara_la_e", "98_resumen_de_interv"
-            FROM pcf_planes_principal_2026
-            WHERE {w_pcf_prin} AND {self.get_date_filter(tipo_fecha)}
-              AND ("4_3_perfil_profesion" IS NULL OR TRIM("4_3_perfil_profesion") != 'Profesional Psicología')
-        """
-        tabla_pcf_prin_raw = self.ejecutar(query_tabla_pcf_prin, params)
-        tabla_pcf_prin_data = [
-            {k: (str(v)[:19] if "fecha" in k or "created" in k or "uploaded" in k else str(v)) if v is not None else ""
-             for k, v in r.items()} for r in tabla_pcf_prin_raw]
-
-        query_tabla_pcf_int = f"""
-            SELECT b.ec5_branch_owner_uuid, b.ec5_branch_uuid, b.created_at, b.uploaded_at, b.created_by, b.title, 
-                   b."31_1_primer_nombre", b."33_3_primer_apellido", b."35_5_tipo_de_documen", 
-                   b."36_6_numero_de_docum", b."37_7_soporte_fotogrf", b."38_8_fecha_de_nacimi", 
-                   b."39_9_edad", b."40_10_seleccione_tip", b."41_11_sexo", b."46_16_numero_de_celu", 
-                   b."57_23_que_tipo_de_co", b."72_24_resumen_de_val"
-            FROM pcf_planes_integrantes_2026 b
-            JOIN pcf_planes_principal_2026 p ON b.ec5_branch_owner_uuid = p.ec5_uuid
-            WHERE {w_pcf_int} AND {self.get_date_filter(f'p.{tipo_fecha}')}
-              AND (p."4_3_perfil_profesion" IS NULL OR TRIM(p."4_3_perfil_profesion") != 'Profesional Psicología')
-        """
-        tabla_pcf_int_raw = self.ejecutar(query_tabla_pcf_int, params)
-        tabla_pcf_int_data = [
-            {k: (str(v)[:19] if "fecha" in k or "created" in k or "uploaded" in k else str(v)) if v is not None else ""
-             for k, v in r.items()} for r in tabla_pcf_int_raw]
-
-        # === BLOQUE PCF GENERAL (PERÍODO ANTERIOR ACUMULADO) ===
-        raw_pcf_ant = self.ejecutar(
-            f"SELECT created_by, \"9_7_territorio\", \"10_8_microterritorio\", \"11_9_identificacin_d\", \"12_91_identificacin_\", \"13_10_identificacin_\", \"14_101_identificacin\" FROM pcf_planes_principal_2026 WHERE {w_pcf_prin} AND {self.get_date_filter_ant(tipo_fecha)} AND (\"4_3_perfil_profesion\" IS NULL OR TRIM(\"4_3_perfil_profesion\") != 'Profesional Psicología')",
-            params)
-        seen_c_pcf_ant, uniq_pcf_ant, dup_pcf_ant = set(), 0, 0
-        for r in raw_pcf_ant:
-            c_key = f"{r.get('created_by', '')}|{r.get('9_7_territorio', '')}|{r.get('10_8_microterritorio', '')}|{r.get('11_9_identificacin_d', '')}|{r.get('12_91_identificacin_', '')}|{r.get('13_10_identificacin_', '')}|{r.get('14_101_identificacin', '')}".lower().strip()
-            if c_key == "||||||" or c_key.replace("none", "").replace("|", "") == "": uniq_pcf_ant += 1; continue
-            if c_key in seen_c_pcf_ant:
-                dup_pcf_ant += 1
-            else:
-                seen_c_pcf_ant.add(c_key);
-                uniq_pcf_ant += 1
-
-        raw_pcf_ind_ant = self.ejecutar(
-            f"SELECT b.title, p.created_by FROM pcf_planes_integrantes_2026 b JOIN pcf_planes_principal_2026 p ON b.ec5_branch_owner_uuid = p.ec5_uuid WHERE {w_pcf_int} AND {self.get_date_filter_ant(f'p.{tipo_fecha}')} AND (p.\"4_3_perfil_profesion\" IS NULL OR TRIM(p.\"4_3_perfil_profesion\") != 'Profesional Psicología')",
-            params)
-        seen_ind_pcf_ant, uniq_ind_pcf_ant, dup_ind_pcf_ant = set(), 0, 0
-        for r in raw_pcf_ind_ant:
-            t, c = str(r.get("title", "")).strip().lower(), str(r.get("created_by", "")).strip().lower()
-            if not t or t == "none": uniq_ind_pcf_ant += 1; continue
-            clave = f"{c}|{t}"
-            if clave in seen_ind_pcf_ant:
-                dup_ind_pcf_ant += 1
-            else:
-                seen_ind_pcf_ant.add(clave);
-                uniq_ind_pcf_ant += 1
-
-        data["pcf_ant"] = {
-            "familias_intervenidas": uniq_pcf_ant, "familias_duplicadas": dup_pcf_ant,
-            "integrantes_intervenidos": uniq_ind_pcf_ant, "integrantes_duplicados": dup_ind_pcf_ant
-        }
-
-        data["pcf"] = {
-            "familias_intervenidas": uniq_pcf_aud,
-            "familias_duplicadas": dups_pcf_count,
-            "cerrados": pcf_cerrados,
-            "no_cerrados": pcf_no_cerrados,
-            "integrantes_intervenidos": uniq_ind_pcf_aud,
-            "integrantes_duplicados": dups_ind_pcf_aud_count,
-            "reporte_familias": texto_pcf_fam if texto_pcf_fam else "No hay intervenciones registradas en estas fechas.",
-            "reporte_errores": texto_err_pcf if texto_err_pcf else "✅ Excelente. No hay errores de registro.",
-            "reporte_duplicados_fam": texto_dups_pcf,
-            "reporte_duplicados_ind": texto_dups_ind_pcf,
-            "tabla_pcf_principal": tabla_pcf_prin_data,
-            "tabla_pcf_integrantes": tabla_pcf_int_data
-        }
-
-        # 🛑 DUPLICADOS EN PCF PSICOLOGIA FAMILIAS 🛑
-        raw_psico_fam_aud = self.ejecutar(f"""
-            SELECT ec5_uuid, title, {tipo_fecha} as fecha_base, created_by, 
-                   "9_7_territorio", "10_8_microterritorio", "11_9_identificacin_d", 
-                   "12_91_identificacin_", "13_10_identificacin_", "14_101_identificacin",
-                   "73_17_realizara_la_e"
-            FROM pcf_planes_principal_2026
-            WHERE {w_pcf_prin} AND {self.get_date_filter(tipo_fecha)}
-              AND TRIM("4_3_perfil_profesion") = 'Profesional Psicología'
-        """, params)
-
-        seen_c_psico_fam_aud = set()
-        uniq_psico_fam_aud = 0
-        dups_psico_fam_list = []
-        texto_psico_fam = ""
-        c_psico_fam_ok = 1
-        psico_cerrados = 0
-        psico_no_cerrados = 0
-
-        for r in raw_psico_fam_aud:
-            uid = str(r.get("ec5_uuid", "N/A"))
-            t = str(r.get("title", "")).strip().lower()
-            f = str(r.get("fecha_base", ""))[:10]
-
-            c1 = str(r.get("created_by", "")).strip().lower()
-            c2 = str(r.get("9_7_territorio", "")).strip().lower()
-            c3 = str(r.get("10_8_microterritorio", "")).strip().lower()
-            c4 = str(r.get("11_9_identificacin_d", "")).strip().lower()
-            c5 = str(r.get("12_91_identificacin_", "")).strip().lower()
-            c6 = str(r.get("13_10_identificacin_", "")).strip().lower()
-            c7 = str(r.get("14_101_identificacin", "")).strip().lower()
-            c_key = f"{c1}|{c2}|{c3}|{c4}|{c5}|{c6}|{c7}"
-
-            is_dup = False
-            if c_key != "||||||" and c_key.replace("none", "").replace("|", "") != "":
-                if c_key in seen_c_psico_fam_aud:
-                    is_dup = True
-
-            if is_dup:
-                dups_psico_fam_list.append(
-                    f"Ficha [{uid}] - {t.title() if t and t != 'none' else 'N/A'} -> Motivo: Identificación/Territorio repetido")
-            else:
-                if c_key != "||||||" and c_key.replace("none", "").replace("|", "") != "":
-                    seen_c_psico_fam_aud.add(c_key)
-                uniq_psico_fam_aud += 1
-                texto_psico_fam += f"Intervención {c_psico_fam_ok}: Ficha [{uid}] - {f}\n"
-                c_psico_fam_ok += 1
-
-                # Cálculo de Planes Cerrados vs No Cerrados en Psicología
-                cierre = str(r.get("73_17_realizara_la_e", "")).strip().upper()
-                if 'SI' in cierre or 'SÍ' in cierre:
-                    psico_cerrados += 1
-                elif 'NO' in cierre:
-                    psico_no_cerrados += 1
-
-        texto_dups_psico_fam = "\n".join(
-            dups_psico_fam_list) if dups_psico_fam_list else "✅ No se detectaron familias duplicadas en Psicología."
-        dups_psico_fam_count = len(dups_psico_fam_list)
-
-        # 🛑 FAMILIAS E INTEGRANTES ANTERIORES EN PSICOLOGIA 🛑
-        raw_fam_ant = self.ejecutar(f"""
-            SELECT f.ec5_uuid
-            FROM pcf_psicologia_seguimientos_2026 s
-            JOIN pcf_psicologia_principal_2026 i ON s.ec5_branch_owner_uuid = i.ec5_uuid
-            JOIN pcf_planes_principal_2026 f ON i.ec5_parent_uuid = f.ec5_uuid
-            WHERE {w_psico_ant_fam}
-              AND {self.get_date_filter(f's.{tipo_fecha}')}
-              AND NOT ({self.get_date_filter(f'f.{tipo_fecha}')})
-        """, params)
-        familias_anteriores_aud = len(set([str(r.get("ec5_uuid")) for r in raw_fam_ant]))
-
-        raw_ind_ant = self.ejecutar(f"""
-            SELECT i.ec5_uuid
-            FROM pcf_psicologia_seguimientos_2026 s
-            JOIN pcf_psicologia_principal_2026 i ON s.ec5_branch_owner_uuid = i.ec5_uuid
-            {j_psico_ant_ind}
-            WHERE {w_psico_ant_ind}
-              AND {self.get_date_filter(f's.{tipo_fecha}')}
-              AND NOT ({self.get_date_filter(f'i.{tipo_fecha}')})
-        """, params)
-        integrantes_anteriores_aud = len(set([str(r.get("ec5_uuid")) for r in raw_ind_ant]))
-
-        integrantes_psico_count = self.safe_count(f"""
-            SELECT COUNT(*) FROM pcf_psicologia_principal_2026 tbl
-            {j_psico_prin}
-            WHERE {w_psico_prin} AND {self.get_date_filter(f'tbl.{tipo_fecha}')}
-        """, params)
-
-        try:
-            res_psico_seg = self.ejecutar(f"""
-                                     SELECT tbl.*
-                                     FROM pcf_psicologia_seguimientos_2026 tbl
-                                     {j_psico_seg}
-                                     WHERE {w_psico_seg} AND {self.get_date_filter(f'tbl.{tipo_fecha}')}
-                                     """, params)
-        except Exception as e:
-            logger.error(f"Error consultando seguimientos de psicología: {e}")
-            res_psico_seg = []
-
-        seg_psico_count = len(res_psico_seg)
-        motivos_count, cont_seg_si, cont_seg_no = {}, 0, 0
-        tipo_seg_count = Counter()
-        texto_psico_seg = ""
-        texto_err_psico = ""
-        texto_psico_compromisos = ""
-        texto_psico_evaluacion = ""
-
-        es_psicologo = (uniq_psico_fam_aud > 0 or seg_psico_count > 0)
-
-        if es_psicologo:
-            for idx, r in enumerate(res_psico_seg, 1):
-                uid_ficha = r.get('ec5_branch_owner_uuid') or r.get('ec5_uuid') or 'N/A'
-                fecha_str = str(r.get(tipo_fecha, ''))[:10]
-                texto_psico_seg += f"Seguimiento {idx}: Ficha [{uid_ficha}] - {fecha_str}\n"
-
-                tipo_seg = next((v for k, v in r.items() if k.startswith('128_23_')), None)
-                motivo = next((v for k, v in r.items() if k.startswith('129_24_')), None)
-                req_cont = next((v for k, v in r.items() if k.startswith('130_25_')), None)
-                comp = next((v for k, v in r.items() if k.startswith('131_26_')), None)
-                evalu = next((v for k, v in r.items() if k.startswith('132_27_')), None)
-
-                if tipo_seg and str(tipo_seg).strip() and str(tipo_seg).strip() != 'None':
-                    lbl_ts = str(tipo_seg).strip()
-                    lbl_ts = re.sub(r'^\d+[\.-]?\s*', '', lbl_ts)
-                    tipo_seg_count[lbl_ts] += 1
-
-                if motivo and str(motivo).strip() and str(motivo).strip() != 'None':
-                    m_str = str(motivo).strip()
-                    m_str = re.sub(r'^\d+[\.-]?\s*', '', m_str)
-                    motivos_count[m_str] = motivos_count.get(m_str, 0) + 1
-
-                if req_cont:
-                    v_req = str(req_cont).upper()
-                    if 'SI' in v_req or 'SÍ' in v_req:
-                        cont_seg_si += 1
-                    elif 'NO' in v_req:
-                        cont_seg_no += 1
-
-                if comp and str(comp).strip() and str(comp).strip() != 'None':
-                    texto_psico_compromisos += f"Ficha [{uid_ficha}]: {str(comp).replace(chr(10), ' ')}\n\n"
-                if evalu and str(evalu).strip() and str(evalu).strip() != 'None':
-                    texto_psico_evaluacion += f"Ficha [{uid_ficha}]: {str(evalu).replace(chr(10), ' ')}\n\n"
-
-            try:
-                res_err_psico = self.ejecutar(f"""
-                                         SELECT id_ficha, detalle_inconsistencias, modulo
-                                         FROM auditoria_errores_2026
-                                         WHERE LOWER(TRIM(CAST(usuario_creador AS text))) = LOWER(:email_res)
-                                           AND modulo IN ('PSICOLOGIA_PRINCIPAL', 'PSICOLOGIA_SEGUIMIENTOS')
-                                           AND {self.get_date_filter('fecha_creacion')}
-                                         """, params)
-                for idx, r in enumerate(res_err_psico, 1):
-                    texto_err_psico += f"{idx}. [{r['modulo']}] Ficha [{r['id_ficha']}]: {r['detalle_inconsistencias']}\n"
-            except:
-                pass
-
-        # 🛑 EXTRACCIÓN DE TABLAS COMPLETAS PARA PSICOLOGÍA 🛑
-        query_tabla_psico_prin = f"""
-            SELECT tbl.ec5_uuid, tbl.ec5_parent_uuid, tbl.created_at, tbl.uploaded_at, tbl.created_by, tbl.title, 
-                   tbl."100_1_primer_nombre", tbl."102_3_primer_apellid", tbl."104_5_tipo_de_docume", 
-                   tbl."105_6_numero_de_docu", tbl."106_7_soporte_fotogr", tbl."107_8_fecha_de_nacim", 
-                   tbl."108_9_edad", tbl."109_10_seleccione_ti", tbl."110_11_sexo", tbl."115_16_numero_de_cel", 
-                   tbl."126_seguimientos_psi", tbl."133_28_resumen_de_va"
-            FROM pcf_psicologia_principal_2026 tbl
-            {j_psico_prin}
-            WHERE {w_psico_prin} AND {self.get_date_filter(f'tbl.{tipo_fecha}')}
-        """
-        tabla_psico_prin_raw = self.ejecutar(query_tabla_psico_prin, params)
-        tabla_psico_prin_data = [
-            {k: (str(v)[:19] if "fecha" in k or "created" in k or "uploaded" in k else str(v)) if v is not None else ""
-             for k, v in r.items()} for r in tabla_psico_prin_raw]
-
-        query_tabla_psico_seg = f"""
-            SELECT tbl.ec5_branch_owner_uuid, tbl.ec5_branch_uuid, tbl.created_at, tbl.uploaded_at, tbl.created_by, tbl.title, 
-                   tbl."127_22_fecha_consult", tbl."129_24_tareas_de_ref", tbl."130_25_requiere_cont", 
-                   tbl."131_26_compromisos_y", tbl."132_27_evaluacin_de_"
-            FROM pcf_psicologia_seguimientos_2026 tbl
-            {j_psico_seg}
-            WHERE {w_psico_seg} AND {self.get_date_filter(f'tbl.{tipo_fecha}')}
-        """
-        tabla_psico_seg_raw = self.ejecutar(query_tabla_psico_seg, params)
-        tabla_psico_seg_data = [
-            {k: (str(v)[:19] if "fecha" in k or "created" in k or "uploaded" in k else str(v)) if v is not None else ""
-             for k, v in r.items()} for r in tabla_psico_seg_raw]
-
-        data["pcf_psicologia"] = {
-            "intervenciones_familiares": uniq_psico_fam_aud,
-            "familias_duplicadas": dups_psico_fam_count,
-            "cerrados": psico_cerrados,
-            "no_cerrados": psico_no_cerrados,
-            "familias_anteriores": familias_anteriores_aud,
-            "reporte_duplicados_fam": texto_dups_psico_fam,
-            "integrantes": integrantes_psico_count,
-            "integrantes_anteriores": integrantes_anteriores_aud,
-            "seguimientos": seg_psico_count,
-            "tipos_seguimiento": [{"label": k, "total": v} for k, v in
-                                  sorted(tipo_seg_count.items(), key=lambda item: item[1], reverse=True)],
-            "motivos_seguimiento": [{"label": k, "total": v} for k, v in
-                                    sorted(motivos_count.items(), key=lambda item: item[1], reverse=True)],
-            "requiere_continuidad_si": cont_seg_si, "requiere_continuidad_no": cont_seg_no,
-            "reporte_familias": texto_psico_fam if texto_psico_fam else "No hay intervenciones en estas fechas.",
-            "reporte_seguimientos": texto_psico_seg if texto_psico_seg else "No hay seguimientos en estas fechas.",
-            "reporte_compromisos": texto_psico_compromisos if texto_psico_compromisos else "No hay compromisos en estas fechas.",
-            "reporte_evaluacion": texto_psico_evaluacion if texto_psico_evaluacion else "No hay evaluaciones en estas fechas.",
-            "reporte_errores": texto_err_psico if texto_err_psico else "✅ Excelente. No hay errores en estas fechas.",
-            "tabla_psico_principal": tabla_psico_prin_data,
-            "tabla_psico_seguimientos": tabla_psico_seg_data
-        }
-
-        res_tram_err = self.ejecutar(f"""
-                                SELECT SUM(CAST(errores AS numeric)) as err
-                                FROM tramites_consolidados_2026
-                                WHERE LOWER(TRIM(CAST(usuario AS text))) = LOWER(:email_res)
-                                  AND {self.get_date_filter('fecha')}
-                                """, params)
-
-        a_tr_err = int(res_tram_err[0]["err"] or 0) if res_tram_err else 0
-
-        res_tramites_textos = self.ejecutar(f"""
-                                       SELECT nombres_realizados, nombres_efectivos
-                                       FROM tramites_consolidados_2026
-                                       WHERE LOWER(TRIM(CAST(usuario AS text))) = LOWER(:email_res)
-                                         AND {self.get_date_filter('fecha')}
-                                       """, params)
-
-        conteo_realizados_aud = Counter()
-        conteo_efectivos_aud = Counter()
-        texto_realizados, texto_resueltos, c_re, c_ef = "", "", 1, 1
-        invalid_words = ['none', 'null', 'ningún', 'ningun', 'no aplica', 'na', 'n/a', '']
-
-        for row in res_tramites_textos:
-            nr = str(row.get("nombres_realizados", "")).replace("Ningún", "").strip()
-            ne = str(row.get("nombres_efectivos", "")).replace("Ningún", "").strip()
-
-            items_r = [x.strip() for x in re.split(r'[|,]', nr) if x.strip() and x.strip().lower() not in invalid_words]
-            items_e = [x.strip() for x in re.split(r'[|,]', ne) if x.strip() and x.strip().lower() not in invalid_words]
-
-            for item in items_r:
-                if 'trámite resuelto' in item.lower() or 'tramite resuelto' in item.lower(): continue
-                conteo_realizados_aud[item] += 1
-                texto_realizados += f"Registro {c_re}: {item}\n"
-                c_re += 1
-
-                if 'adicional' in item.lower() or 'otro' in item.lower():
-                    conteo_efectivos_aud[item] += 1
-                    texto_resueltos += f"Registro {c_ef}: Trámite adicional Resuelto\n"
-                    c_ef += 1
-                    if item in items_e: items_e.remove(item)
-
-            for item in items_e:
-                if 'trámite resuelto' in item.lower() or 'tramite resuelto' in item.lower(): continue
-                conteo_efectivos_aud[item] += 1
-                texto_resueltos += f"Registro {c_ef}: {item}\n"
-                c_ef += 1
-
-        a_tr_tot = sum(conteo_realizados_aud.values())
-        a_tr_res = sum(conteo_efectivos_aud.values())
-
-        por_tipo_aud = []
-        for k in sorted(set(conteo_realizados_aud.keys()).union(set(conteo_efectivos_aud.keys()))):
-            v_realizados = conteo_realizados_aud.get(k, 0)
-            v_efectivos = conteo_efectivos_aud.get(k, 0)
-            if v_efectivos > v_realizados: v_realizados = v_efectivos
-            por_tipo_aud.append({
-                "label": k,
-                "total": v_realizados,
-                "resueltos": v_efectivos,
-                "pendientes": v_realizados - v_efectivos,
-                "porcentaje": round((v_efectivos / v_realizados * 100), 1) if v_realizados > 0 else 0
-            })
-
-        res_err_tr = self.ejecutar(f"""
-                              SELECT id_ficha, detalle_inconsistencias
-                              FROM auditoria_errores_2026
-                              WHERE LOWER(TRIM(CAST(usuario_creador AS text))) = LOWER(:email_res)
-                                AND modulo = 'TRAMITES'
-                                AND {self.get_date_filter('fecha_creacion')}
-                              """, params)
-
-        texto_errores_tr = "".join(
-            [f"{idx + 1}. Ficha [{r['id_ficha']}]: {r['detalle_inconsistencias']}\n" for idx, r in
-             enumerate(res_err_tr)])
-
-        tr_raw = self.ejecutar(f"""
-            SELECT tbl.ec5_uuid, tbl.title, tbl.{tipo_fecha} as fecha_base, 
-                   COALESCE(tbl."7_4_territorio", '') || COALESCE(tbl."8_5_microterritorio", '') || 
-                   CASE WHEN tbl."3_2_cdigo_hogar" = 'No Aplica' OR tbl."3_2_cdigo_hogar" IS NULL THEN COALESCE(tbl."4_21_cdigo_hogar", '') ELSE tbl."3_2_cdigo_hogar" END || 
-                   CASE WHEN tbl."5_3_cdigo_familia" = 'No Aplica' OR tbl."5_3_cdigo_familia" IS NULL THEN COALESCE(tbl."6_31_cdigo_familia", '') ELSE tbl."5_3_cdigo_familia" END as cod_familia
-            FROM tramites_aps_2026 tbl
-            WHERE {w_tramites} AND {self.get_date_filter(f'tbl.{tipo_fecha}')}
-        """, params)
-
-        titulos_fechas = {}
-        duplicados_list = []
-        familias_unicas = set()
-        total_registros_brutos = 0
-
-        for r in tr_raw:
-            total_registros_brutos += 1
-            t = str(r.get("title", "")).strip().lower()
-            f = str(r.get("fecha_base", ""))[:10]
-            uid = str(r.get("ec5_uuid", ""))
-            fam = str(r.get("cod_familia", ""))
-
-            if not t or t == "none": continue
-
-            clave = f"{t}|{f}"
-            if clave in titulos_fechas:
-                duplicados_list.append(f"Ficha [{uid}] - Paciente: {t.title()} - Fecha: {f}")
-            else:
-                titulos_fechas[clave] = True
-                if fam: familias_unicas.add(fam)
-
-        duplicados_count = len(duplicados_list)
-        tr_registros = max(0, total_registros_brutos - duplicados_count)
-
-        tr_familias_query = f"""
-                            SELECT COUNT(DISTINCT
-                                         COALESCE(tbl."7_4_territorio", '') || COALESCE(tbl."8_5_microterritorio", '') ||
-                                         CASE WHEN tbl."3_2_cdigo_hogar" = 'No Aplica' OR tbl."3_2_cdigo_hogar" IS NULL THEN COALESCE(tbl."4_21_cdigo_hogar", '') ELSE tbl."3_2_cdigo_hogar" END ||
-                                         CASE WHEN tbl."5_3_cdigo_familia" = 'No Aplica' OR tbl."5_3_cdigo_familia" IS NULL THEN COALESCE(tbl."6_31_cdigo_familia", '') ELSE tbl."5_3_cdigo_familia" END
-                                   ) as total 
-                            FROM tramites_aps_2026 tbl
-                            WHERE {w_tramites} AND {self.get_date_filter(f'tbl.{tipo_fecha}')}
-                            """
-        tr_fam_res = self.ejecutar(tr_familias_query, params)
-
-        texto_duplicados = "\n".join(
-            duplicados_list) if duplicados_list else "✅ No se detectaron trámites duplicados para este usuario."
-
-        res_obs_tramites = self.ejecutar(f"""
-                                    SELECT tbl.title, tbl."150_describe_aqu_el_" as obs
-                                    FROM tramites_aps_2026 tbl
-                                    WHERE {w_tramites} AND {self.get_date_filter(f'tbl.{tipo_fecha}')}
-                                    """, params)
-
-        texto_obs_tramites = ""
-        for idx, r in enumerate(res_obs_tramites, 1):
-            titulo = str(r.get("title", "Sin Título"))
-            obs = str(r.get("obs", "")).replace('\n', ' ')
-            if not obs or obs == 'None': obs = "Sin observaciones registradas."
-            texto_obs_tramites += f"{idx}. Ficha {titulo}: {obs}\n\n"
-
-        data["tramites"] = {
-            "total": a_tr_tot, "resolutivos": a_tr_res, "con_error": a_tr_err, "por_tipo": por_tipo_aud,
-            "total_registros": tr_registros, "total_familias": tr_fam_res[0]["total"] if tr_fam_res else 0,
-            "duplicados": duplicados_count,
-            "reporte_realizados": texto_realizados if texto_realizados else "No hay trámites realizados en estas fechas.",
-            "reporte_resueltos": texto_resueltos if texto_resueltos else "No hay trámites resueltos en estas fechas.",
-            "reporte_errores": texto_errores_tr if texto_errores_tr else "✅ Excelente. No hay trámites con errores.",
-            "reporte_duplicados": texto_duplicados,
-            "reporte_observaciones": texto_obs_tramites.strip() if texto_obs_tramites else "No hay observaciones de trámites en estas fechas."
-        }
-
-        # --- REPORTE GLOBAL CONSOLIDADO Y FILTRADO POR USUARIO Y FECHA ---
-        date_filter_sql = self.get_date_filter('fecha_creacion')
-        reporte_consolidado = self.obtener_reporte_inconsistencias_consolidadas(params, date_filter_sql,
-                                                                                errores_dinamicos)
-
-        data.update(reporte_consolidado)
-
-        # Mapear el reporte con el formato estricto solicitado hacia la vista
-        data["reporte_errores_texto"] = reporte_consolidado.get(
-            "reporte_texto_global_consolidado") or "✅ ¡Felicitaciones! No se encontraron errores de auditoría para este encuestador en estas fechas."
-
-        return data
-
-    def obtener_reporte_inconsistencias_consolidadas(self, params: dict, date_filter_sql: str,
-                                                     errores_dinamicos: list) -> dict:
-        """
-        Consulta la tabla 'auditoria_errores_2026', filtra por usuario específico y rango de fechas,
-        y asigna el formato estricto textual conservando todos los atributos y sus íconos representativos.
-        """
-        query = f"""
-            SELECT 
-                COALESCE(modulo, 'SIN_MODULO') AS modulo,
-                id_ficha,
-                COALESCE(usuario_creador, 'Desconocido') AS usuario_creador,
-                COALESCE(titulo_ficha, 'Sin Título') AS titulo_ficha,
-                fecha_creacion,
-                COALESCE(cantidad_errores, 0) AS cantidad_errores,
-                COALESCE(detalle_inconsistencias, '') AS detalle_inconsistencias,
-                'auditoria_errores_2026' AS tabla_origen
-            FROM auditoria_errores_2026
-            WHERE LOWER(TRIM(CAST(usuario_creador AS text))) = LOWER(:email_res)
-              AND {date_filter_sql}
-            ORDER BY modulo ASC, cantidad_errores DESC, fecha_creacion DESC;
-        """
-
-        modulos_agrupados = {}
-        total_registros = 0
-        total_errores = 0
-        total_advertencias = 0
-        lista_errores_texto = []
-
-        try:
-            rows = self.ejecutar(query, params)
-
-            for row in rows:
-                total_registros += 1
-
-                mod = str(row['modulo']).strip().upper()
-                id_ficha = row['id_ficha']
-                usuario = row['usuario_creador']
-                titulo = row['titulo_ficha']
-                fecha = row['fecha_creacion'].strftime('%Y-%m-%d %H:%M:%S') if row.get('fecha_creacion') else 'N/A'
-                cant_errores = row['cantidad_errores']
-                detalle = row['detalle_inconsistencias']
-                tabla = row['tabla_origen']
-
-                # Identificación de Severidad y Asignación de Íconos
-                detalle_upper = str(detalle).upper()
-                if any(k in detalle_upper for k in ['ADVERTENCIA', 'WARNING', 'ADV']) or cant_errores == 0:
-                    icono = "⚠️"
-                    tipo_normalizado = "ADVERTENCIA"
-                    total_advertencias += 1
-                else:
-                    icono = "❌"
-                    tipo_normalizado = "ERROR"
-                    total_errores += 1
-
-                registro_dict = {
-                    "icono": icono,
-                    "modulo": mod,
-                    "id_ficha": id_ficha,
-                    "usuario_creador": usuario,
-                    "titulo_ficha": titulo,
-                    "fecha_creacion": fecha,
-                    "cantidad_errores": cant_errores,
-                    "detalle_inconsistencias": detalle,
-                    "tabla_origen": tabla,
-                    "tipo_error": tipo_normalizado
-                }
-
-                if mod not in modulos_agrupados:
-                    modulos_agrupados[mod] = []
-                modulos_agrupados[mod].append(registro_dict)
-
-                # =========================================================================
-                # 📌 FORMATO ESTRICTO REQUERIDO PARA EL CUADRO DE TEXTO
-                # =========================================================================
-                lista_errores_texto.append(
-                    f"{icono} MÓDULO: {mod}\n"
-                    f"📄 Ficha ID: {id_ficha} | 📝 Título: {titulo}\n"
-                    f"👤 Usuario: {usuario} | 📅 Fecha: {fecha}\n"
-                    f"🔎 Errores/Inconsistencias ({cant_errores}): {detalle}\n"
-                    f"--------------------------------------------------"
-                )
-
-            # Inyección de errores dinámicos detectados en vuelo por el servicio
-            if errores_dinamicos:
-                lista_errores_texto.extend(errores_dinamicos)
-                total_registros += len(errores_dinamicos)
-                total_errores += len(errores_dinamicos)
-
-            # Acoplamiento del texto
-            reporte_global_str = "\n".join(lista_errores_texto)
-
-            return {
-                "modulos_consolidados": modulos_agrupados,
-                "reporte_texto_global_consolidado": reporte_global_str if reporte_global_str else "✅ ¡Felicitaciones! No se encontraron errores de auditoría para este encuestador en estas fechas.",
-                "resumen_consolidado": {
-                    "total_registros": total_registros,
-                    "total_errores": total_errores,
-                    "total_advertencias": total_advertencias,
-                    "total_modulos": len(modulos_agrupados)
-                }
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>INFORMES ESE · Auditoría</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,400&display=swap" rel="stylesheet"/>
+
+  <!-- LIBRERÍAS EXTERNAS: Chart.js, jQuery y DataTables (Para Motor Excel-like) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <link href="https://cdn.datatables.net/v/dt/dt-2.0.8/datatables.min.css" rel="stylesheet">
+  <script src="https://cdn.datatables.net/v/dt/dt-2.0.8/datatables.min.js"></script>
+
+  <!-- ESTILOS GLOBALES -->
+  <link rel="stylesheet" href="/static/css/global.css"/>
+  <style>
+    :root {
+      --bg:#f0f4fa;--surface:#ffffff;--navy:#0a1f3d;--navy-lt:#122848;
+      --teal:#00b09b;--teal-lt:#e6f7f5;--teal-mid:#b3e8e3;
+      --gold:#f0a500;--gold-lt:#fef7e0;--red:#e53935;--red-lt:#fde8e8;
+      --orange:#f97316;--orange-lt:#ffedd5;
+      --purple:#6c3fc5;--purple-lt:#ede8fb;--green:#1e9c6e;--green-lt:#e5f7f0;
+      --border:#dde4ef;--text:#1a2840;--muted:#5d7290;
+      --sidebar-w:240px;--radius:14px;
+      --shadow:0 2px 16px rgba(10,31,61,.07);--shadow-md:0 4px 28px rgba(10,31,61,.11);
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html{scroll-behavior:smooth;}
+    body{font-family:'Sora',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;}
+
+    .sidebar{width:var(--sidebar-w);background:var(--navy);height:100vh;position:fixed;left:0;top:0;display:flex;flex-direction:column;padding:1.5rem 0;z-index:100;box-shadow:4px 0 24px rgba(0,0,0,.18);}
+    .sidebar-brand{display:flex;align-items:center;gap:.75rem;padding:0 1.4rem 1.5rem;border-bottom:1px solid rgba(255,255,255,.08);}
+    .brand-logo{width:36px;height:36px;background:linear-gradient(135deg,var(--teal),#00d4b8);border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .brand-logo svg{width:20px;height:20px;fill:#fff;}
+    .brand-name{font-family:'Fraunces',serif;font-size:1rem;color:#fff;}
+    .brand-sub{font-size:.62rem;color:rgba(255,255,255,.4);letter-spacing:.1em;text-transform:uppercase;}
+    .nav{flex:1;padding:1.2rem 0;}
+    .nav-item{display:flex;align-items:center;gap:.75rem;padding:.7rem 1.4rem;color:rgba(255,255,255,.55);font-size:.83rem;font-weight:500;cursor:pointer;transition:all .18s;text-decoration:none;margin:.1rem 0;}
+    .nav-item:hover{color:#fff;background:rgba(255,255,255,.06);}
+    .nav-item.active{color:var(--teal);background:rgba(0,176,155,.12);border-right:3px solid var(--teal);}
+    .nav-item svg{width:18px;height:18px;flex-shrink:0;}
+    .nav-section-title{padding:.9rem 1.4rem .3rem;font-size:.62rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.25);}
+    .sidebar-user{padding:1rem 1.4rem;border-top:1px solid rgba(255,255,255,.08);}
+    .user-name{font-size:.82rem;color:#fff;font-weight:600;margin-bottom:.15rem;}
+    .user-role{font-size:.68rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.1em;}
+    .btn-logout{margin-top:.75rem;width:100%;background:rgba(229,57,53,.15);border:1px solid rgba(229,57,53,.3);color:#ff8a80;border-radius:8px;padding:.45rem;font-family:'Sora',sans-serif;font-size:.75rem;cursor:pointer;transition:background .2s;}
+    .btn-logout:hover{background:rgba(229,57,53,.25);}
+
+    .main{margin-left:var(--sidebar-w);flex:1;min-height:100vh;min-width:0;}
+    .topbar{background:var(--surface);padding:1rem 2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:var(--shadow);}
+    .topbar-title{font-family:'Fraunces',serif;font-size:1.1rem;font-weight:700;color:var(--navy);text-transform: capitalize;}
+    .topbar-meta{font-size:.75rem;color:var(--muted);}
+    .content{padding:1.75rem 2rem 4rem;}
+
+    .auditoria-filters{display:flex;gap:1rem;margin-bottom:2rem;background:var(--surface);padding:1.5rem;border-radius:var(--radius);box-shadow:var(--shadow);flex-wrap:wrap;align-items:flex-end;}
+    .filter-group{flex:1;min-width:200px; position:relative;}
+    .filter-group label{display:block;font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.45rem;}
+    .auditoria-filters input{width:100%;border:1.5px solid var(--border);border-radius:8px;padding:.8rem 1rem;font-family:'Sora',sans-serif;font-size:.9rem;color:var(--text);outline:none;transition:border-color .2s;}
+    .auditoria-filters input:focus{border-color:var(--teal);}
+    .btn-search{background:var(--navy);color:#fff;border:none;padding:.9rem 2rem;border-radius:8px;font-weight:600;font-family:'Sora',sans-serif;cursor:pointer;transition:background .2s;white-space:nowrap;height:46px;}
+    .btn-search:hover:not(:disabled){background:var(--teal);}
+    .btn-search:disabled{background:var(--muted);cursor:not-allowed;opacity:0.6;}
+
+    .custom-dropdown { position:absolute; top:100%; left:0; right:0; background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow-md); max-height:200px; overflow-y:auto; z-index:1000; display:none; margin-top:4px; }
+    .custom-dropdown-item { padding:.7rem 1rem; font-size:.85rem; color:var(--text); cursor:pointer; transition:background .2s; }
+    .custom-dropdown-item:hover { background:var(--teal-lt); color:var(--teal); }
+
+    .section{margin-bottom:2.5rem;animation:fadeIn .4s ease;}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    .section-header{display:flex;align-items:center;gap:.75rem;margin-bottom:1.1rem;}
+    .section-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .section-icon svg{width:20px;height:20px;}
+    .section-title{font-family:'Fraunces',serif;font-size:1.1rem;color:var(--navy);}
+    .section-sub{font-size:.75rem;color:var(--muted);}
+    .cards-row{display:flex;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;}
+    .stat-card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.2rem 1.4rem;flex:1;min-width:160px;border-top:3px solid transparent;transition:box-shadow .2s,transform .2s;}
+    .stat-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px);}
+    .stat-card.c-teal{border-top-color:var(--teal)}.stat-card.c-gold{border-top-color:var(--gold)}.stat-card.c-red{border-top-color:var(--red)}.stat-card.c-purple{border-top-color:var(--purple)}.stat-card.c-green{border-top-color:var(--green)}.stat-card.c-navy{border-top-color:var(--navy)}.stat-card.c-orange{border-top-color:var(--orange)}
+    .stat-label{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.45rem;}
+    .stat-value{font-family:'Fraunces',serif;font-size:2rem;font-weight:700;color:var(--navy);line-height:1;margin-bottom:.2rem;}
+    .stat-badge{display:inline-block;padding:.15rem .55rem;border-radius:20px;font-size:.68rem;font-weight:600;}
+    .badge-error{background:var(--red-lt);color:var(--red)}.badge-ok{background:var(--green-lt);color:var(--green)}.badge-warn{background:var(--gold-lt);color:var(--gold)}.badge-info{background:var(--teal-lt);color:var(--teal)}.badge-orange{background:var(--orange-lt);color:var(--orange)}
+    
+    .sub-section {background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.2rem 1.4rem;margin-bottom:1rem; min-width:0; max-width:100%;}
+    .sub-section-title{font-size:.73rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem;padding-bottom:.6rem;border-bottom:1px solid var(--border);}
+    .chart-container{position:relative;height:220px;}
+    .divider{height:1px;background:var(--border);margin:1.8rem 0;}
+    .list-row{display:flex;justify-content:space-between;margin-bottom:.4rem;font-size:.8rem;border-bottom:1px solid var(--border);padding-bottom:.2rem;}
+
+    /* Contenedor Adaptativo de Tablas DataTables */
+    .table-container {
+        width: 100%;
+        max-width: 100%;
+        border-radius: 8px;
+        background: var(--surface);
+        display: block;
+    }
+
+    .data-table { width: 100%; min-width: max-content; border-collapse: collapse; font-size: 0.75rem; white-space: nowrap; margin-top: 0; }
+    .data-table th { background: var(--navy); color: #fff; padding: 0.6rem; text-align: left; font-weight: 600; border-right: 1px solid rgba(255,255,255,0.1); }
+    .data-table td { padding: 0.6rem; border-bottom: 1px solid var(--border); color: var(--text); border-right: 1px solid var(--border); }
+    .data-table tfoot td { background: var(--teal-lt); font-weight: 700; color: var(--navy); border-top: 2px solid var(--teal); position: sticky; bottom: 0;}
+    .res-badge { display:inline-block; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:700; background:var(--green-lt); color:var(--green); }
+
+    /* Personalización UI DataTables (Celdas, inputs y paginación) */
+    div.dt-container div.dt-layout-row { margin-bottom: 0.8rem; }
+    div.dt-search { display: none; } /* Ocultamos el buscador global para priorizar el por columnas */
+    div.dt-length select { border: 1.5px solid var(--border); border-radius: 6px; padding: 0.2rem 0.5rem; outline: none; font-family: 'Sora', sans-serif; }
+    .dt-paging-button.current { background: var(--teal) !important; color: white !important; border: none !important; border-radius: 6px !important; font-weight: bold; }
+    table.dataTable thead th, table.dataTable thead td { padding: 10px 18px; border-bottom: 1px solid var(--border); }
+    table.dataTable.no-footer { border-bottom: 1px solid var(--border); }
+    .dt-scroll-headInner, .data-table { width: 100% !important; }
+
+    #loadingOverlay{position:fixed;inset:0;background:rgba(240,244,250,.8);z-index:999;display:none;flex-direction:column;align-items:center;justify-content:center;gap:1rem;}
+    .loading-spinner{width:40px;height:40px;border:3px solid rgba(0,176,155,.2);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .loading-text{font-size:.85rem;color:var(--muted);}
+    .empty-state{text-align:center;padding:4rem 2rem;color:var(--muted);}
+    .empty-state svg{width:60px;margin-bottom:1rem;opacity:.4;}
+
+    .report-box{width:100%;height:120px;background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:.75rem;font-family:monospace;font-size:.8rem;resize:none;outline:none;}
+    .report-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;}
+    .btn-copy-small{padding:.4rem 1rem;font-size:.75rem;border-radius:6px;border:none;color:#fff;cursor:pointer;font-family:'Sora',sans-serif;font-weight:600;}
+
+    .anterior-card { border: 1px dashed var(--muted) !important; background: var(--bg); opacity: 0.85;}
+    .anterior-card:hover { opacity: 1; border-color: var(--teal) !important;}
+    .anterior-section { background: transparent; border: 1px dashed var(--border); box-shadow: none; padding: 1rem; }
+  </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-logo"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg></div>
+    <div><div class="brand-name">INFORMES</div><div class="brand-sub">ESE 2026</div></div>
+  </div>
+  <div class="nav">
+    <div class="nav-section-title">Módulos</div>
+    <a href="/dashboard" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg><span class="nav-label">Dashboard</span></a>
+    <a href="/auditoria" class="nav-item active"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg><span class="nav-label">Auditoría (Creación)</span></a>
+    <a href="/auditoria_actualizacion" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg><span class="nav-label">Auditoría (Cargas)</span></a>
+    <a href="/sihos" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg><span class="nav-label">SIHOS Clínica</span></a>
+    <a href="/mapas" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg><span class="nav-label">Mapas GIS</span></a>
+    <a href="/informes" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg><span class="nav-label">Informes</span></a>
+  </div>
+  <div class="sidebar-user">
+    <div class="user-name" id="sidebarNombre">Cargando...</div>
+    <div class="user-role" id="sidebarRol">—</div>
+    <button class="btn-logout" onclick="logout()">Cerrar sesión</button>
+  </div>
+</nav>
+
+<!-- MAIN CONTENT -->
+<div class="main">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title" id="topbarTitle">Auditoría de Encuestadores</div>
+      <div class="topbar-meta" id="topbarMeta">Rastreo de registros creados por usuario (created_at)</div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <div class="auditoria-filters">
+      <div class="filter-group">
+        <label>Correo del Encuestador</label>
+        <input type="email" id="inputUser" placeholder="Buscar por correo..." autocomplete="off"/>
+        <div id="customDropdown" class="custom-dropdown"></div>
+      </div>
+      <div style="display:flex; align-items:center; color:var(--muted); font-size:0.8rem; font-weight:bold; padding-bottom: 0.5rem; margin-top: 1.5rem;">Ó</div>
+      <div class="filter-group">
+        <label>Nombre del Profesional</label>
+        <input type="text" id="inputName" placeholder="Buscar por nombre..." autocomplete="off"/>
+        <div id="customDropdownName" class="custom-dropdown"></div>
+      </div>
+      <div class="filter-group">
+        <label>Fecha Inicio</label>
+        <input type="date" id="inputInicio"/>
+      </div>
+      <div class="filter-group">
+        <label>Fecha Fin</label>
+        <input type="date" id="inputFin"/>
+      </div>
+      <button class="btn-search" id="btnBuscar" onclick="buscarAuditoria()">🔍 Consultar</button>
+    </div>
+
+    <div id="emptyState" class="empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      <p>Ingresa un correo o nombre del profesional y el rango de fechas para generar el reporte de auditoría.</p>
+    </div>
+
+    <div id="resultadosAuditoria" style="display:none;">
+
+      <!-- ERRORES GLOBALES CONSOLIDADOS DE TODAS LAS TABLAS -->
+      <div id="panelErrores" style="display:none; margin-bottom: 2.5rem;">
+        <div class="section-header" style="justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:.75rem;">
+            <div class="section-icon" style="background:var(--red-lt);">
+              <svg viewBox="0 0 24 24" fill="var(--red)"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+            </div>
+            <div>
+              <div class="section-title">Reporte de Inconsistencias Global</div>
+              <div class="section-sub">Consolidado de errores de TODAS las tablas filtrado por encuestador y fecha</div>
+            </div>
+          </div>
+          <button class="btn-search" style="background:var(--teal);" onclick="copiarTexto('textoErroresGlobal')">📋 Copiar Reporte Completo</button>
+        </div>
+        <textarea id="textoErroresGlobal" readonly style="width:100%;height:320px;background:#0a1f3d;color:#00d4b8;font-family:monospace;font-size:.85rem;padding:1.5rem;border-radius:12px;border:2px solid var(--teal-mid);resize:vertical;outline:none;box-shadow:inset 0 4px 10px rgba(0,0,0,.5);line-height:1.4;"></textarea>
+      </div>
+
+      <!-- DESISTIMIENTOS -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-icon" style="background:#fde8e8;"><svg viewBox="0 0 24 24" fill="#e53935"><path d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"/></svg></div>
+          <div><div class="section-title">Desistimientos</div><div class="section-sub">Abandonos registrados por este usuario</div></div>
+        </div>
+        <div class="cards-row">
+          <div class="stat-card c-red"><div class="stat-label">Total desistimientos</div><div class="stat-value" id="a-des-tot">0</div></div>
+          <div class="stat-card c-gold"><div class="stat-label">Registros con error</div><div class="stat-value" id="a-des-err">0</div><span class="stat-badge badge-warn">Requiere revisión</span></div>
+        </div>
+      </div>
+      <div class="divider"></div>
+
+      <!-- PLAN CUIDADO COMUNITARIO -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-icon" style="background:#e8f5e9;"><svg viewBox="0 0 24 24" fill="#1e9c6e"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></div>
+          <div><div class="section-title">Plan Cuidado Comunitario</div><div class="section-sub">Atenciones comunitarias registradas</div></div>
+        </div>
+        <div class="cards-row">
+          <div class="stat-card c-green"><div class="stat-label">Planes realizados</div><div class="stat-value" id="a-pcc-pla">0</div></div>
+          <div class="stat-card c-teal"><div class="stat-label">Integrantes con plan</div><div class="stat-value" id="a-pcc-int">0</div></div>
+          <div class="stat-card c-gold"><div class="stat-label">Registros con error</div><div class="stat-value" id="a-pcc-err">0</div><span class="stat-badge badge-warn">Revisar</span></div>
+        </div>
+
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Reportes Detallados de Plan Cuidado Comunitario</div>
+          <div style="display:flex;flex-direction:column;gap:1.5rem;">
+            <div>
+              <div class="report-header">
+                <span style="font-size:.85rem;font-weight:bold;color:var(--green);">1. Detalles de Jornada / Actividad</span>
+                <button class="btn-copy-small" style="background:var(--green);" onclick="copiarTexto('txtPccDetalles')">📋 Copiar</button>
+              </div>
+              <textarea id="txtPccDetalles" class="report-box" readonly style="border-color:var(--green-lt);"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="divider"></div>
+
+      <!-- CARACTERIZACIÓN ACTUAL -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-icon" style="background:#ede8fb;"><svg viewBox="0 0 24 24" fill="#6c3fc5"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></div>
+          <div><div class="section-title">Caracterización SI-APS 2026</div><div class="section-sub">Encuestas y tamizajes realizados en la fecha seleccionada</div></div>
+        </div>
+        <div class="cards-row">
+          <div class="stat-card c-purple"><div class="stat-label">Familias caracterizadas</div><div class="stat-value" id="a-ca-fam">0</div><span class="stat-badge badge-info">1. SI (Consentimiento)</span></div>
+          <div class="stat-card c-orange"><div class="stat-label">Familias Duplicadas</div><div class="stat-value" id="a-ca-fam-dup">0</div><span class="stat-badge badge-orange">Descontadas</span></div>
+          <div class="stat-card c-navy"><div class="stat-label">Integrantes caracterizados</div><div class="stat-value" id="a-ca-ind">0</div></div>
+          <div class="stat-card c-orange"><div class="stat-label">Integrantes Duplicados</div><div class="stat-value" id="a-ca-ind-dup">0</div><span class="stat-badge badge-orange">Descontados</span></div>
+          <div class="stat-card c-red"><div class="stat-label">Familias sin aseguramiento</div><div class="stat-value" id="a-ca-sinaseg">—</div><span class="stat-badge badge-error">No afiliadas</span></div>
+        </div>
+
+        <!-- TABLAS COMPLETAS CARACTERIZACIÓN CON DATATABLES -->
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Muestra Tabular Avanzada: Caracterización Familiar 2026</div>
+          <div class="table-container">
+            <table class="data-table display nowrap" id="tablaCaractFamiliar" style="width:100%">
+              <thead>
+                <tr>
+                  <th>ec5_uuid</th><th>created_at</th><th>uploaded_at</th><th>created_by</th><th>title</th>
+                  <th>12_4_territorio</th><th>13_5_microterritorio</th><th>lat_15_8</th><th>long_15_8</th>
+                  <th>18_10_cdigo_hogar</th><th>19_101_cdigo_hogar</th><th>21_11_cdigo_familia</th><th>22_111_cdigo_familia</th>
+                  <th>24_13_numero_hoga</th><th>25_14_numero_fami</th><th>26_15_numero_pers</th><th>27_22_cdigo_ficha</th>
+                  <th>31_19_nmero_ident</th><th>32_20_responsable</th><th>34_23_fecha_diligenc</th><th>64_41_tipo_famili</th>
+                  <th>65_42_nmero_perso</th><th>66_43_estructura</th><th>67_431_seleccione</th><th>69_45_funcionalidad</th>
+                  <th>70_451_evidencia_apg</th><th>71_46_en_familia</th><th>72_47_si_respuesta</th><th>73_471_imagen_escala</th>
+                  <th>74_48_interrelacione</th><th>99_41_identificacin</th><th>147_70_observaciones</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Muestra Tabular Avanzada: Caracterización Individual 2026</div>
+          <div class="table-container">
+            <table class="data-table display nowrap" id="tablaCaractIndividual" style="width:100%">
+              <thead>
+                <tr>
+                  <th>ec5_branch_owner_uuid</th><th>ec5_branch_uuid</th><th>created_at</th><th>uploaded_at</th>
+                  <th>created_by</th><th>title</th><th>100_1_primer_nombre</th><th>102_3_primer_apellid</th>
+                  <th>104_5_tipo_identi</th><th>105_6_numero_iden</th><th>106_numero_celular</th><th>107_7_fecha_nacim</th>
+                  <th>108_8_sexo</th><th>109_9_encuentra_e</th><th>110_10_rol_dentro</th><th>111_11_ocupacion</th>
+                  <th>112_12_nivel_educati</th><th>113_13_rgimen_afi</th><th>114_14_eapb</th><th>115_15_pertenencia_a</th>
+                  <th>116_16_pertenencia_t</th><th>119_19_reconoce_algu</th><th>127_25_cumple_con_el</th><th>128_26_a_qu_etapa_de</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- CARACTERIZACIÓN ANTERIOR -->
+        <div class="sub-section anterior-section" style="margin-top:1rem;">
+          <div class="sub-section-title" style="color:var(--muted);">Período Anterior Acumulado (Caracterización)</div>
+          <div class="cards-row">
+            <div class="stat-card anterior-card"><div class="stat-label">Familias caracterizadas</div><div class="stat-value" id="a-ca-fam-ant">0</div></div>
+            <div class="stat-card anterior-card"><div class="stat-label">Familias Duplicadas</div><div class="stat-value" id="a-ca-fam-dup-ant">0</div></div>
+            <div class="stat-card anterior-card"><div class="stat-label">Integrantes caracterizados</div><div class="stat-value" id="a-ca-ind-ant">0</div></div>
+            <div class="stat-card anterior-card"><div class="stat-label">Integrantes Duplicados</div><div class="stat-value" id="a-ca-ind-dup-ant">0</div></div>
+            <div class="stat-card anterior-card"><div class="stat-label">Familias sin aseguramiento</div><div class="stat-value" id="a-ca-sinaseg-ant">0</div></div>
+          </div>
+        </div>
+
+        <div class="sub-section" style="margin-top: 1rem;">
+          <div class="sub-section-title">Grupos Poblacionales Identificados</div>
+          <div class="cards-row">
+            <div class="stat-card c-teal"><div class="stat-label">Gestantes</div><div class="stat-value" id="a-ca-ges">0</div></div>
+            <div class="stat-card c-green"><div class="stat-label">Menores de 5</div><div class="stat-value" id="a-ca-men">0</div></div>
+            <div class="stat-card c-purple"><div class="stat-label">Adultos 60+</div><div class="stat-value" id="a-ca-may">0</div></div>
+            <div class="stat-card c-gold"><div class="stat-label">Víctimas Conflicto</div><div class="stat-value" id="a-ca-vic">0</div></div>
+            <div class="stat-card c-navy"><div class="stat-label">Con Discapacidad</div><div class="stat-value" id="a-ca-disc">0</div></div>
+          </div>
+        </div>
+
+        <!-- GRUPOS POBLACIONALES ANTERIOR -->
+        <div class="sub-section anterior-section" style="margin-top:1rem;">
+          <div class="sub-section-title" style="color:var(--muted);">Período Anterior: Grupos Poblacionales</div>
+          <div class="cards-row">
+            <div class="stat-card anterior-card"><div class="stat-label">Gestantes</div><div class="stat-value" id="a-ca-ges-ant">0</div></div>
+            <div class="stat-card anterior-card"><div class="stat-label">Menores de 5</div><div class="stat-value" id="a-ca-men-ant">0</div></div>
+            <div class="stat-card anterior-card"><div class="stat-label">Adultos 60+</div><div class="stat-value" id="a-ca-may-ant">0</div></div>
+            <div class="stat-card anterior-card"><div class="stat-label">Víctimas Conflicto</div><div class="stat-value" id="a-ca-vic-ant">0</div></div>
+            <div class="stat-card anterior-card"><div class="stat-label">Con Discapacidad</div><div class="stat-value" id="a-ca-disc-ant">0</div></div>
+          </div>
+        </div>
+
+        <div class="cards-row" style="margin-top:1rem;">
+          <div class="sub-section" style="flex:1;">
+            <div class="sub-section-title">Perfil Social del Territorio</div>
+            <div style="display:flex;flex-wrap:wrap;gap:1.5rem;">
+              <div style="flex:1;min-width:200px;"><div style="font-size:.75rem;font-weight:bold;color:var(--teal);margin-bottom:.8rem;">TIPO DE FAMILIA</div><div id="listTipoFamilia"></div></div>
+              <div style="flex:1;min-width:200px;"><div style="font-size:.75rem;font-weight:bold;color:var(--navy);margin-bottom:.8rem;">ESTRATO SOCIOECONÓMICO</div><div id="listEstrato"></div></div>
+              <div style="flex:1;min-width:200px;"><div style="font-size:.75rem;font-weight:bold;color:var(--purple);margin-bottom:.8rem;">NIVEL EDUCATIVO</div><div id="listNivelEducativo"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Composición Étnica</div>
+          <div class="cards-row">
+            <div class="stat-card c-navy"><div class="stat-label">Con Pertenencia Étnica</div><div class="stat-value" id="a-etn-con-pct">0%</div><span class="stat-badge badge-info" id="a-etn-con-tot">0 personas</span></div>
+            <div class="stat-card c-gold"><div class="stat-label">Sin Pertenencia Étnica</div><div class="stat-value" id="a-etn-sin-pct">0%</div></div>
+          </div>
+        </div>
+
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Tipos de Discapacidad (Frecuencia)</div>
+          <div class="chart-container"><canvas id="chartDiscapacidadAuditoria"></canvas></div>
+        </div>
+
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Reportes y Errores de Registro (Caracterización)</div>
+          <div class="cards-row">
+            <div class="stat-card c-red"><div class="stat-label">Errores Familiar</div><div class="stat-value" id="a-ca-err-f">0</div></div>
+            <div class="stat-card c-gold"><div class="stat-label">Errores Individual</div><div class="stat-value" id="a-ca-err-i">0</div></div>
+          </div>
+          <div style="margin-top:1.5rem;">
+            <div class="report-header">
+              <span style="font-size:.85rem;font-weight:bold;color:var(--orange);">1. Familias Duplicadas (Título o Geo/Códigos idénticos)</span>
+              <button class="btn-copy-small" style="background:var(--orange);" onclick="copiarTexto('txtCaFamDuplicadas')">📋 Copiar</button>
+            </div>
+            <textarea id="txtCaFamDuplicadas" class="report-box" style="background:var(--orange-lt);border-color:var(--orange);color:var(--orange);" readonly></textarea>
+          </div>
+          <div style="margin-top:1.5rem;">
+            <div class="report-header">
+              <span style="font-size:.85rem;font-weight:bold;color:var(--orange);">2. Integrantes Duplicados (Título idéntico)</span>
+              <button class="btn-copy-small" style="background:var(--orange);" onclick="copiarTexto('txtCaIndDuplicadas')">📋 Copiar</button>
+            </div>
+            <textarea id="txtCaIndDuplicadas" class="report-box" style="background:var(--orange-lt);border-color:var(--orange);color:var(--orange);" readonly></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="divider"></div>
+
+      <!-- PLAN CUIDADO FAMILIAR GENERAL ACTUAL -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-icon" style="background:#e6f7f5;"><svg viewBox="0 0 24 24" fill="#00b09b"><path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/></svg></div>
+          <div><div class="section-title">Plan Cuidado Familiar (General)</div><div class="section-sub">Intervenciones del promotor/médico (Excluye Psicología)</div></div>
+        </div>
+        <div class="cards-row">
+          <div class="stat-card c-teal"><div class="stat-label">Familias intervenidas</div><div class="stat-value" id="a-pcf-fam">0</div></div>
+          <div class="stat-card c-orange"><div class="stat-label">Planes Duplicados</div><div class="stat-value" id="a-pcf-fam-dup">0</div><span class="stat-badge badge-orange">Descontados</span></div>
+          <div class="stat-card c-navy"><div class="stat-label">Integrantes intervenidos</div><div class="stat-value" id="a-pcf-int">0</div></div>
+          <div class="stat-card c-orange"><div class="stat-label">Integrantes Duplicados</div><div class="stat-value" id="a-pcf-int-dup">0</div><span class="stat-badge badge-orange">Descontados</span></div>
+        </div>
+        
+        <!-- ESTADO DE CIERRE PCF GENERAL -->
+        <div class="cards-row">
+          <div class="stat-card c-green"><div class="stat-label">PCF Cerrados</div><div class="stat-value" id="a-pcf-cerrados">0</div><span class="stat-badge badge-ok">1. SI</span></div>
+          <div class="stat-card c-red"><div class="stat-label">PCF No Cerrados</div><div class="stat-value" id="a-pcf-nocerrados">0</div><span class="stat-badge badge-error">2. NO</span></div>
+        </div>
+
+        <!-- TABLAS COMPLETAS PCF GENERAL -->
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Muestra Tabular Avanzada: PCF Principal (General) 2026</div>
+          <div class="table-container">
+            <table class="data-table display nowrap" id="tablaPcfPrincipal" style="width:100%">
+              <thead>
+                <tr>
+                  <th>ec5_uuid</th><th>created_at</th><th>uploaded_at</th><th>created_by</th>
+                  <th>lat_1_1_geo</th><th>long_1_1_geo</th><th>2_2_fecha_visita</th><th>4_3_perfil</th>
+                  <th>5_4_nombre_profe</th><th>9_7_territorio</th><th>10_8_microterritorio</th><th>11_9_identificacin</th>
+                  <th>12_91_identificacin</th><th>13_10_identificacin</th><th>14_101_identificacin</th><th>27_16_cules_comp</th>
+                  <th>29_integrantes</th><th>73_17_realizara</th><th>98_resumen_interv</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Muestra Tabular Avanzada: PCF Integrantes (General) 2026</div>
+          <div class="table-container">
+            <table class="data-table display nowrap" id="tablaPcfIntegrantes" style="width:100%">
+              <thead>
+                <tr>
+                  <th>ec5_branch_owner_uuid</th><th>ec5_branch_uuid</th><th>created_at</th><th>uploaded_at</th>
+                  <th>created_by</th><th>title</th><th>31_1_primer_nombre</th><th>33_3_primer_apellido</th>
+                  <th>35_5_tipo_doc</th><th>36_6_numero_doc</th><th>37_7_soporte</th><th>38_8_fecha_nac</th>
+                  <th>39_9_edad</th><th>40_10_seleccione</th><th>41_11_sexo</th><th>46_16_numero_cel</th>
+                  <th>57_23_tipo_co</th><th>72_24_resumen</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- PLAN CUIDADO FAMILIAR GENERAL ANTERIOR -->
+        <div class="sub-section anterior-section" style="margin-top:1rem;">
+          <div class="sub-section-title" style="color:var(--muted);">Período Anterior Acumulado (PCF)</div>
+          <div class="cards-row">
+            <div class="stat-card anterior-card"><div class="stat-label">Familias intervenidas</div><div class="stat-value" id="a-pcf-fam-ant">0</div></div>
+            <div class="stat-card anterior-card"><div class="stat-label">Planes Duplicados</div><div class="stat-value" id="a-pcf-fam-dup-ant">0</div></div>
+            <div class="stat-card anterior-card"><div class="stat-label">Integrantes intervenidos</div><div class="stat-value" id="a-pcf-int-ant">0</div></div>
+            <div class="stat-card anterior-card"><div class="stat-label">Integrantes Duplicados</div><div class="stat-value" id="a-pcf-int-dup-ant">0</div></div>
+          </div>
+        </div>
+
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Reportes Detallados de Plan Cuidado Familiar (General)</div>
+          <div style="display:flex;flex-direction:column;gap:1.5rem;">
+            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--teal);">1. Intervenciones Familiares Realizadas</span><button class="btn-copy-small" style="background:var(--teal);" onclick="copiarTexto('txtPcfRealizados')">📋 Copiar</button></div><textarea id="txtPcfRealizados" class="report-box" readonly style="border-color:var(--teal-lt);"></textarea></div>
+            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--red);">2. Errores de Registro</span><button class="btn-copy-small" style="background:var(--red);" onclick="copiarTexto('txtPcfErrores')">📋 Copiar</button></div><textarea id="txtPcfErrores" class="report-box" style="background:#fde8e8;border-color:var(--red-lt);color:var(--red);" readonly></textarea></div>
+            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--orange);">3. Planes Duplicados (Territorio/Códigos idénticos)</span><button class="btn-copy-small" style="background:var(--orange);" onclick="copiarTexto('txtPcfDuplicados')">📋 Copiar</button></div><textarea id="txtPcfDuplicados" class="report-box" style="background:var(--orange-lt);border-color:var(--orange);color:var(--orange);" readonly></textarea></div>
+            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--orange);">4. Integrantes Duplicados (Título idéntico)</span><button class="btn-copy-small" style="background:var(--orange);" onclick="copiarTexto('txtPcfIndDuplicados')">📋 Copiar</button></div><textarea id="txtPcfIndDuplicados" class="report-box" style="background:var(--orange-lt);border-color:var(--orange);color:var(--orange);" readonly></textarea></div>
+          </div>
+        </div>
+      </div>
+      <div class="divider"></div>
+
+      <!-- PLAN CUIDADO PSICOLOGÍA -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-icon" style="background:#ede8fb;"><svg viewBox="0 0 24 24" fill="#6c3fc5"><path d="M11.5 2C6.81 2 3 5.81 3 10.5S6.81 19 11.5 19h.5v3c4.86-2.34 8-7 8-11.5C20 5.81 16.19 2 11.5 2zm1 14.5h-2v-2h2v2zm0-4h-2c0-3.25 3-3 3-5 0-1.1-.9-2-2-2s-2 .9-2 2h-2c0-2.21 1.79-4 4-4s4 1.79 4 4c0 2.5-3 2.75-3 5z"/></svg></div>
+          <div><div class="section-title">Plan Cuidado Familiar — Psicología</div><div class="section-sub">Intervenciones registradas con el perfil Profesional Psicología</div></div>
+        </div>
+        <div class="cards-row">
+          <div class="stat-card c-purple"><div class="stat-label">Intervenciones familiares (Nuevas)</div><div class="stat-value" id="a-psi-fam">0</div></div>
+          <div class="stat-card c-teal"><div class="stat-label">Familias Anteriores</div><div class="stat-value" id="a-psi-fam-ant">0</div><span class="stat-badge badge-info">De meses pasados</span></div>
+          <div class="stat-card c-orange"><div class="stat-label">Familias Duplicadas</div><div class="stat-value" id="a-psi-fam-dup">0</div></div>
+        </div>
+        <div class="cards-row">
+          <div class="stat-card c-navy"><div class="stat-label">Integrantes intervenidos</div><div class="stat-value" id="a-psi-int">0</div></div>
+          <div class="stat-card c-orange"><div class="stat-label">Integrantes Duplicados</div><div class="stat-value" id="a-psi-ind-dup">0</div></div>
+          <div class="stat-card c-teal"><div class="stat-label">Total Seguimientos Realizados</div><div class="stat-value" id="a-psi-seg">0</div></div>
+        </div>
+
+        <!-- ESTADO DE CIERRE PCF PSICOLOGIA -->
+        <div class="cards-row">
+          <div class="stat-card c-green"><div class="stat-label">PCF Cerrados</div><div class="stat-value" id="a-psi-cerrados">0</div><span class="stat-badge badge-ok">1. SI</span></div>
+          <div class="stat-card c-red"><div class="stat-label">PCF No Cerrados</div><div class="stat-value" id="a-psi-nocerrados">0</div><span class="stat-badge badge-error">2. NO</span></div>
+        </div>
+
+        <!-- TABLAS COMPLETAS PSICOLOGÍA CON DATATABLES -->
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Muestra Tabular Avanzada: Psicología Principal 2026</div>
+          <div class="table-container">
+            <table class="data-table display nowrap" id="tablaPsicoPrincipal" style="width:100%">
+              <thead>
+                <tr>
+                  <th>ec5_uuid</th><th>ec5_parent_uuid</th><th>created_at</th><th>uploaded_at</th>
+                  <th>created_by</th><th>title</th><th>100_1_primer_nombre</th><th>102_3_primer_apellid</th>
+                  <th>104_5_tipo_doc</th><th>105_6_numero_doc</th><th>106_7_soporte</th><th>107_8_fecha_nacim</th>
+                  <th>108_9_edad</th><th>109_10_seleccione</th><th>110_11_sexo</th><th>115_16_numero_cel</th>
+                  <th>126_seguimientos</th><th>133_28_resumen_va</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Muestra Tabular Avanzada: Psicología Seguimientos 2026</div>
+          <div class="table-container">
+            <table class="data-table display nowrap" id="tablaPsicoSeguimientos" style="width:100%">
+              <thead>
+                <tr>
+                  <th>ec5_branch_owner_uuid</th><th>ec5_branch_uuid</th><th>created_at</th><th>uploaded_at</th>
+                  <th>created_by</th><th>title</th><th>127_22_fecha_consult</th><th>129_24_tareas_ref</th>
+                  <th>130_25_requiere_cont</th><th>131_26_compromisos</th><th>132_27_evaluacin_de_</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Tipos de Seguimiento</div>
+          <div class="cards-row" id="cardsTiposSeguimiento"></div>
+          <table class="data-table" id="tablaTiposSeguimiento">
+            <thead>
+              <tr>
+                <th>Tipo de Seguimiento</th>
+                <th style="width:150px;text-align:center;">Total Registrados</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+            <tfoot>
+              <tr>
+                <td style="text-align:right;">TOTAL DE SEGUIMIENTOS DESGLOSADOS</td>
+                <td id="tdTotalSeg" style="text-align:center; font-family:monospace; font-size:1.05rem;">0</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Motivos de Consulta y Continuidad en Seguimientos</div>
+
+          <div class="cards-row" style="margin-top: 0.5rem;">
+            <div class="stat-card c-gold" style="max-width: 280px;">
+              <div class="stat-label">Requiere Continuidad (1. SI)</div>
+              <div class="stat-value" id="a-psi-cont-si">0</div>
+            </div>
+            <div class="stat-card c-navy" style="max-width: 280px;">
+              <div class="stat-label">No Requiere (2. NO)</div>
+              <div class="stat-value" id="a-psi-cont-no">0</div>
+            </div>
+          </div>
+
+          <div style="margin-top:1.5rem;">
+            <div class="report-header">
+              <span style="font-size:.85rem;font-weight:bold;color:var(--teal);">Detalle de Motivos de Consulta</span>
+              <button class="btn-copy-small" style="background:var(--teal);" onclick="copiarTexto('txtPsicoMotivos')">📋 Copiar</button>
+            </div>
+            <textarea id="txtPsicoMotivos" class="report-box" style="border-color:var(--teal-lt);" readonly></textarea>
+          </div>
+        </div>
+
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Reportes Detallados de Psicología</div>
+          <div style="display:flex;flex-direction:column;gap:1.5rem;">
+            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--purple);">1. Intervenciones Familiares</span><button class="btn-copy-small" style="background:var(--purple);" onclick="copiarTexto('txtPsicoRealizados')">📋 Copiar</button></div><textarea id="txtPsicoRealizados" class="report-box" readonly style="border-color:var(--purple-lt);"></textarea></div>
+            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--teal);">2. Trazabilidad de Seguimientos</span><button class="btn-copy-small" style="background:var(--teal);" onclick="copiarTexto('txtPsicoSeguimientos')">📋 Copiar</button></div><textarea id="txtPsicoSeguimientos" class="report-box" style="border-color:var(--teal-lt);" readonly></textarea></div>
+            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--red);">3. Errores de Registro</span><button class="btn-copy-small" style="background:var(--red);" onclick="copiarTexto('txtPsicoErrores')">📋 Copiar</button></div><textarea id="txtPsicoErrores" class="report-box" style="background:#fde8e8;border-color:var(--red-lt);color:var(--red);" readonly></textarea></div>
+            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--navy);">4. Compromisos de Seguimientos</span><button class="btn-copy-small" style="background:var(--navy);" onclick="copiarTexto('txtPsicoCompromisos')">📋 Copiar</button></div><textarea id="txtPsicoCompromisos" class="report-box" readonly style="border-color:var(--border);"></textarea></div>
+            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--teal);">5. Evaluación de Seguimientos</span><button class="btn-copy-small" style="background:var(--teal);" onclick="copiarTexto('txtPsicoEvaluacion')">📋 Copiar</button></div><textarea id="txtPsicoEvaluacion" class="report-box" readonly style="border-color:var(--teal-lt);"></textarea></div>
+            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--orange);">6. Familias Duplicadas (Territorio/Códigos idénticos)</span><button class="btn-copy-small" style="background:var(--orange);" onclick="copiarTexto('txtPsicoFamDuplicadas')">📋 Copiar</button></div><textarea id="txtPsicoFamDuplicadas" class="report-box" style="background:var(--orange-lt);border-color:var(--orange);color:var(--orange);" readonly></textarea></div>
+            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--orange);">7. Integrantes Duplicados (Título idéntico)</span><button class="btn-copy-small" style="background:var(--orange);" onclick="copiarTexto('txtPsicoIndDuplicadas')">📋 Copiar</button></div><textarea id="txtPsicoIndDuplicadas" class="report-box" style="background:var(--orange-lt);border-color:var(--orange);color:var(--orange);" readonly></textarea></div>
+          </div>
+        </div>
+      </div>
+      <div class="divider"></div>
+
+      <!-- TRÁMITES -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-icon" style="background:#fef7e0;"><svg viewBox="0 0 24 24" fill="#f0a500"><path d="M20 6h-2.18c.07-.44.18-.86.18-1a3 3 0 0 0-6 0c0 .14.11.56.18 1H10c-.36 0-.96.15-.96.96v13c0 .57.39 1.04.96 1.04h10c.57 0 1-.47 1-1.04V6.96c0-.81-.57-.96-1-.96zM14 3a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm2 16H8V7h2v2h4V7h2v12z"/></svg></div>
+          <div><div class="section-title">Trámites Realizados</div><div class="section-sub">Gestión documental generada por este encuestador</div></div>
+        </div>
+
+        <div class="cards-row">
+          <div class="stat-card c-purple">
+            <div class="stat-label">Personas con trámite</div>
+            <div class="stat-value loading" id="tr-registros">—</div>
+            <span class="stat-badge badge-info">Registros únicos</span>
+          </div>
+          <div class="stat-card c-navy">
+            <div class="stat-label">Familias intervenidas</div>
+            <div class="stat-value loading" id="tr-familias">—</div>
+            <span class="stat-badge badge-info">Hogares/Familias</span>
+          </div>
+          <div class="stat-card c-gold">
+            <div class="stat-label">Total trámites gestionados</div>
+            <div class="stat-value loading" id="a-tr-tot">—</div>
+          </div>
+          <div class="stat-card c-green">
+            <div class="stat-label">Total de Trámites Resueltos</div>
+            <div class="stat-value loading" id="a-tr-res">—</div>
+            <span class="stat-badge badge-ok">Resolutividad</span>
+          </div>
+          <div class="stat-card c-orange">
+            <div class="stat-label">Trámites Duplicados</div>
+            <div class="stat-value loading" id="a-tr-dup">—</div>
+            <span class="stat-badge badge-orange">Descontados</span>
+          </div>
+          <div class="stat-card c-red">
+            <div class="stat-label">Con error de registro</div>
+            <div class="stat-value loading" id="a-tr-err">—</div>
+            <span class="stat-badge badge-error">Revisar</span>
+          </div>
+        </div>
+
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Desglose por tipo de trámite</div>
+          <div class="chart-container"><canvas id="chartTramitesAuditoria"></canvas></div>
+
+          <table class="data-table" id="tablaDesgloseTramites">
+            <thead>
+              <tr>
+                <th>Tipo de Trámite</th>
+                <th style="width:110px;text-align:center;">Cant. Total</th>
+                <th style="width:110px;text-align:center;">Resueltos</th>
+                <th style="width:100px;text-align:center;">Efectividad</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+            <tfoot>
+              <tr>
+                <td style="text-align:right;">TOTAL DE TRÁMITES</td>
+                <td id="tdTotal" style="text-align:center; font-family:monospace; font-size:1.05rem;">0</td>
+                <td id="tdRes" style="text-align:center; font-family:monospace; font-size:1.05rem; color:var(--green);">0</td>
+                <td id="tdPct" style="text-align:center; font-family:monospace; font-size:1.05rem;">0%</td>
+              </tr>
+            </tfoot>
+          </table>
+
+        </div>
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Reportes Detallados de Trámites</div>
+          <div style="display:flex;flex-direction:column;gap:1.5rem;">
+            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--navy);">1. Trámites Realizados</span><button class="btn-copy-small" style="background:var(--navy);" onclick="copiarTexto('txtTramRealizados')">📋 Copiar</button></div><textarea id="txtTramRealizados" class="report-box" readonly></textarea></div>
+            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--green);">2. Trámites Resueltos</span><button class="btn-copy-small" style="background:var(--green);" onclick="copiarTexto('txtTramResueltos')">📋 Copiar</button></div><textarea id="txtTramResueltos" class="report-box" style="border-color:var(--green-lt);" readonly></textarea></div>
+            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--red);">3. Trámites con Errores</span><button class="btn-copy-small" style="background:var(--red);" onclick="copiarTexto('txtTramErrores')">📋 Copiar</button></div><textarea id="txtTramErrores" class="report-box" style="background:#fde8e8;border-color:var(--red-lt);color:var(--red);" readonly></textarea></div>
+            <div><div class="report-header"><span style="font-size:.85rem;font-weight:bold;color:var(--orange);">4. Trámites Duplicados (Mismo paciente, misma fecha)</span><button class="btn-copy-small" style="background:var(--orange);" onclick="copiarTexto('txtTramDuplicados')">📋 Copiar</button></div><textarea id="txtTramDuplicados" class="report-box" style="background:var(--orange-lt);border-color:var(--orange);color:var(--orange);" readonly></textarea></div>
+            <div>
+              <div class="report-header">
+                <span style="font-size:.85rem;font-weight:bold;color:var(--gold);">5. Observaciones Trámites Adicionales</span>
+                <button class="btn-copy-small" style="background:var(--gold);" onclick="copiarTexto('txtTramObservaciones')">📋 Copiar</button>
+              </div>
+              <textarea id="txtTramObservaciones" class="report-box" style="border-color:var(--gold-lt);" readonly></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<div id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text" id="loadingText">Consultando base de datos...</div>
+</div>
+
+<script>
+const API_BASE = window.location.protocol === 'file:' ? 'http://127.0.0.1:5001' : window.location.origin;
+
+const token = localStorage.getItem('informes_token');
+if (!token) {
+    window.location.href = '/login';
+}
+
+const userInfo = JSON.parse(localStorage.getItem('informes_user') || '{}');
+document.getElementById('sidebarNombre').textContent = userInfo.nombre || '—';
+document.getElementById('sidebarRol').textContent    = userInfo.rol   || '—';
+
+const setValInput = (id, val) => {
+    const e = document.getElementById(id);
+    if(e) e.value = val || '';
+};
+
+function fmt(n) {
+    return Number(n || 0).toLocaleString('es-CO');
+}
+
+function setVal(id, v) {
+    const el = document.getElementById(id);
+    if(el) {
+        el.textContent = fmt(v);
+        el.classList.remove('loading');
+    }
+}
+
+let todosLosCorreos = [];
+let todosLosNombres = [];
+let isSearching = false;
+
+const inputUser = document.getElementById('inputUser');
+const dropdown  = document.getElementById('customDropdown');
+const inputName = document.getElementById('inputName');
+const dropdownName = document.getElementById('customDropdownName');
+
+const chartInstances = {};
+const PALETTE = ['#00b09b','#0a1f3d','#f0a500','#6c3fc5','#e53935','#1e9c6e','#06b6d4'];
+
+async function cargarFiltros() {
+    try {
+        const resp1 = await fetch(`${API_BASE}/api/encuestadores`, { headers:{ 'Authorization':'Bearer '+token } });
+        if (resp1.ok) { todosLosCorreos = await resp1.json(); }
+
+        const resp2 = await fetch(`${API_BASE}/api/nombres_profesionales`, { headers:{ 'Authorization':'Bearer '+token } });
+        if (resp2.ok) { todosLosNombres = await resp2.json(); }
+    } catch(e) {
+        console.error("Fallo en la resolución de filtros:", e);
+    }
+}
+
+cargarFiltros();
+
+function filtrarCorreos(query) {
+    if (!dropdown) return;
+    dropdown.innerHTML = '';
+    if (!todosLosCorreos.length) return;
+
+    const filtrados = todosLosCorreos.filter(c => c.toLowerCase().includes(query.toLowerCase()));
+
+    if (filtrados.length === 0) {
+        dropdown.style.display = 'none';
+        return;
+    }
+
+    filtrados.forEach(c => {
+        const div = document.createElement('div');
+        div.className = 'custom-dropdown-item';
+        div.textContent = c;
+        div.onmousedown = () => {
+            inputUser.value = c;
+            inputName.value = '';
+            dropdown.style.display = 'none';
+        };
+        dropdown.appendChild(div);
+    });
+    dropdown.style.display = 'block';
+}
+
+function filtrarNombres(query) {
+    if (!dropdownName) return;
+    dropdownName.innerHTML = '';
+    if (!todosLosNombres.length) return;
+
+    const filtrados = todosLosNombres.filter(n => n.toLowerCase().includes(query.toLowerCase()));
+
+    if (filtrados.length === 0) {
+        dropdownName.style.display = 'none';
+        return;
+    }
+
+    filtrados.forEach(n => {
+        const div = document.createElement('div');
+        div.className = 'custom-dropdown-item';
+        div.textContent = n;
+        div.onmousedown = () => {
+            inputName.value = n;
+            inputUser.value = '';
+            dropdownName.style.display = 'none';
+        };
+        dropdownName.appendChild(div);
+    });
+    dropdownName.style.display = 'block';
+}
+
+if (inputUser) {
+    inputUser.addEventListener('input', () => { inputName.value = ''; filtrarCorreos(inputUser.value); });
+    inputUser.addEventListener('focus', () => filtrarCorreos(inputUser.value));
+}
+
+if (inputName) {
+    inputName.addEventListener('input', () => { inputUser.value = ''; filtrarNombres(inputName.value); });
+    inputName.addEventListener('focus', () => filtrarNombres(inputName.value));
+}
+
+document.addEventListener('click', (e) => {
+    if (inputUser && dropdown && e.target !== inputUser && e.target !== dropdown) {
+        dropdown.style.display = 'none';
+    }
+    if (inputName && dropdownName && e.target !== inputName && e.target !== dropdownName) {
+        dropdownName.style.display = 'none';
+    }
+});
+
+async function logout() {
+    try {
+        await fetch(`${API_BASE}/api/logout`, { method:'POST', headers:{'Authorization':'Bearer '+token} });
+    } catch(e) {
+        console.error("Fallo al cerrar sesión en el servidor:", e);
+    }
+    localStorage.removeItem('informes_token');
+    localStorage.removeItem('informes_user');
+    window.location.href = '/login';
+}
+
+function copiarTexto(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    navigator.clipboard.writeText(el.value)
+      .then(() => alert('¡Texto copiado al portapapeles de manera exitosa!'))
+      .catch(err => alert('Fallo en la ejecución de copiado: ' + err));
+}
+
+function renderList(cid, arr) {
+    const c = document.getElementById(cid);
+    if (!c) return;
+    c.innerHTML = '';
+    if (!arr || !arr.length) {
+        c.innerHTML = '<div style="font-size:.8rem;color:var(--muted);">Sin registros documentados</div>';
+        return;
+    }
+    arr.forEach(i => {
+        c.innerHTML += `<div class="list-row"><span style="color:var(--muted);">${i.label}</span><span style="font-weight:bold;color:var(--navy);">${i.total}</span></div>`;
+    });
+}
+
+function renderBarChart(cid, labels, data) {
+    const ctx = document.getElementById(cid);
+    if (!ctx) return;
+    if (chartInstances[cid]) chartInstances[cid].destroy();
+
+    chartInstances[cid] = new Chart(ctx, {
+        type:'bar',
+        data:{
+            labels,
+            datasets:[{
+                data,
+                backgroundColor:PALETTE.map(c=>c+'cc'),
+                borderColor:PALETTE,
+                borderWidth:0,
+                borderRadius:6
+            }]
+        },
+        options:{
+            responsive:true,
+            maintainAspectRatio:false,
+            plugins:{ legend:{ display:false } },
+            scales:{
+                y:{ beginAtZero:true, ticks:{ font:{ family:'Sora', size:10 } } },
+                x:{ ticks:{ font:{ family:'Sora', size:9 } } }
             }
-        except Exception as e:
-            logger.error(f"Error al obtener consolidado filtrado de auditoría: {str(e)}", exc_info=True)
-            return {
-                "modulos_consolidados": {},
-                "reporte_texto_global_consolidado": "Ocurrió un error al cargar la información consolidada de auditoría.",
-                "resumen_consolidado": {"total_registros": 0, "total_errores": 0, "total_advertencias": 0,
-                                        "total_modulos": 0}
+        }
+    });
+}
+
+function renderTablaConDataTables(tableId, dataList, cols) {
+    const tableEl = $('#' + tableId);
+    
+    if ($.fn.DataTable.isDataTable(tableEl)) {
+        tableEl.DataTable().clear().destroy();
+        tableEl.find('thead .filter-row').remove();
+    }
+
+    const tbody = document.querySelector(`#${tableId} tbody`);
+    if(tbody) tbody.innerHTML = '';
+    
+    if(dataList && dataList.length > 0) {
+        dataList.forEach(row => {
+            const tr = document.createElement('tr');
+            cols.forEach(col => {
+                const td = document.createElement('td');
+                td.textContent = row[col] || '';
+                tr.appendChild(td);
+            });
+            if(tbody) tbody.appendChild(tr);
+        });
+    }
+
+    const thead = document.querySelector(`#${tableId} thead`);
+    let filterRow = thead.querySelector('.filter-row');
+    if (!filterRow && thead.rows.length > 0) {
+        filterRow = thead.rows[0].cloneNode(true);
+        filterRow.className = 'filter-row';
+        Array.from(filterRow.cells).forEach((cell) => {
+            cell.className = ''; 
+            cell.innerHTML = `<input type="text" placeholder="🔍 Buscar..." style="width:100%; font-size:0.75rem; padding:4px; border:1px solid var(--border); border-radius:4px; box-sizing:border-box; outline:none; font-family:'Sora', sans-serif; color:var(--text);" />`;
+        });
+        thead.appendChild(filterRow);
+    }
+
+    tableEl.DataTable({
+        paging: true,
+        lengthMenu: [10, 20, 50, 100],
+        pageLength: 10,
+        ordering: true,
+        orderCellsTop: true,
+        searching: true,
+        scrollX: true,
+        autoWidth: false,
+        destroy: true,
+        language: {
+            url: "https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
+        },
+        initComplete: function () {
+            const api = this.api();
+            
+            api.columns().eq(0).each(function (colIdx) {
+                const cell = $('.filter-row th', api.table().header()).eq(colIdx);
+                const input = $('input', cell);
+
+                input.off('keyup change clear search').on('keyup change clear search', function (e) {
+                    e.stopPropagation();
+                    let val = this.value;
+                    
+                    if (api.column(colIdx).search() !== val) {
+                        api.column(colIdx).search(val).draw();
+                    }
+                });
+                
+                input.on('click', function(e) {
+                    e.stopPropagation();
+                });
+            });
+        }
+    });
+}
+
+async function buscarAuditoria() {
+    if (isSearching) return;
+
+    const email = document.getElementById('inputUser') ? document.getElementById('inputUser').value.trim() : '';
+    const nombre = document.getElementById('inputName') ? document.getElementById('inputName').value.trim() : '';
+    const fi    = document.getElementById('inputInicio') ? document.getElementById('inputInicio').value : '';
+    const ff    = document.getElementById('inputFin') ? document.getElementById('inputFin').value : '';
+    const btn   = document.getElementById('btnBuscar');
+
+    if (dropdown) dropdown.style.display = 'none';
+    if (dropdownName) dropdownName.style.display = 'none';
+
+    if ((!email && !nombre) || !fi || !ff) {
+        alert('Validación Fallida: Por favor ingresa el correo o el nombre del profesional y el rango de fechas completo.');
+        return;
+    }
+
+    isSearching = true;
+    if(btn) btn.disabled = true;
+
+    document.getElementById('loadingOverlay').style.display = 'flex';
+    document.getElementById('emptyState').style.display     = 'none';
+    document.getElementById('resultadosAuditoria').style.display = 'none';
+
+    try {
+        let urlParam = email ? `usuario=${encodeURIComponent(email)}` : `nombre=${encodeURIComponent(nombre)}`;
+        let isActualizacion = window.location.pathname.includes("auditoria_actualizacion");
+        let endpoint = isActualizacion ? "auditoria_actualizacion" : "auditoria";
+
+        const resp = await fetch(`${API_BASE}/api/${endpoint}?${urlParam}&fecha_inicio=${fi}&fecha_fin=${ff}`, {
+            headers:{ 'Authorization':'Bearer '+token }
+        });
+
+        if (resp.status === 401) {
+            logout();
+            return;
+        }
+
+        const data = await resp.json();
+
+        if (data.error) {
+            alert(`Respuesta del Servidor: ${data.error}`);
+            document.getElementById('emptyState').style.display='block';
+            return;
+        }
+
+        const nom = data.encuestador_nombre && data.encuestador_nombre !== 'Sin registro de nombre' ? data.encuestador_nombre : (email || nombre);
+        const perf = data.encuestador_perfil ? data.encuestador_perfil.toUpperCase() : 'PERFIL DESCONOCIDO';
+
+        document.getElementById('topbarTitle').textContent = nom;
+        document.getElementById('topbarMeta').textContent = perf;
+
+        setVal('a-des-tot',  data.desistimientos?.total);
+        setVal('a-des-err',  data.desistimientos?.con_error);
+
+        if(data.pcc) {
+            setVal('a-pcc-pla',  data.pcc.planes);
+            setVal('a-pcc-int',  data.pcc.integrantes);
+            setVal('a-pcc-err',  data.pcc.con_error);
+            setValInput('txtPccDetalles', data.pcc.reporte_detalles);
+        }
+
+        setVal('a-ca-fam',   data.caracterizacion?.familias);
+        setVal('a-ca-fam-dup', data.caracterizacion?.familias_duplicadas);
+        setVal('a-ca-ind',   data.caracterizacion?.individuos);
+        setVal('a-ca-ind-dup', data.caracterizacion?.individuos_duplicadas);
+        setVal('a-ca-sinaseg', data.caracterizacion?.sin_aseguramiento);
+        
+        renderTablaConDataTables('tablaCaractFamiliar', data.caracterizacion?.tabla_familiar, [
+            "ec5_uuid", "created_at", "uploaded_at", "created_by", "title", "12_4_territorio", "13_5_microterritorio", 
+            "lat_15_8_geo_punto_georr", "long_15_8_geo_punto_georr", "18_10_cdigo_hogar", "19_101_cdigo_hogar", 
+            "21_11_cdigo_familia", "22_111_cdigo_familia", "24_13_numero_de_hoga", "25_14_numero_de_fami", 
+            "26_15_numero_de_pers", "27_22_cdigo_de_la_fi", "31_19_nmero_de_ident", "32_20_responsable_de", 
+            "34_23_fecha_diligenc", "64_41_tipo_de_famili", "65_42_nmero_de_perso", "66_43_estructura_y_d", 
+            "67_431_seleccione_el", "69_45_funcionalidad_", "70_451_evidencia_apg", "71_46_en_la_familia_", 
+            "72_47_si_la_respuest", "73_471_imagen_escala", "74_48_interrelacione", "99_41_identificacin_", "147_70_observaciones"
+        ]);
+
+        renderTablaConDataTables('tablaCaractIndividual', data.caracterizacion?.tabla_individual, [
+            "ec5_branch_owner_uuid", "ec5_branch_uuid", "created_at", "uploaded_at", "created_by", "title", 
+            "100_1_primer_nombre", "102_3_primer_apellid", "104_5_tipo_de_identi", "105_6_numero_de_iden", 
+            "106_numero_celular", "107_7_fecha_de_nacim", "108_8_sexo", "109_9_se_encuentra_e", 
+            "110_10_rol_dentro_de", "111_11_ocupacion", "112_12_nivel_educati", "113_13_rgimen_de_afi", 
+            "114_14_eapb", "115_15_pertenencia_a", "116_16_pertenencia_t", "119_19_reconoce_algu", 
+            "127_25_cumple_con_el", "128_26_a_qu_etapa_de"
+        ]);
+
+        setVal('a-ca-fam-ant',   data.caracterizacion_ant?.familias);
+        setVal('a-ca-fam-dup-ant', data.caracterizacion_ant?.familias_duplicadas);
+        setVal('a-ca-ind-ant',   data.caracterizacion_ant?.individuos);
+        setVal('a-ca-ind-dup-ant', data.caracterizacion_ant?.individuos_duplicadas);
+        setVal('a-ca-sinaseg-ant', data.caracterizacion_ant?.sin_aseguramiento);
+
+        setVal('a-ca-ges',   data.poblacion?.gestantes || data.caracterizacion?.gestantes);
+        setVal('a-ca-men',   data.poblacion?.menores_5 || data.caracterizacion?.menores_5);
+        setVal('a-ca-may',   data.poblacion?.adultos_60 || data.caracterizacion?.adultos_60);
+        setVal('a-ca-vic',   data.poblacion?.victimas_conflicto || data.caracterizacion?.victimas_conflicto);
+        setVal('a-ca-disc',  data.poblacion?.discapacidad_total || data.caracterizacion?.discapacidad_total);
+
+        setVal('a-ca-ges-ant',   data.poblacion_ant?.gestantes);
+        setVal('a-ca-men-ant',   data.poblacion_ant?.menores_5);
+        setVal('a-ca-may-ant',   data.poblacion_ant?.adultos_60);
+        setVal('a-ca-vic-ant',   data.poblacion_ant?.victimas_conflicto);
+        setVal('a-ca-disc-ant',  data.poblacion_ant?.discapacidad_total);
+
+        renderList('listTipoFamilia',   data.caracterizacion?.tipo_familia);
+        renderList('listEstrato',        data.caracterizacion?.estrato);
+        renderList('listNivelEducativo', data.caracterizacion?.nivel_educativo);
+
+        const elEtnConPct = document.getElementById('a-etn-con-pct');
+        const elEtnConTot = document.getElementById('a-etn-con-tot');
+        const elEtnSinPct = document.getElementById('a-etn-sin-pct');
+
+        if(elEtnConPct) elEtnConPct.textContent = (data.caracterizacion?.etnia_con_pct||0)+'%';
+        if(elEtnConTot) elEtnConTot.textContent = (data.caracterizacion?.etnia_con_total||0)+' personas';
+        if(elEtnSinPct) elEtnSinPct.textContent = (data.caracterizacion?.etnia_sin_pct||0)+'%';
+
+        const disc = data.caracterizacion?.discapacidades_chart || [];
+        renderBarChart('chartDiscapacidadAuditoria', disc.map(x=>x.label), disc.map(x=>x.total));
+
+        // --- PCF GENERAL ---
+        setVal('a-pcf-fam', data.pcf?.familias_intervenidas);
+        setVal('a-pcf-fam-dup', data.pcf?.familias_duplicadas);
+        setVal('a-pcf-int', data.pcf?.integrantes_intervenidos);
+        setVal('a-pcf-int-dup', data.pcf?.integrantes_duplicados);
+        
+        // Mapeo Nuevos Indicadores de Cierre General
+        setVal('a-pcf-cerrados', data.pcf?.cerrados);
+        setVal('a-pcf-nocerrados', data.pcf?.no_cerrados);
+
+        setVal('a-pcf-fam-ant', data.pcf_ant?.familias_intervenidas);
+        setVal('a-pcf-fam-dup-ant', data.pcf_ant?.familias_duplicadas);
+        setVal('a-pcf-int-ant', data.pcf_ant?.integrantes_intervenidos);
+        setVal('a-pcf-int-dup-ant', data.pcf_ant?.integrantes_duplicados);
+
+        renderTablaConDataTables('tablaPcfPrincipal', data.pcf?.tabla_pcf_principal, [
+            "ec5_uuid", "created_at", "uploaded_at", "created_by", "lat_1_1_geolocalizacin", "long_1_1_geolocalizacin", 
+            "2_2_fecha_visita", "4_3_perfil_profesion", "5_4_nombre_del_profe", "9_7_territorio", "10_8_microterritorio", 
+            "11_9_identificacin_d", "12_91_identificacin_", "13_10_identificacin_", "14_101_identificacin", 
+            "27_16_cules_compromi", "29_integrantes_inter", "73_17_realizara_la_e", "98_resumen_de_interv"
+        ]);
+
+        renderTablaConDataTables('tablaPcfIntegrantes', data.pcf?.tabla_pcf_integrantes, [
+            "ec5_branch_owner_uuid", "ec5_branch_uuid", "created_at", "uploaded_at", "created_by", "title", 
+            "31_1_primer_nombre", "33_3_primer_apellido", "35_5_tipo_de_documen", "36_6_numero_de_docum", 
+            "37_7_soporte_fotogrf", "38_8_fecha_de_nacimi", "39_9_edad", "40_10_seleccione_tip", "41_11_sexo", 
+            "46_16_numero_de_celu", "57_23_que_tipo_de_co", "72_24_resumen_de_val"
+        ]);
+
+        // --- PSICOLOGÍA ---
+        setVal('a-psi-fam', data.pcf_psicologia?.intervenciones_familiares);
+        setVal('a-psi-fam-ant', data.pcf_psicologia?.familias_anteriores);
+        setVal('a-psi-fam-dup', data.pcf_psicologia?.familias_duplicadas);
+        setVal('a-psi-int', data.pcf_psicologia?.integrantes);
+        setVal('a-psi-ind-dup', data.pcf_psicologia?.integrantes_duplicados);
+        setVal('a-psi-seg', data.pcf_psicologia?.seguimientos);
+        setVal('a-psi-cont-si', data.pcf_psicologia?.requiere_continuidad_si);
+        setVal('a-psi-cont-no', data.pcf_psicologia?.requiere_continuidad_no);
+
+        // Mapeo Nuevos Indicadores de Cierre Psicología
+        setVal('a-psi-cerrados', data.pcf_psicologia?.cerrados);
+        setVal('a-psi-nocerrados', data.pcf_psicologia?.no_cerrados);
+
+        renderTablaConDataTables('tablaPsicoPrincipal', data.pcf_psicologia?.tabla_psico_principal, [
+            "ec5_uuid", "ec5_parent_uuid", "created_at", "uploaded_at", "created_by", "title", "100_1_primer_nombre", 
+            "102_3_primer_apellid", "104_5_tipo_de_docume", "105_6_numero_de_docu", "106_7_soporte_fotogr", 
+            "107_8_fecha_de_nacim", "108_9_edad", "109_10_seleccione_ti", "110_11_sexo", "115_16_numero_de_cel", 
+            "126_seguimientos_psi", "133_28_resumen_de_va"
+        ]);
+
+        renderTablaConDataTables('tablaPsicoSeguimientos', data.pcf_psicologia?.tabla_psico_seguimientos, [
+            "ec5_branch_owner_uuid", "ec5_branch_uuid", "created_at", "uploaded_at", "created_by", "title", 
+            "127_22_fecha_consult", "129_24_tareas_de_ref", "130_25_requiere_cont", "131_26_compromisos_y", 
+            "132_27_evaluacin_de_"
+        ]);
+
+        const contTiposSeg = document.getElementById('cardsTiposSeguimiento');
+        const tbodyTiposSeg = document.querySelector('#tablaTiposSeguimiento tbody');
+        const tdTotalSeg = document.getElementById('tdTotalSeg');
+
+        if (contTiposSeg && tbodyTiposSeg) {
+            contTiposSeg.innerHTML = '';
+            tbodyTiposSeg.innerHTML = '';
+            let totalSeguimientosTipos = 0;
+            const tipos = data.pcf_psicologia?.tipos_seguimiento || [];
+
+            if (!tipos.length) {
+                contTiposSeg.innerHTML = '<div style="font-size:0.8rem;color:var(--muted);">Sin tipos registrados en este estrato temporal.</div>';
+                tbodyTiposSeg.innerHTML = '<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:2rem;">Sin datos documentados</td></tr>';
+                if(tdTotalSeg) tdTotalSeg.textContent = '0';
+            } else {
+                tipos.forEach(t => {
+                    totalSeguimientosTipos += t.total;
+                    contTiposSeg.innerHTML += `
+                        <div class="stat-card c-purple" style="flex:1; min-width:160px;">
+                            <div class="stat-label" style="font-size:0.65rem;">${t.label}</div>
+                            <div class="stat-value" style="font-size:1.5rem;">${fmt(t.total)}</div>
+                        </div>`;
+                    tbodyTiposSeg.innerHTML += `
+                        <tr>
+                            <td style="font-weight:600;">${t.label}</td>
+                            <td style="text-align:center; font-family:monospace; font-size:1rem; font-weight:700; color:var(--navy);">${fmt(t.total)}</td>
+                        </tr>`;
+                });
+                if(tdTotalSeg) tdTotalSeg.textContent = fmt(totalSeguimientosTipos);
             }
+        }
+
+        const mapeoMotivos = (data.pcf_psicologia?.motivos_seguimiento || []).map(m => `• ${m.label} -> Total: ${fmt(m.total)} atenciones\n`).join('');
+        setValInput('txtPsicoMotivos', mapeoMotivos || 'Sin motivos registrados en el periodo.');
+
+        // --- TRÁMITES ---
+        setVal('tr-registros', data.tramites?.total_registros);
+        setVal('tr-familias',  data.tramites?.total_familias);
+        setVal('a-tr-tot',  data.tramites?.total);
+        setVal('a-tr-res',  data.tramites?.resolutivos);
+        setVal('a-tr-err',  data.tramites?.con_error);
+        setVal('a-tr-dup',  data.tramites?.duplicados);
+
+        const tr = data.tramites?.por_tipo || [];
+        renderBarChart('chartTramitesAuditoria', tr.map(x=>x.label), tr.map(x=>x.total));
+
+        const tbodyTram = document.querySelector('#tablaDesgloseTramites tbody');
+        const elTot = document.getElementById('tdTotal');
+        const elRes = document.getElementById('tdRes');
+        const elPct = document.getElementById('tdPct');
+
+        if(tbodyTram) tbodyTram.innerHTML = '';
+        let sumTot = 0, sumRes = 0;
+
+        if (tr.length === 0) {
+            if(tbodyTram) tbodyTram.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:2rem;">Ausencia de transacciones documentales</td></tr>';
+            if(elTot) elTot.textContent = '0';
+            if(elRes) elRes.textContent = '0';
+            if(elPct) elPct.textContent = '0%';
+        } else {
+            tr.forEach(item => {
+                sumTot += item.total;
+                sumRes += item.resueltos;
+
+                let color = 'var(--text)';
+                if(item.porcentaje === 100) color = 'var(--green)';
+                else if(item.porcentaje === 0) color = 'var(--gold)';
+
+                if(tbodyTram) tbodyTram.innerHTML += `
+                  <tr>
+                    <td style="font-weight:600;">${item.label}</td>
+                    <td style="text-align:center; font-family:monospace; font-size:1rem;">${fmt(item.total)}</td>
+                    <td style="text-align:center; font-family:monospace; font-size:1rem; font-weight:700; color:var(--navy);">${fmt(item.resueltos)}</td>
+                    <td style="text-align:center;"><span class="res-badge" style="color:${color}; background:${color}1a;">${item.porcentaje}%</span></td>
+                  </tr>`;
+            });
+
+            if(elTot) elTot.textContent = fmt(sumTot);
+            if(elRes) elRes.textContent = fmt(sumRes);
+
+            let pctGlobal = sumTot > 0 ? ((sumRes / sumTot) * 100).toFixed(1) : 0;
+            if(elPct) elPct.textContent = pctGlobal + '%';
+        }
+
+        // --- INYECCIÓN DEL REPORTE CONSOLIDADO COMPLETO EN TEXTAREA GLOBAL ---
+        const panelErr = document.getElementById('panelErrores');
+        if (panelErr) panelErr.style.display = 'block';
+
+        const reporteTextoConsolidado = data.reporte_errores_texto || "✅ No se registraron inconsistencias en auditoría.";
+        setValInput('textoErroresGlobal', reporteTextoConsolidado);
+
+        setValInput('txtCaFamDuplicadas', data.caracterizacion?.reporte_duplicados_fam);
+        setValInput('txtCaIndDuplicadas', data.caracterizacion?.reporte_duplicados_ind);
+
+        setValInput('txtPcfRealizados', data.pcf?.reporte_familias);
+        setValInput('txtPcfErrores', data.pcf?.reporte_errores);
+        setValInput('txtPcfDuplicados', data.pcf?.reporte_duplicados_fam);
+        setValInput('txtPcfIndDuplicados', data.pcf?.reporte_duplicados_ind);
+
+        setValInput('txtPsicoRealizados', data.pcf_psicologia?.reporte_familias);
+        setValInput('txtPsicoSeguimientos', data.pcf_psicologia?.reporte_seguimientos);
+        setValInput('txtPsicoErrores', data.pcf_psicologia?.reporte_errores);
+        setValInput('txtPsicoCompromisos', data.pcf_psicologia?.reporte_compromisos);
+        setValInput('txtPsicoEvaluacion', data.pcf_psicologia?.reporte_evaluacion);
+        setValInput('txtPsicoFamDuplicadas', data.pcf_psicologia?.reporte_duplicados_fam);
+        setValInput('txtPsicoIndDuplicadas', data.pcf_psicologia?.reporte_duplicados_ind);
+
+        setValInput('txtTramRealizados', data.tramites?.reporte_realizados);
+        setValInput('txtTramResueltos', data.tramites?.reporte_resueltos);
+        setValInput('txtTramErrores', data.tramites?.reporte_errores);
+        setValInput('txtTramDuplicados', data.tramites?.reporte_duplicados);
+        setValInput('txtTramObservaciones', data.tramites?.reporte_observaciones);
+
+        document.getElementById('resultadosAuditoria').style.display = 'block';
+
+    } catch(err) {
+        console.error("Excepción al ejecutar la consulta de auditoría:", err);
+        alert(`⚠️ Interrupción en la Transacción:\n\n${err.message}`);
+        document.getElementById('emptyState').style.display = 'block';
+    } finally {
+        isSearching = false;
+        if(btn) btn.disabled = false;
+        document.getElementById('loadingOverlay').style.display = 'none';
+    }
+}
+
+['inputUser','inputInicio','inputFin'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) {
+        el.addEventListener('keydown', e => {
+            if(e.key === 'Enter') buscarAuditoria();
+        });
+    }
+});
+
+const inputNameEvent = document.getElementById('inputName');
+if(inputNameEvent){
+    inputNameEvent.addEventListener('keydown', e => {
+        if(e.key === 'Enter') buscarAuditoria();
+    });
+}
+</script>
+</body>
+</html>
