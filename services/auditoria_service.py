@@ -204,7 +204,7 @@ class AuditoriaService(BaseService):
             if has_sin:
                 if len(items) > 1:
                     errores_dinamicos.append(
-                        f"🛑 MÓDULO: CARACT_INDIVIDUAL\n"
+                        f"❌ MÓDULO: CARACT_INDIVIDUAL\n"
                         f"📄 Ficha ID: {r.get('id_ficha', 'N/A')} | 📝 Título: N/A\n"
                         f"👤 Usuario: {email_res} | 📅 Fecha Creación: N/A\n"
                         f"🔎 Errores (1): Contradicción en Selección Múltiple de Discapacidad\n"
@@ -297,6 +297,40 @@ class AuditoriaService(BaseService):
         texto_dups_ind = "\n".join(dups_ind_list) if dups_ind_list else "✅ No se detectaron integrantes duplicados."
         dups_ind_count = len(dups_ind_list)
 
+        # 🛑 EXTRACCIÓN DE TABLAS COMPLETAS PARA CARACTERIZACIÓN (Mapeo Específico) 🛑
+        query_tabla_fam = f"""
+            SELECT ec5_uuid, created_at, uploaded_at, created_by, title, 
+                   "12_4_territorio", "13_5_microterritorio", "lat_15_8_geo_punto_georr", "long_15_8_geo_punto_georr", 
+                   "18_10_cdigo_hogar", "19_101_cdigo_hogar", "21_11_cdigo_familia", "22_111_cdigo_familia", 
+                   "24_13_numero_de_hoga", "25_14_numero_de_fami", "26_15_numero_de_pers", "27_22_cdigo_de_la_fi", 
+                   "31_19_nmero_de_ident", "32_20_responsable_de", "34_23_fecha_diligenc", "64_41_tipo_de_famili", 
+                   "65_42_nmero_de_perso", "66_43_estructura_y_d", "67_431_seleccione_el", "69_45_funcionalidad_", 
+                   "70_451_evidencia_apg", "71_46_en_la_familia_", "72_47_si_la_respuest", "73_471_imagen_escala", 
+                   "74_48_interrelacione", "99_41_identificacin_", "147_70_observaciones"
+            FROM caracterizacion_si_aps_familiar_2026
+            WHERE {w_caract_fam} AND {self.get_date_filter(tipo_fecha)}
+        """
+        tabla_fam_raw = self.ejecutar(query_tabla_fam, params)
+        tabla_fam_data = []
+        for r in tabla_fam_raw:
+            tabla_fam_data.append({k: (str(v)[:19] if "fecha" in k or "created" in k or "uploaded" in k else str(v)) if v is not None else "" for k, v in r.items()})
+
+        query_tabla_ind = f"""
+            SELECT tbl.ec5_branch_owner_uuid, tbl.ec5_branch_uuid, tbl.created_at, tbl.uploaded_at, tbl.created_by, tbl.title, 
+                   tbl."100_1_primer_nombre", tbl."102_3_primer_apellid", tbl."104_5_tipo_de_identi", tbl."105_6_numero_de_iden", 
+                   tbl."106_numero_celular", tbl."107_7_fecha_de_nacim", tbl."108_8_sexo", tbl."109_9_se_encuentra_e", 
+                   tbl."110_10_rol_dentro_de", tbl."111_11_ocupacion", tbl."112_12_nivel_educati", tbl."113_13_rgimen_de_afi", 
+                   tbl."114_14_eapb", tbl."115_15_pertenencia_a", tbl."116_16_pertenencia_t", tbl."119_19_reconoce_algu", 
+                   tbl."127_25_cumple_con_el", tbl."128_26_a_qu_etapa_de"
+            FROM caracterizacion_si_aps_individual_2026 tbl
+            {j_caract_ind}
+            WHERE {w_caract_ind} AND {self.get_date_filter(f'tbl.{tipo_fecha}')}
+        """
+        tabla_ind_raw = self.ejecutar(query_tabla_ind, params)
+        tabla_ind_data = []
+        for r in tabla_ind_raw:
+            tabla_ind_data.append({k: (str(v)[:19] if "fecha" in k or "created" in k or "uploaded" in k else str(v)) if v is not None else "" for k, v in r.items()})
+
         data["caracterizacion"] = {
             "familias": uniq_fam_aud,
             "familias_duplicadas": dups_fam_count,
@@ -327,7 +361,9 @@ class AuditoriaService(BaseService):
             "tipo_familia": tipo_familia_aud, "estrato": estrato_aud, "nivel_educativo": nivel_educativo_aud,
             "etnia_sin_pct": round(int(etnia_data_aud.get("sin_etnia") or 0) / total_etnia_aud * 100, 1),
             "etnia_con_pct": round(int(etnia_data_aud.get("con_etnia") or 0) / total_etnia_aud * 100, 1),
-            "etnia_con_total": int(etnia_data_aud.get("con_etnia") or 0)
+            "etnia_con_total": int(etnia_data_aud.get("con_etnia") or 0),
+            "tabla_familiar": tabla_fam_data,
+            "tabla_individual": tabla_ind_data
         }
 
         # === BLOQUE CARACTERIZACIÓN (PERÍODO ANTERIOR ACUMULADO) ===
