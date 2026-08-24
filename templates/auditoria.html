@@ -8,8 +8,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,400&display=swap" rel="stylesheet"/>
 
-  <!-- LIBRERÍAS EXTERNAS -->
+  <!-- LIBRERÍAS EXTERNAS: Chart.js, jQuery y DataTables (Para Motor Excel-like) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <link href="https://cdn.datatables.net/v/dt/dt-2.0.8/datatables.min.css" rel="stylesheet">
+  <script src="https://cdn.datatables.net/v/dt/dt-2.0.8/datatables.min.js"></script>
 
   <!-- ESTILOS GLOBALES -->
   <link rel="stylesheet" href="/static/css/global.css"/>
@@ -81,33 +84,35 @@
     .stat-badge{display:inline-block;padding:.15rem .55rem;border-radius:20px;font-size:.68rem;font-weight:600;}
     .badge-error{background:var(--red-lt);color:var(--red)}.badge-ok{background:var(--green-lt);color:var(--green)}.badge-warn{background:var(--gold-lt);color:var(--gold)}.badge-info{background:var(--teal-lt);color:var(--teal)}.badge-orange{background:var(--orange-lt);color:var(--orange)}
 
-    /* Configuración de Ancho Restringido para Contenedores Flexibles */
     .sub-section {background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.2rem 1.4rem;margin-bottom:1rem; min-width:0; max-width:100%;}
-
     .sub-section-title{font-size:.73rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem;padding-bottom:.6rem;border-bottom:1px solid var(--border);}
     .chart-container{position:relative;height:220px;}
     .divider{height:1px;background:var(--border);margin:1.8rem 0;}
     .list-row{display:flex;justify-content:space-between;margin-bottom:.4rem;font-size:.8rem;border-bottom:1px solid var(--border);padding-bottom:.2rem;}
 
-    /* Contenedor Adaptativo de Tablas con Scroll Aislado */
+    /* Contenedor Adaptativo de Tablas DataTables */
     .table-container {
         width: 100%;
         max-width: 100%;
-        max-height: 450px;
-        overflow-x: auto;
-        overflow-y: auto;
-        border: 1px solid var(--border);
         border-radius: 8px;
         background: var(--surface);
         display: block;
-        -webkit-overflow-scrolling: touch;
     }
 
     .data-table { width: 100%; min-width: max-content; border-collapse: collapse; font-size: 0.75rem; white-space: nowrap; margin-top: 0; }
-    .data-table th { background: var(--navy); color: #fff; padding: 0.6rem; text-align: left; font-weight: 600; border-right: 1px solid rgba(255,255,255,0.1); position: sticky; top: 0; z-index: 10;}
+    .data-table th { background: var(--navy); color: #fff; padding: 0.6rem; text-align: left; font-weight: 600; border-right: 1px solid rgba(255,255,255,0.1); }
     .data-table td { padding: 0.6rem; border-bottom: 1px solid var(--border); color: var(--text); border-right: 1px solid var(--border); }
     .data-table tfoot td { background: var(--teal-lt); font-weight: 700; color: var(--navy); border-top: 2px solid var(--teal); position: sticky; bottom: 0;}
     .res-badge { display:inline-block; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:700; background:var(--green-lt); color:var(--green); }
+
+    /* Personalización UI DataTables (Celdas, inputs y paginación) */
+    div.dt-container div.dt-layout-row { margin-bottom: 0.8rem; }
+    div.dt-search { display: none; } /* Ocultamos el buscador global para priorizar el por columnas */
+    div.dt-length select { border: 1.5px solid var(--border); border-radius: 6px; padding: 0.2rem 0.5rem; outline: none; font-family: 'Sora', sans-serif; }
+    .dt-paging-button.current { background: var(--teal) !important; color: white !important; border: none !important; border-radius: 6px !important; font-weight: bold; }
+    table.dataTable thead th, table.dataTable thead td { padding: 10px 18px; border-bottom: 1px solid var(--border); }
+    table.dataTable.no-footer { border-bottom: 1px solid var(--border); }
+    .dt-scroll-headInner, .data-table { width: 100% !important; }
 
     #loadingOverlay{position:fixed;inset:0;background:rgba(240,244,250,.8);z-index:999;display:none;flex-direction:column;align-items:center;justify-content:center;gap:1rem;}
     .loading-spinner{width:40px;height:40px;border:3px solid rgba(0,176,155,.2);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite;}
@@ -263,11 +268,11 @@
           <div class="stat-card c-red"><div class="stat-label">Familias sin aseguramiento</div><div class="stat-value" id="a-ca-sinaseg">—</div><span class="stat-badge badge-error">No afiliadas</span></div>
         </div>
 
-        <!-- EXTRACCIÓN DE TABLAS COMPLETAS CARACTERIZACIÓN -->
+        <!-- TABLAS COMPLETAS CARACTERIZACIÓN CON DATATABLES -->
         <div class="sub-section" style="margin-top:1rem;">
-          <div class="sub-section-title">Muestra Tabular: Caracterización Familiar 2026</div>
+          <div class="sub-section-title">Muestra Tabular Avanzada: Caracterización Familiar 2026</div>
           <div class="table-container">
-            <table class="data-table" id="tablaCaractFamiliar">
+            <table class="data-table display nowrap" id="tablaCaractFamiliar" style="width:100%">
               <thead>
                 <tr>
                   <th>ec5_uuid</th><th>created_at</th><th>uploaded_at</th><th>created_by</th><th>title</th>
@@ -286,9 +291,9 @@
         </div>
 
         <div class="sub-section" style="margin-top:1rem;">
-          <div class="sub-section-title">Muestra Tabular: Caracterización Individual 2026</div>
+          <div class="sub-section-title">Muestra Tabular Avanzada: Caracterización Individual 2026</div>
           <div class="table-container">
-            <table class="data-table" id="tablaCaractIndividual">
+            <table class="data-table display nowrap" id="tablaCaractIndividual" style="width:100%">
               <thead>
                 <tr>
                   <th>ec5_branch_owner_uuid</th><th>ec5_branch_uuid</th><th>created_at</th><th>uploaded_at</th>
@@ -400,6 +405,49 @@
           <div class="stat-card c-orange"><div class="stat-label">Integrantes Duplicados</div><div class="stat-value" id="a-pcf-int-dup">0</div><span class="stat-badge badge-orange">Descontados</span></div>
         </div>
 
+        <!-- ESTADO DE CIERRE PCF GENERAL -->
+        <div class="cards-row">
+          <div class="stat-card c-green"><div class="stat-label">PCF Cerrados</div><div class="stat-value" id="a-pcf-cerrados">0</div><span class="stat-badge badge-ok">1. SI</span></div>
+          <div class="stat-card c-red"><div class="stat-label">PCF No Cerrados</div><div class="stat-value" id="a-pcf-nocerrados">0</div><span class="stat-badge badge-error">2. NO</span></div>
+        </div>
+
+        <!-- TABLAS COMPLETAS PCF GENERAL -->
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Muestra Tabular Avanzada: PCF Principal (General) 2026</div>
+          <div class="table-container">
+            <table class="data-table display nowrap" id="tablaPcfPrincipal" style="width:100%">
+              <thead>
+                <tr>
+                  <th>ec5_uuid</th><th>created_at</th><th>uploaded_at</th><th>created_by</th>
+                  <th>lat_1_1_geo</th><th>long_1_1_geo</th><th>2_2_fecha_visita</th><th>4_3_perfil</th>
+                  <th>5_4_nombre_profe</th><th>9_7_territorio</th><th>10_8_microterritorio</th><th>11_9_identificacin</th>
+                  <th>12_91_identificacin</th><th>13_10_identificacin</th><th>14_101_identificacin</th><th>27_16_cules_comp</th>
+                  <th>29_integrantes</th><th>73_17_realizara</th><th>98_resumen_interv</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Muestra Tabular Avanzada: PCF Integrantes (General) 2026</div>
+          <div class="table-container">
+            <table class="data-table display nowrap" id="tablaPcfIntegrantes" style="width:100%">
+              <thead>
+                <tr>
+                  <th>ec5_branch_owner_uuid</th><th>ec5_branch_uuid</th><th>created_at</th><th>uploaded_at</th>
+                  <th>created_by</th><th>title</th><th>31_1_primer_nombre</th><th>33_3_primer_apellido</th>
+                  <th>35_5_tipo_doc</th><th>36_6_numero_doc</th><th>37_7_soporte</th><th>38_8_fecha_nac</th>
+                  <th>39_9_edad</th><th>40_10_seleccione</th><th>41_11_sexo</th><th>46_16_numero_cel</th>
+                  <th>57_23_tipo_co</th><th>72_24_resumen</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- PLAN CUIDADO FAMILIAR GENERAL ANTERIOR -->
         <div class="sub-section anterior-section" style="margin-top:1rem;">
           <div class="sub-section-title" style="color:var(--muted);">Período Anterior Acumulado (PCF)</div>
@@ -438,6 +486,47 @@
           <div class="stat-card c-navy"><div class="stat-label">Integrantes intervenidos</div><div class="stat-value" id="a-psi-int">0</div></div>
           <div class="stat-card c-orange"><div class="stat-label">Integrantes Duplicados</div><div class="stat-value" id="a-psi-ind-dup">0</div></div>
           <div class="stat-card c-teal"><div class="stat-label">Total Seguimientos Realizados</div><div class="stat-value" id="a-psi-seg">0</div></div>
+        </div>
+
+        <!-- ESTADO DE CIERRE PCF PSICOLOGIA -->
+        <div class="cards-row">
+          <div class="stat-card c-green"><div class="stat-label">PCF Cerrados</div><div class="stat-value" id="a-psi-cerrados">0</div><span class="stat-badge badge-ok">1. SI</span></div>
+          <div class="stat-card c-red"><div class="stat-label">PCF No Cerrados</div><div class="stat-value" id="a-psi-nocerrados">0</div><span class="stat-badge badge-error">2. NO</span></div>
+        </div>
+
+        <!-- TABLAS COMPLETAS PSICOLOGÍA CON DATATABLES -->
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Muestra Tabular Avanzada: Psicología Principal 2026</div>
+          <div class="table-container">
+            <table class="data-table display nowrap" id="tablaPsicoPrincipal" style="width:100%">
+              <thead>
+                <tr>
+                  <th>ec5_uuid</th><th>ec5_parent_uuid</th><th>created_at</th><th>uploaded_at</th>
+                  <th>created_by</th><th>title</th><th>100_1_primer_nombre</th><th>102_3_primer_apellid</th>
+                  <th>104_5_tipo_doc</th><th>105_6_numero_doc</th><th>106_7_soporte</th><th>107_8_fecha_nacim</th>
+                  <th>108_9_edad</th><th>109_10_seleccione</th><th>110_11_sexo</th><th>115_16_numero_cel</th>
+                  <th>126_seguimientos</th><th>133_28_resumen_va</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="sub-section" style="margin-top:1rem;">
+          <div class="sub-section-title">Muestra Tabular Avanzada: Psicología Seguimientos 2026</div>
+          <div class="table-container">
+            <table class="data-table display nowrap" id="tablaPsicoSeguimientos" style="width:100%">
+              <thead>
+                <tr>
+                  <th>ec5_branch_owner_uuid</th><th>ec5_branch_uuid</th><th>created_at</th><th>uploaded_at</th>
+                  <th>created_by</th><th>title</th><th>127_22_fecha_consult</th><th>129_24_tareas_ref</th>
+                  <th>130_25_requiere_cont</th><th>131_26_compromisos</th><th>132_27_evaluacin_de_</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
         </div>
 
         <div class="sub-section" style="margin-top:1rem;">
@@ -777,24 +866,75 @@ function renderBarChart(cid, labels, data) {
     });
 }
 
-function renderTabla(tbodyId, dataList, cols) {
-    const tbody = document.querySelector(`#${tbodyId} tbody`);
-    if(!tbody) return;
-    tbody.innerHTML = '';
+function renderTablaConDataTables(tableId, dataList, cols) {
+    const tableEl = $('#' + tableId);
 
-    if(!dataList || dataList.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="${cols.length}" style="text-align:center; padding: 2rem;">No hay registros asociados a este encuestador y fecha.</td></tr>`;
-        return;
+    if ($.fn.DataTable.isDataTable(tableEl)) {
+        tableEl.DataTable().clear().destroy();
+        tableEl.find('thead .filter-row').remove();
     }
 
-    dataList.forEach(row => {
-        const tr = document.createElement('tr');
-        cols.forEach(col => {
-            const td = document.createElement('td');
-            td.textContent = row[col] || '';
-            tr.appendChild(td);
+    const tbody = document.querySelector(`#${tableId} tbody`);
+    if(tbody) tbody.innerHTML = '';
+
+    if(dataList && dataList.length > 0) {
+        dataList.forEach(row => {
+            const tr = document.createElement('tr');
+            cols.forEach(col => {
+                const td = document.createElement('td');
+                td.textContent = row[col] || '';
+                tr.appendChild(td);
+            });
+            if(tbody) tbody.appendChild(tr);
         });
-        tbody.appendChild(tr);
+    }
+
+    const thead = document.querySelector(`#${tableId} thead`);
+    let filterRow = thead.querySelector('.filter-row');
+    if (!filterRow && thead.rows.length > 0) {
+        filterRow = thead.rows[0].cloneNode(true);
+        filterRow.className = 'filter-row';
+        Array.from(filterRow.cells).forEach((cell) => {
+            cell.className = '';
+            cell.innerHTML = `<input type="text" placeholder="🔍 Buscar..." style="width:100%; font-size:0.75rem; padding:4px; border:1px solid var(--border); border-radius:4px; box-sizing:border-box; outline:none; font-family:'Sora', sans-serif; color:var(--text);" />`;
+        });
+        thead.appendChild(filterRow);
+    }
+
+    tableEl.DataTable({
+        paging: true,
+        lengthMenu: [10, 20, 50, 100],
+        pageLength: 10,
+        ordering: true,
+        orderCellsTop: true,
+        searching: true,
+        scrollX: true,
+        autoWidth: false,
+        destroy: true,
+        language: {
+            url: "https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
+        },
+        initComplete: function () {
+            const api = this.api();
+
+            api.columns().eq(0).each(function (colIdx) {
+                const cell = $('.filter-row th', api.table().header()).eq(colIdx);
+                const input = $('input', cell);
+
+                input.off('keyup change clear search').on('keyup change clear search', function (e) {
+                    e.stopPropagation();
+                    let val = this.value;
+
+                    if (api.column(colIdx).search() !== val) {
+                        api.column(colIdx).search(val).draw();
+                    }
+                });
+
+                input.on('click', function(e) {
+                    e.stopPropagation();
+                });
+            });
+        }
     });
 }
 
@@ -844,18 +984,15 @@ async function buscarAuditoria() {
             return;
         }
 
-        // --- RENDERIZADO DEL TOPBAR ---
         const nom = data.encuestador_nombre && data.encuestador_nombre !== 'Sin registro de nombre' ? data.encuestador_nombre : (email || nombre);
         const perf = data.encuestador_perfil ? data.encuestador_perfil.toUpperCase() : 'PERFIL DESCONOCIDO';
 
         document.getElementById('topbarTitle').textContent = nom;
         document.getElementById('topbarMeta').textContent = perf;
 
-        // --- DESISTIMIENTOS ---
         setVal('a-des-tot',  data.desistimientos?.total);
         setVal('a-des-err',  data.desistimientos?.con_error);
 
-        // --- PCC ---
         if(data.pcc) {
             setVal('a-pcc-pla',  data.pcc.planes);
             setVal('a-pcc-int',  data.pcc.integrantes);
@@ -863,15 +1000,13 @@ async function buscarAuditoria() {
             setValInput('txtPccDetalles', data.pcc.reporte_detalles);
         }
 
-        // --- CARACTERIZACIÓN ---
         setVal('a-ca-fam',   data.caracterizacion?.familias);
         setVal('a-ca-fam-dup', data.caracterizacion?.familias_duplicadas);
         setVal('a-ca-ind',   data.caracterizacion?.individuos);
         setVal('a-ca-ind-dup', data.caracterizacion?.individuos_duplicadas);
         setVal('a-ca-sinaseg', data.caracterizacion?.sin_aseguramiento);
 
-        // POBLACIÓN DE TABLAS DE CARACTERIZACIÓN
-        renderTabla('tablaCaractFamiliar', data.caracterizacion?.tabla_familiar, [
+        renderTablaConDataTables('tablaCaractFamiliar', data.caracterizacion?.tabla_familiar, [
             "ec5_uuid", "created_at", "uploaded_at", "created_by", "title", "12_4_territorio", "13_5_microterritorio",
             "lat_15_8_geo_punto_georr", "long_15_8_geo_punto_georr", "18_10_cdigo_hogar", "19_101_cdigo_hogar",
             "21_11_cdigo_familia", "22_111_cdigo_familia", "24_13_numero_de_hoga", "25_14_numero_de_fami",
@@ -881,7 +1016,7 @@ async function buscarAuditoria() {
             "72_47_si_la_respuest", "73_471_imagen_escala", "74_48_interrelacione", "99_41_identificacin_", "147_70_observaciones"
         ]);
 
-        renderTabla('tablaCaractIndividual', data.caracterizacion?.tabla_individual, [
+        renderTablaConDataTables('tablaCaractIndividual', data.caracterizacion?.tabla_individual, [
             "ec5_branch_owner_uuid", "ec5_branch_uuid", "created_at", "uploaded_at", "created_by", "title",
             "100_1_primer_nombre", "102_3_primer_apellid", "104_5_tipo_de_identi", "105_6_numero_de_iden",
             "106_numero_celular", "107_7_fecha_de_nacim", "108_8_sexo", "109_9_se_encuentra_e",
@@ -929,10 +1064,28 @@ async function buscarAuditoria() {
         setVal('a-pcf-int', data.pcf?.integrantes_intervenidos);
         setVal('a-pcf-int-dup', data.pcf?.integrantes_duplicados);
 
+        // Mapeo Nuevos Indicadores de Cierre General
+        setVal('a-pcf-cerrados', data.pcf?.cerrados);
+        setVal('a-pcf-nocerrados', data.pcf?.no_cerrados);
+
         setVal('a-pcf-fam-ant', data.pcf_ant?.familias_intervenidas);
         setVal('a-pcf-fam-dup-ant', data.pcf_ant?.familias_duplicadas);
         setVal('a-pcf-int-ant', data.pcf_ant?.integrantes_intervenidos);
         setVal('a-pcf-int-dup-ant', data.pcf_ant?.integrantes_duplicados);
+
+        renderTablaConDataTables('tablaPcfPrincipal', data.pcf?.tabla_pcf_principal, [
+            "ec5_uuid", "created_at", "uploaded_at", "created_by", "lat_1_1_geolocalizacin", "long_1_1_geolocalizacin",
+            "2_2_fecha_visita", "4_3_perfil_profesion", "5_4_nombre_del_profe", "9_7_territorio", "10_8_microterritorio",
+            "11_9_identificacin_d", "12_91_identificacin_", "13_10_identificacin_", "14_101_identificacin",
+            "27_16_cules_compromi", "29_integrantes_inter", "73_17_realizara_la_e", "98_resumen_de_interv"
+        ]);
+
+        renderTablaConDataTables('tablaPcfIntegrantes', data.pcf?.tabla_pcf_integrantes, [
+            "ec5_branch_owner_uuid", "ec5_branch_uuid", "created_at", "uploaded_at", "created_by", "title",
+            "31_1_primer_nombre", "33_3_primer_apellido", "35_5_tipo_de_documen", "36_6_numero_de_docum",
+            "37_7_soporte_fotogrf", "38_8_fecha_de_nacimi", "39_9_edad", "40_10_seleccione_tip", "41_11_sexo",
+            "46_16_numero_de_celu", "57_23_que_tipo_de_co", "72_24_resumen_de_val"
+        ]);
 
         // --- PSICOLOGÍA ---
         setVal('a-psi-fam', data.pcf_psicologia?.intervenciones_familiares);
@@ -943,6 +1096,23 @@ async function buscarAuditoria() {
         setVal('a-psi-seg', data.pcf_psicologia?.seguimientos);
         setVal('a-psi-cont-si', data.pcf_psicologia?.requiere_continuidad_si);
         setVal('a-psi-cont-no', data.pcf_psicologia?.requiere_continuidad_no);
+
+        // Mapeo Nuevos Indicadores de Cierre Psicología
+        setVal('a-psi-cerrados', data.pcf_psicologia?.cerrados);
+        setVal('a-psi-nocerrados', data.pcf_psicologia?.no_cerrados);
+
+        renderTablaConDataTables('tablaPsicoPrincipal', data.pcf_psicologia?.tabla_psico_principal, [
+            "ec5_uuid", "ec5_parent_uuid", "created_at", "uploaded_at", "created_by", "title", "100_1_primer_nombre",
+            "102_3_primer_apellid", "104_5_tipo_de_docume", "105_6_numero_de_docu", "106_7_soporte_fotogr",
+            "107_8_fecha_de_nacim", "108_9_edad", "109_10_seleccione_ti", "110_11_sexo", "115_16_numero_de_cel",
+            "126_seguimientos_psi", "133_28_resumen_de_va"
+        ]);
+
+        renderTablaConDataTables('tablaPsicoSeguimientos', data.pcf_psicologia?.tabla_psico_seguimientos, [
+            "ec5_branch_owner_uuid", "ec5_branch_uuid", "created_at", "uploaded_at", "created_by", "title",
+            "127_22_fecha_consult", "129_24_tareas_de_ref", "130_25_requiere_cont", "131_26_compromisos_y",
+            "132_27_evaluacin_de_"
+        ]);
 
         const contTiposSeg = document.getElementById('cardsTiposSeguimiento');
         const tbodyTiposSeg = document.querySelector('#tablaTiposSeguimiento tbody');
@@ -1035,7 +1205,6 @@ async function buscarAuditoria() {
         const reporteTextoConsolidado = data.reporte_errores_texto || "✅ No se registraron inconsistencias en auditoría.";
         setValInput('textoErroresGlobal', reporteTextoConsolidado);
 
-        // Detalles por sección
         setValInput('txtCaFamDuplicadas', data.caracterizacion?.reporte_duplicados_fam);
         setValInput('txtCaIndDuplicadas', data.caracterizacion?.reporte_duplicados_ind);
 
