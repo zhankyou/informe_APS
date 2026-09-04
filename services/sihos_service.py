@@ -1,124 +1,141 @@
-from flask import Blueprint, request, jsonify, g
-from werkzeug.security import check_password_hash
-from utils.security import generar_token, require_auth
+# services/sihos_service.py
+import re
+from collections import Counter
 from database.db_core import BaseService
-from services.dashboard_service import DashboardService
-from services.auditoria_service import AuditoriaService
-from services.sihos_service import SihosService
-from services.mapas_service import MapasService
-from services.auditoria_especialistas_service import AuditoriaEspecialistasService
 import logging
 
-api_bp = Blueprint('api', __name__, url_prefix='/api')
-logger = logging.getLogger("API_ROUTES")
-base_srv = BaseService()
+logger = logging.getLogger("SihosService")
 
-@api_bp.route("/login", methods=["POST"])
-def login():
-    body = request.get_json(silent=True) or {}
-    correo = str(body.get("correo", "")).strip().lower()
-    password = str(body.get("password", "")).strip()
-    fingerprint = str(body.get("device_fingerprint", "")).strip()
 
-    if not correo or not password: return jsonify({"error": "Credenciales requeridas"}), 400
+class SihosService(BaseService):
 
-    rows = base_srv.ejecutar("SELECT id, username, password_hash, device_id FROM usuarios WHERE LOWER(TRIM(username)) = :u LIMIT 1", {"u": correo})
-    if not rows: return jsonify({"error": "Credenciales incorrectas"}), 401
+    def obtener_datos(self, profesional: str, fecha_ini: str, fecha_fin: str) -> dict:
+        f_ini = fecha_ini or "2000-01-01"
+        f_fin = fecha_fin or "2099-12-31"
+        params = {"f_ini": f_ini, "f_fin": f_fin}
 
-    usuario = rows[0]
-    if not check_password_hash(usuario["password_hash"], password):
-        return jsonify({"error": "Credenciales incorrectas"}), 401
+        prof_filter_sihos = ""
+        prof_filter_aps = ""
 
-    nombre_visual = usuario["username"].capitalize()
-    token = generar_token(usuario["id"], usuario["username"], nombre_visual, "Auditor")
+        if profesional:
+            prof_limpio = profesional.replace('ï¿½', '_').replace('Ñ', '_').replace('ñ', '_')
+            prof_parts = [p for p in prof_limpio.split() if p]
+            prof_like = '%' + '%'.join(prof_parts) + '%'
+            prof_filter_sihos = "AND LOWER(TRIM(profesional)) LIKE LOWER(:prof_like)"
+            prof_filter_aps = "AND LOWER(TRIM(\"5_4_nombre_del_profe\")) LIKE LOWER(:prof_like)"
+            params["prof_like"] = prof_like
 
-    logger.info(f"🟢 [LOGIN] Usuario '{nombre_visual}' conectado.")
-    return jsonify({"token": token, "nombre": nombre_visual, "rol": "Auditor"})
+        query_sihos = f"""
+            WITH fechas_limpias AS (
+                SELECT administradora, tipo_contrato, genero, actividad_suministro, 
+                       finalidad, diagnostico, servicio_origen, tipo_servicio, especialidad,
+                CASE 
+                    WHEN CAST(fecha AS text) ~ '^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}' THEN to_date(LEFT(CAST(fecha AS text), 10), 'YYYY-MM-DD')
+                    WHEN CAST(fecha AS text) ~ '^[0-9]{{2}}/[0-9]{{2}}/[0-9]{{4}}' THEN to_date(LEFT(CAST(fecha AS text), 10), 'DD/MM/YYYY')
+                    ELSE NULL
+                END as fecha_ok,
+                CASE 
+                    WHEN CAST(fecha_nacimiento AS text) ~ '^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}' THEN to_date(LEFT(CAST(fecha_nacimiento AS text), 10), 'YYYY-MM-DD')
+                    WHEN CAST(fecha_nacimiento AS text) ~ '^[0-9]{{2}}/[0-9]{{2}}/[0-9]{{4}}' THEN to_date(LEFT(CAST(fecha_nacimiento AS text), 10), 'DD/MM/YYYY')
+                    ELSE NULL
+                END as f_nac_ok
+                FROM sihos
+                WHERE sede = 'APS' {prof_filter_sihos}
+            )
+            SELECT administradora, tipo_contrato, genero, actividad_suministro, 
+                   finalidad, diagnostico, servicio_origen, tipo_servicio, especialidad,
+                   CASE 
+                       WHEN f_nac_ok IS NULL OR fecha_ok IS NULL THEN -1
+                       ELSE EXTRACT(YEAR FROM age(fecha_ok, f_nac_ok)) 
+                   END as edad
+            FROM fechas_limpias
+            WHERE {self.get_date_filter('fecha_ok')}
+        """
+        filas_sihos = self.ejecutar(query_sihos, params)
+        total_atenciones = len(filas_sihos)
 
-@api_bp.route("/logout", methods=["POST"])
-def logout():
-    return jsonify({"status": "Cierre de sesión exitoso"}), 200
+        especialidad_str = filas_sihos[0].get("especialidad", "Desconocida") if total_atenciones > 0 else "Desconocida"
 
-@api_bp.route("/encuestadores", methods=["GET"])
-@require_auth
-def get_encuestadores():
-    rows = base_srv.ejecutar("""
-        SELECT DISTINCT LOWER(TRIM(CAST(created_by AS text))) as correo
-        FROM (SELECT created_by FROM caracterizacion_si_aps_individual_2026 UNION SELECT created_by FROM pcc_principal_2026 UNION SELECT created_by FROM pcf_planes_principal_2026 UNION SELECT created_by FROM desistimiento_aps_2026) AS tbl
-        WHERE created_by IS NOT NULL AND created_by != ''
-    """)
-    return jsonify([r["correo"] for r in rows if r["correo"]])
+        eps_count, contrato_count, genero_count, finalidad_count, servicio_count, c_vida_count = Counter(), Counter(), Counter(), Counter(), Counter(), Counter()
+        diag_data = {}
+        ind_salud_mental, ind_pyp_medicina, ind_pyp_enfermeria, ind_rias = 0, 0, 0, 0
 
-@api_bp.route("/nombres_profesionales", methods=["GET"])
-@require_auth
-def get_nombres_profesionales():
-    rows = base_srv.ejecutar("""
-        SELECT DISTINCT "5_4_nombre_del_profe" as nombre
-        FROM pcf_planes_principal_2026 WHERE "5_4_nombre_del_profe" IS NOT NULL AND TRIM("5_4_nombre_del_profe") != '' ORDER BY 1
-    """)
-    return jsonify([r["nombre"] for r in rows if r["nombre"]])
+        for f in filas_sihos:
+            eps_count[str(f.get("administradora", "Sin Datos"))] += 1
+            contrato_count[str(f.get("tipo_contrato", "Sin Datos"))] += 1
+            genero_count[str(f.get("genero", "Sin Datos"))] += 1
+            finalidad_count[str(f.get("finalidad", "Sin Datos"))] += 1
+            servicio_count[str(f.get("tipo_servicio", "Sin Datos"))] += 1
 
-@api_bp.route("/dashboard", methods=["GET"])
-@require_auth
-def get_dashboard():
-    srv = DashboardService()
-    return jsonify(srv.obtener_datos(request.args.get("fecha_inicio", "").strip(), request.args.get("fecha_fin", "").strip()))
+            edad = f.get("edad", -1)
+            c_vida_str = "Sin Datos"
+            if edad < 0:
+                c_vida_str = "Sin Datos"
+            elif edad <= 5:
+                c_vida_str = "1. Primera Infancia (0-5)"
+            elif edad <= 11:
+                c_vida_str = "2. Infancia (6-11)"
+            elif edad <= 17:
+                c_vida_str = "3. Adolescencia (12-17)"
+            elif edad <= 28:
+                c_vida_str = "4. Juventud (18-28)"
+            elif edad <= 59:
+                c_vida_str = "5. Adultez (29-59)"
+            else:
+                c_vida_str = "6. Vejez (60+)"
 
-@api_bp.route("/auditoria", methods=["GET"])
-@require_auth
-def auditoria():
-    srv = AuditoriaService()
-    correo = request.args.get("usuario", "").strip()
-    nombre = request.args.get("nombre", "").strip()
-    if not correo and not nombre: return jsonify({"error": "Correo o nombre requerido."}), 400
-    return jsonify(srv.obtener_datos(correo, nombre, request.args.get("fecha_inicio", "").strip(), request.args.get("fecha_fin", "").strip(), 'created_at'))
+            c_vida_count[c_vida_str] += 1
 
-@api_bp.route("/auditoria_especialistas", methods=["GET"])
-@require_auth
-def auditoria_especialistas():
-    srv = AuditoriaEspecialistasService()
-    correo = request.args.get("usuario", "").strip()
-    nombre = request.args.get("nombre", "").strip()
-    f_ini = request.args.get("fecha_inicio", "").strip()
-    f_fin = request.args.get("fecha_fin", "").strip()
+            diag = str(f.get("diagnostico", "")).strip()
+            if diag and diag != "None":
+                if diag not in diag_data: diag_data[diag] = {"total": 0, "edades": Counter()}
+                diag_data[diag]["total"] += 1
+                diag_data[diag]["edades"][c_vida_str] += 1
 
-    if not correo and not nombre:
-        return jsonify({"error": "Correo o nombre requerido."}), 400
+            ts, ori, act = str(f.get("tipo_servicio", "")).lower(), str(f.get("servicio_origen", "")).lower(), str(
+                f.get("actividad_suministro", "")).lower()
+            if "psicolog" in ts or "psicolog" in act or "mental" in act: ind_salud_mental += 1
+            if "pyp" in ts or "promocion" in ori:
+                ind_rias += 1
+                if "medicina" in ts or "medicina" in act: ind_pyp_medicina += 1
+                if "enfermeria" in ts or "enfermeria" in act: ind_pyp_enfermeria += 1
 
-    return jsonify(srv.obtener_datos(correo, nombre, f_ini, f_fin))
+        top_diags = sorted(diag_data.items(), key=lambda x: x[1]["total"], reverse=True)[:10]
+        diagnosticos_list = [{"label": d_name, "total": d_info["total"],
+                              "grupo_etario": d_info["edades"].most_common(1)[0][0] if d_info[
+                                  "edades"] else "Sin Datos"} for d_name, d_info in top_diags]
 
-@api_bp.route("/auditoria_actualizacion", methods=["GET"])
-@require_auth
-def auditoria_actualizacion():
-    srv = AuditoriaService()
-    correo = request.args.get("usuario", "").strip()
-    nombre = request.args.get("nombre", "").strip()
-    if not correo and not nombre: return jsonify({"error": "Correo o nombre requerido."}), 400
-    return jsonify(srv.obtener_datos(correo, nombre, request.args.get("fecha_inicio", "").strip(), request.args.get("fecha_fin", "").strip(), 'uploaded_at'))
+        query_cruce = f"""
+            SELECT COUNT(*) as campo_total
+            FROM pcf_planes_integrantes_2026 b
+            JOIN pcf_planes_principal_2026 p ON b.ec5_branch_owner_uuid = p.ec5_uuid
+            WHERE {self.get_date_filter('p.created_at')} {prof_filter_aps}
+        """
+        res_cruce = self.ejecutar(query_cruce, params)
+        atenciones_campo_aps = res_cruce[0]["campo_total"] if res_cruce else 0
 
-@api_bp.route("/mapas", methods=["GET"])
-@require_auth
-def get_mapas():
-    srv = MapasService()
-    correo = request.args.get("usuario", "").strip()
-    nombre = request.args.get("nombre", "").strip()
-    if not correo and not nombre: return jsonify({"error": "Correo o nombre requerido."}), 400
-    return jsonify(srv.obtener_coordenadas(correo, nombre, request.args.get("fecha_inicio", "").strip(), request.args.get("fecha_fin", "").strip()))
+        if total_atenciones == 0 and atenciones_campo_aps == 0 and profesional:
+            return {
+                "error": f"No se encontraron facturaciones en SIHOS ni reportes en campo para {profesional} en estas fechas."}
 
-@api_bp.route("/profesionales_sihos", methods=["GET"])
-@require_auth
-def get_profesionales_sihos():
-    srv = SihosService()
-    return jsonify(srv.obtener_profesionales())
+        def format_counter(counter_obj):
+            return [{"label": k, "total": v} for k, v in sorted(counter_obj.items(), key=lambda x: x[1], reverse=True)]
 
-@api_bp.route("/sihos", methods=["GET"])
-@require_auth
-def get_sihos():
-    srv = SihosService()
-    profesional = request.args.get("profesional", "").strip()
-    data = srv.obtener_datos(profesional, request.args.get("fecha_inicio", "").strip(), request.args.get("fecha_fin", "").strip())
-    if "error" in data: return jsonify(data), 404
-    return jsonify(data)
+        return {
+            "profesional": profesional or "Global Sede APS",
+            "especialidad": especialidad_str,
+            "rango_fechas": f"{fecha_ini} / {fecha_fin}",
+            "resumen": {"total_facturaciones": total_atenciones},
+            "demografia": {"genero": format_counter(genero_count), "curso_vida": format_counter(c_vida_count)},
+            "administrativo": {"eps": format_counter(eps_count), "contrato": format_counter(contrato_count)},
+            "clinico": {"finalidad": format_counter(finalidad_count), "tipo_servicio": format_counter(servicio_count),
+                        "diagnosticos": diagnosticos_list},
+            "indicadores": {"salud_mental": ind_salud_mental, "pyp_medicina": ind_pyp_medicina,
+                            "pyp_enfermeria": ind_pyp_enfermeria, "total_rias": ind_rias,
+                            "campo_epi_collect": atenciones_campo_aps}
+        }
 
-@api_bp.route("/health", methods=["GET"])
-def health(): return jsonify({"status": "ok"}), 200
+    def obtener_profesionales(self) -> list:
+        rows = self.ejecutar(
+            "SELECT DISTINCT profesional FROM sihos WHERE sede = 'APS' AND profesional IS NOT NULL ORDER BY profesional ASC")
+        return [r["profesional"] for r in rows if r["profesional"]]
