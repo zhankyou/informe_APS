@@ -12,6 +12,9 @@ def dashboard_page(): return render_template("dashboard.html")
 @web_bp.route("/auditoria")
 def auditoria_page(): return render_template("auditoria.html")
 
+@web_bp.route("/auditoria_especialistas")
+def auditoria_especialistas_page(): return render_template("auditoria_especialistas.html")
+
 @web_bp.route("/auditoria_actualizacion")
 def auditoria_actualizacion_page(): return render_template("auditoria_actualizacion.html")
 
