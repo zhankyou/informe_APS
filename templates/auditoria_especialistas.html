@@ -5,48 +5,35 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>INFORMES ESE · Auditoría Especialistas</title>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,400&display=swap" rel="stylesheet"/>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+  <!-- LEAFLET MAPS CDN -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
   <link rel="stylesheet" href="/static/css/global.css"/>
   <style>
+    body { max-width: 100vw; overflow-x: hidden; }
     .excel-table-container {
-        width: 100%;
-        max-width: 100%;
-        max-height: 450px;
-        overflow: auto;
-        display: block;
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        position: relative;
-        background: var(--surface);
-        box-sizing: border-box;
+        width: 100%; max-width: 100%; max-height: 450px; overflow: auto; display: block;
+        border: 1px solid var(--border); border-radius: 8px; position: relative; background: var(--surface); box-sizing: border-box;
     }
-    .excel-table-container table {
-        margin-top: 0 !important;
-        white-space: nowrap;
-        font-family: monospace;
-        font-size: 0.75rem;
-    }
+    .excel-table-container table { margin-top: 0 !important; white-space: nowrap; font-family: monospace; font-size: 0.75rem; }
     .excel-table-container thead th {
-        position: sticky;
-        top: 0;
-        z-index: 10;
+        position: sticky; top: 0; z-index: 10;
         box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.2);
+        vertical-align: top; padding: 0.75rem 0.6rem;
     }
+    .th-wrapper { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; width: 100%; }
+    .th-title { font-weight: 600; font-size: 0.75rem; letter-spacing: 0.05em; color: inherit; }
     .col-search-input {
-        width: 100%;
-        margin-top: 6px;
-        padding: 4px 6px;
-        font-size: 0.7rem;
-        font-family: monospace;
-        border: 1px solid rgba(255, 255, 255, 0.4);
-        border-radius: 4px;
-        background: rgba(255, 255, 255, 0.15);
-        color: #fff;
-        outline: none;
-        box-sizing: border-box;
+        width: 100%; min-width: 120px; padding: 6px 8px; font-size: 0.75rem; font-family: monospace;
+        border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px;
+        background: rgba(255, 255, 255, 0.1); color: #fff; outline: none; box-sizing: border-box; transition: all 0.2s;
     }
     .col-search-input::placeholder { color: rgba(255, 255, 255, 0.6); }
-    .col-search-input:focus { background: rgba(255, 255, 255, 1); color: var(--navy); }
+    .col-search-input:focus { background: #fff; color: var(--navy); border-color: #fff; }
+
+    .map-box { height: 400px; width: 100%; border-radius: 8px; border: 1px solid var(--border); z-index: 1; }
   </style>
 </head>
 <body>
@@ -66,13 +53,13 @@
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
       <span class="nav-label">Auditoría (Creación)</span>
     </a>
-    <a href="/auditoria_especialistas" class="nav-item active">
-      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
-      <span class="nav-label">Auditoría Especialistas</span>
-    </a>
     <a href="/auditoria_actualizacion" class="nav-item">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
       <span class="nav-label">Auditoría (Cargas)</span>
+    </a>
+    <a href="/auditoria_especialistas" class="nav-item active">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+      <span class="nav-label">Auditoría Especialistas</span>
     </a>
     <a href="/sihos" class="nav-item">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
@@ -164,26 +151,6 @@
       <div class="divider"></div>
 
       <div class="section">
-        <div class="section-header"><div class="section-title">Desistimientos</div></div>
-        <div class="cards-row">
-          <div class="stat-card c-red"><div class="stat-label">Total desistimientos</div><div class="stat-value" id="a-des-tot">0</div></div>
-          <div class="stat-card c-gold"><div class="stat-label">Registros con error</div><div class="stat-value" id="a-des-err">0</div></div>
-        </div>
-      </div>
-      <div class="divider"></div>
-
-      <div class="section">
-        <div class="section-header"><div class="section-title">Plan Cuidado Comunitario</div></div>
-        <div class="cards-row">
-          <div class="stat-card c-green"><div class="stat-label">Planes realizados</div><div class="stat-value" id="a-pcc-pla">0</div></div>
-          <div class="stat-card c-teal"><div class="stat-label">Integrantes con plan</div><div class="stat-value" id="a-pcc-int">0</div></div>
-          <div class="stat-card c-gold"><div class="stat-label">Registros con error</div><div class="stat-value" id="a-pcc-err">0</div></div>
-        </div>
-        <textarea id="txtPccDetalles" class="report-box" readonly></textarea>
-      </div>
-      <div class="divider"></div>
-
-      <div class="section">
         <div class="section-header"><div class="section-title">Formulario Especialistas</div><div class="section-sub">Consolidado estricto Fisioterapia, Nutrición y Respiratoria</div></div>
         <div class="cards-row">
           <div class="stat-card c-purple"><div class="stat-label">Familias intervenidas</div><div class="stat-value" id="a-esp-fam">0</div><span class="stat-badge badge-purple">Atenciones</span></div>
@@ -196,52 +163,7 @@
             <div class="sub-section-title" style="color:var(--navy);">Formulario Fisioterapia</div>
             <div class="excel-table-container">
               <table class="data-table" id="tablaFisioterapia">
-                <thead style="background:var(--navy); color:#fff;">
-                  <tr>
-                    <th>id <input type="text" class="col-search-input" data-col="0" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>especialista_email <input type="text" class="col-search-input" data-col="1" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>fecha_visita <input type="text" class="col-search-input" data-col="2" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>territorio <input type="text" class="col-search-input" data-col="3" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>microterritorio <input type="text" class="col-search-input" data-col="4" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>codigo_familia <input type="text" class="col-search-input" data-col="5" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>municipio <input type="text" class="col-search-input" data-col="6" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>barrio <input type="text" class="col-search-input" data-col="7" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>direccion <input type="text" class="col-search-input" data-col="8" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>latitud <input type="text" class="col-search-input" data-col="9" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>longitud <input type="text" class="col-search-input" data-col="10" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>nombre_fisioterapeuta <input type="text" class="col-search-input" data-col="11" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>registro_profesional <input type="text" class="col-search-input" data-col="12" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>nombre_jefe_hogar <input type="text" class="col-search-input" data-col="13" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>doc_identidad <input type="text" class="col-search-input" data-col="14" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>telefono_contacto <input type="text" class="col-search-input" data-col="15" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>total_integrantes <input type="text" class="col-search-input" data-col="16" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>familia_visita_no <input type="text" class="col-search-input" data-col="17" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>tamizaje_motor <input type="text" class="col-search-input" data-col="18" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>riesgo_caidas <input type="text" class="col-search-input" data-col="19" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>barreras_arquitectonicas <input type="text" class="col-search-input" data-col="20" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>riesgo_ergonomico <input type="text" class="col-search-input" data-col="21" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>acciones_educacion <input type="text" class="col-search-input" data-col="22" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>canalizacion <input type="text" class="col-search-input" data-col="23" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>sintesis_evidencias <input type="text" class="col-search-input" data-col="24" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>evidencias_drive_urls <input type="text" class="col-search-input" data-col="25" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>firma_profesional <input type="text" class="col-search-input" data-col="26" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>cc_profesional <input type="text" class="col-search-input" data-col="27" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>firma_jefe <input type="text" class="col-search-input" data-col="28" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>cc_jefe <input type="text" class="col-search-input" data-col="29" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>created_at <input type="text" class="col-search-input" data-col="30" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>synced_at <input type="text" class="col-search-input" data-col="31" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>is_deleted <input type="text" class="col-search-input" data-col="32" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>nombre_fisio <input type="text" class="col-search-input" data-col="33" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>evaluacion <input type="text" class="col-search-input" data-col="34" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>plan_cuidado <input type="text" class="col-search-input" data-col="35" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>remite <input type="text" class="col-search-input" data-col="36" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>cc_cuidador <input type="text" class="col-search-input" data-col="37" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>firma_cuidador <input type="text" class="col-search-input" data-col="38" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>seguimiento <input type="text" class="col-search-input" data-col="39" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>sintesis_analisis <input type="text" class="col-search-input" data-col="40" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                    <th>metas <input type="text" class="col-search-input" data-col="41" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaFisioterapia')"></th>
-                  </tr>
-                </thead>
+                <thead style="background:var(--navy); color:#fff;"><tr id="headFisio"></tr></thead>
                 <tbody></tbody>
               </table>
             </div>
@@ -251,48 +173,7 @@
             <div class="sub-section-title" style="color:var(--green);">Formulario Nutricionista</div>
             <div class="excel-table-container">
               <table class="data-table" id="tablaNutricion">
-                <thead style="background:var(--green); color:#fff;">
-                  <tr>
-                    <th>id <input type="text" class="col-search-input" data-col="0" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>especialista_email <input type="text" class="col-search-input" data-col="1" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>fecha_visita <input type="text" class="col-search-input" data-col="2" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>territorio <input type="text" class="col-search-input" data-col="3" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>microterritorio <input type="text" class="col-search-input" data-col="4" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>codigo_familia <input type="text" class="col-search-input" data-col="5" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>municipio <input type="text" class="col-search-input" data-col="6" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>barrio <input type="text" class="col-search-input" data-col="7" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>direccion <input type="text" class="col-search-input" data-col="8" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>latitud <input type="text" class="col-search-input" data-col="9" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>longitud <input type="text" class="col-search-input" data-col="10" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>nombre_nutricionista <input type="text" class="col-search-input" data-col="11" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>registro_profesional <input type="text" class="col-search-input" data-col="12" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>nombre_jefe_hogar <input type="text" class="col-search-input" data-col="13" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>doc_identidad <input type="text" class="col-search-input" data-col="14" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>telefono_contacto <input type="text" class="col-search-input" data-col="15" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>total_integrantes <input type="text" class="col-search-input" data-col="16" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>familia_visita_no <input type="text" class="col-search-input" data-col="17" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>no_familia <input type="text" class="col-search-input" data-col="18" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>antropometria <input type="text" class="col-search-input" data-col="19" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>seguridad_alimentaria <input type="text" class="col-search-input" data-col="20" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>plan_cuidado <input type="text" class="col-search-input" data-col="21" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>seguimiento <input type="text" class="col-search-input" data-col="22" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>remite <input type="text" class="col-search-input" data-col="23" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>evidencias_drive_urls <input type="text" class="col-search-input" data-col="24" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>firma_profesional <input type="text" class="col-search-input" data-col="25" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>cc_profesional <input type="text" class="col-search-input" data-col="26" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>firma_cuidador <input type="text" class="col-search-input" data-col="27" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>cc_cuidador <input type="text" class="col-search-input" data-col="28" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>created_at <input type="text" class="col-search-input" data-col="29" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>synced_at <input type="text" class="col-search-input" data-col="30" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>is_deleted <input type="text" class="col-search-input" data-col="31" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>acc_disp <input type="text" class="col-search-input" data-col="32" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>consumo <input type="text" class="col-search-input" data-col="33" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>hfias <input type="text" class="col-search-input" data-col="34" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>lineas_accion <input type="text" class="col-search-input" data-col="35" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>lineas_otra <input type="text" class="col-search-input" data-col="36" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                    <th>compromiso <input type="text" class="col-search-input" data-col="37" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaNutricion')"></th>
-                  </tr>
-                </thead>
+                <thead style="background:var(--green); color:#fff;"><tr id="headNutri"></tr></thead>
                 <tbody></tbody>
               </table>
             </div>
@@ -302,45 +183,7 @@
             <div class="sub-section-title" style="color:var(--gold);">Formulario Respiratoria</div>
             <div class="excel-table-container">
               <table class="data-table" id="tablaRespiratoria">
-                <thead style="background:var(--gold); color:#fff;">
-                  <tr>
-                    <th>id <input type="text" class="col-search-input" data-col="0" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>especialista_email <input type="text" class="col-search-input" data-col="1" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>fecha_visita <input type="text" class="col-search-input" data-col="2" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>territorio <input type="text" class="col-search-input" data-col="3" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>microterritorio <input type="text" class="col-search-input" data-col="4" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>codigo_familia <input type="text" class="col-search-input" data-col="5" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>municipio <input type="text" class="col-search-input" data-col="6" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>barrio <input type="text" class="col-search-input" data-col="7" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>direccion <input type="text" class="col-search-input" data-col="8" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>latitud <input type="text" class="col-search-input" data-col="9" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>longitud <input type="text" class="col-search-input" data-col="10" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>nombre_profesional <input type="text" class="col-search-input" data-col="11" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>registro_profesional <input type="text" class="col-search-input" data-col="12" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>nombre_jefe_hogar <input type="text" class="col-search-input" data-col="13" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>doc_identidad <input type="text" class="col-search-input" data-col="14" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>telefono_contacto <input type="text" class="col-search-input" data-col="15" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>total_integrantes <input type="text" class="col-search-input" data-col="16" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>familia_visita_no <input type="text" class="col-search-input" data-col="17" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>no_familia <input type="text" class="col-search-input" data-col="18" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>composicion_familiar <input type="text" class="col-search-input" data-col="19" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>riesgos_intradomiciliarios <input type="text" class="col-search-input" data-col="20" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>acciones_educacion <input type="text" class="col-search-input" data-col="21" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>seguimiento_era <input type="text" class="col-search-input" data-col="22" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>evidencias_drive_urls <input type="text" class="col-search-input" data-col="23" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>firma_profesional <input type="text" class="col-search-input" data-col="24" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>cc_profesional <input type="text" class="col-search-input" data-col="25" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>firma_cuidador <input type="text" class="col-search-input" data-col="26" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>cc_cuidador <input type="text" class="col-search-input" data-col="27" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>created_at <input type="text" class="col-search-input" data-col="28" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>synced_at <input type="text" class="col-search-input" data-col="29" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>is_deleted <input type="text" class="col-search-input" data-col="30" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>sintomatologia <input type="text" class="col-search-input" data-col="31" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>plan_cuidado <input type="text" class="col-search-input" data-col="32" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>remite <input type="text" class="col-search-input" data-col="33" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                    <th>seguimiento <input type="text" class="col-search-input" data-col="34" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaRespiratoria')"></th>
-                  </tr>
-                </thead>
+                <thead style="background:var(--gold); color:#fff;"><tr id="headResp"></tr></thead>
                 <tbody></tbody>
               </table>
             </div>
@@ -363,27 +206,7 @@
             <div class="sub-section-title" style="color:var(--teal);">Base de Datos: Planes de Cuidado Familiar (Principal)</div>
             <div class="excel-table-container">
               <table class="data-table" id="tablaExcelPcfPrincipal">
-                <thead style="background:var(--teal); color:#fff;">
-                  <tr>
-                    <th>ec5_uuid <input type="text" class="col-search-input" data-col="0" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfPrincipal')"></th>
-                    <th>created_at <input type="text" class="col-search-input" data-col="1" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfPrincipal')"></th>
-                    <th>uploaded_at <input type="text" class="col-search-input" data-col="2" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfPrincipal')"></th>
-                    <th>created_by <input type="text" class="col-search-input" data-col="3" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfPrincipal')"></th>
-                    <th>lat_1_1 <input type="text" class="col-search-input" data-col="4" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfPrincipal')"></th>
-                    <th>long_1_1 <input type="text" class="col-search-input" data-col="5" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfPrincipal')"></th>
-                    <th>perfil_profesion <input type="text" class="col-search-input" data-col="6" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfPrincipal')"></th>
-                    <th>nombre_del_profe <input type="text" class="col-search-input" data-col="7" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfPrincipal')"></th>
-                    <th>territorio <input type="text" class="col-search-input" data-col="8" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfPrincipal')"></th>
-                    <th>microterritorio <input type="text" class="col-search-input" data-col="9" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfPrincipal')"></th>
-                    <th>identificacin_d <input type="text" class="col-search-input" data-col="10" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfPrincipal')"></th>
-                    <th>id_91 <input type="text" class="col-search-input" data-col="11" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfPrincipal')"></th>
-                    <th>id_10 <input type="text" class="col-search-input" data-col="12" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfPrincipal')"></th>
-                    <th>id_101 <input type="text" class="col-search-input" data-col="13" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfPrincipal')"></th>
-                    <th>integ_inter <input type="text" class="col-search-input" data-col="14" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfPrincipal')"></th>
-                    <th>realizara_e <input type="text" class="col-search-input" data-col="15" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfPrincipal')"></th>
-                    <th>resumen_interv <input type="text" class="col-search-input" data-col="16" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfPrincipal')"></th>
-                  </tr>
-                </thead>
+                <thead style="background:var(--teal); color:#fff;"><tr id="headPcfPrin"></tr></thead>
                 <tbody></tbody>
               </table>
             </div>
@@ -393,34 +216,35 @@
             <div class="sub-section-title" style="color:var(--purple);">Base de Datos: Planes de Cuidado Individual (Integrantes)</div>
             <div class="excel-table-container">
               <table class="data-table" id="tablaExcelPcfIntegrantes">
-                <thead style="background:var(--purple); color:#fff;">
-                  <tr>
-                    <th>owner_uuid <input type="text" class="col-search-input" data-col="0" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfIntegrantes')"></th>
-                    <th>branch_uuid <input type="text" class="col-search-input" data-col="1" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfIntegrantes')"></th>
-                    <th>created_at <input type="text" class="col-search-input" data-col="2" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfIntegrantes')"></th>
-                    <th>uploaded_at <input type="text" class="col-search-input" data-col="3" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfIntegrantes')"></th>
-                    <th>created_by <input type="text" class="col-search-input" data-col="4" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfIntegrantes')"></th>
-                    <th>title <input type="text" class="col-search-input" data-col="5" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfIntegrantes')"></th>
-                    <th>primer_nombre <input type="text" class="col-search-input" data-col="6" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfIntegrantes')"></th>
-                    <th>primer_apellido <input type="text" class="col-search-input" data-col="7" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfIntegrantes')"></th>
-                    <th>tipo_doc <input type="text" class="col-search-input" data-col="8" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfIntegrantes')"></th>
-                    <th>num_doc <input type="text" class="col-search-input" data-col="9" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfIntegrantes')"></th>
-                    <th>fecha_nacimi <input type="text" class="col-search-input" data-col="10" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfIntegrantes')"></th>
-                    <th>sexo <input type="text" class="col-search-input" data-col="11" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfIntegrantes')"></th>
-                    <th>num_celu <input type="text" class="col-search-input" data-col="12" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfIntegrantes')"></th>
-                    <th>tipo_de_co <input type="text" class="col-search-input" data-col="13" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfIntegrantes')"></th>
-                    <th>tema_central <input type="text" class="col-search-input" data-col="14" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfIntegrantes')"></th>
-                    <th>metodologia_ed <input type="text" class="col-search-input" data-col="15" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfIntegrantes')"></th>
-                    <th>ruta_sugerida <input type="text" class="col-search-input" data-col="16" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfIntegrantes')"></th>
-                    <th>resumen_val <input type="text" class="col-search-input" data-col="17" placeholder="Buscar..." oninput="filtrarTablaExcel('tablaExcelPcfIntegrantes')"></th>
-                  </tr>
-                </thead>
+                <thead style="background:var(--purple); color:#fff;"><tr id="headPcfInt"></tr></thead>
                 <tbody></tbody>
               </table>
             </div>
           </div>
 
           <textarea id="txtPcfErrores" class="report-box" style="background:#fde8e8;border-color:var(--red-lt);color:var(--red);" readonly placeholder="Errores de registro en PCF..."></textarea>
+        </div>
+      </div>
+      <div class="divider"></div>
+
+      <!-- MAPAS -->
+      <div class="section">
+        <div class="section-header"><div class="section-title">Análisis Geoespacial (Mapas)</div><div class="section-sub">Distribución de las atenciones y validación de coordenadas</div></div>
+
+        <div style="display:flex; gap:1.5rem; flex-wrap:wrap; margin-bottom:1.5rem;">
+          <div style="flex:1; min-width:300px;">
+            <div class="sub-section-title" style="color:var(--teal);">Mapas Epicollect (PCF)</div>
+            <div id="mapaPcf" class="map-box"></div>
+          </div>
+          <div style="flex:1; min-width:300px;">
+            <div class="sub-section-title" style="color:var(--purple);">Formulario Especialistas</div>
+            <div id="mapaEsp" class="map-box"></div>
+          </div>
+        </div>
+
+        <div class="sub-section" style="padding: 1rem; background: #fffcf5; border: 1px solid #fef0c7;">
+          <div class="sub-section-title" style="color:var(--gold); border-bottom-color: #fef0c7;">Reporte de Errores de Geolocalización</div>
+          <textarea id="txtMapasErrores" class="report-box" readonly style="background:transparent; border:none; height:150px; color:#b45309;"></textarea>
         </div>
       </div>
 
