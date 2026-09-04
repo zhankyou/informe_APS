@@ -17,7 +17,7 @@ class AuditoriaEspecialistasService(BaseService):
 
         email_res = correo if correo else self.resolver_correo(nombre)
 
-        # 🟢 1. RESOLUCIÓN DE IDENTIDAD ESTRICTA (Sin comodines fraccionados)
+        # 🟢 1. RESOLUCIÓN DE IDENTIDAD ESTRICTA
         if correo and not nombre:
             for tbl, col in [('pcf_planes_principal_2026', '5_4_nombre_del_profe'),
                              ('caracterizacion_si_aps_familiar_2026', '32_20_responsable_de'),
@@ -35,13 +35,12 @@ class AuditoriaEspecialistasService(BaseService):
         n_clean = (nombre or "").strip().lower()
         e_res_clean = (email_res or "").strip().lower()
 
-        # Colección de Alias Exactos (Evita falsos positivos)
         alias_set = set()
         for item in [c_clean, n_clean, e_res_clean]:
             if item:
                 alias_set.add(item)
                 if '@' in item:
-                    alias_set.add(item.split('@')[0])  # Captura el prefijo del correo (ej: astridjo15)
+                    alias_set.add(item.split('@')[0])
 
         try:
             q_alias = """
@@ -69,11 +68,9 @@ class AuditoriaEspecialistasService(BaseService):
         except Exception as e:
             logger.error(f"Error recopilando alias del especialista: {e}")
 
-        # Evita consultas vacías
         if not alias_set:
             alias_set.add("___NOMATCH___")
 
-        # Conversión del Set a cadena SQL para cláusulas IN (...)
         aliases_sql = ", ".join([f"'{a.replace(chr(39), '')}'" for a in alias_set])
 
         params = {
@@ -81,27 +78,36 @@ class AuditoriaEspecialistasService(BaseService):
             "f_ini": f_ini, "f_fin": f_fin
         }
 
-        # 🟢 MACRO-FILTROS ESTRICTOS (Cruce exacto con usuario_creador, created_by o especialista_email)
         err_where_auditoria = f"LOWER(TRIM(CAST(usuario_creador AS text))) IN ({aliases_sql})"
         w_esp_email = f"LOWER(TRIM(CAST(especialista_email AS text))) IN ({aliases_sql})"
 
         if correo:
-            w_desist = "LOWER(TRIM(CAST(created_by AS text))) = LOWER(:correo)"
-            w_pcc_prin = "LOWER(TRIM(CAST(created_by AS text))) = LOWER(:correo)"
-            w_pcc_int = "LOWER(TRIM(CAST(p.created_by AS text))) = LOWER(:correo)"
             w_pcf_prin = "LOWER(TRIM(CAST(created_by AS text))) = LOWER(:correo)"
             w_pcf_int = "LOWER(TRIM(CAST(p.created_by AS text))) = LOWER(:correo)"
         else:
-            w_desist = "LOWER(TRIM(CAST(\"13_10_nombre_profesi\" AS text))) = LOWER(:nombre)"
-            w_pcc_prin = "LOWER(TRIM(CAST(\"4_4_nombre_del_profe\" AS text))) = LOWER(:nombre)"
-            w_pcc_int = "LOWER(TRIM(CAST(p.\"4_4_nombre_del_profe\" AS text))) = LOWER(:nombre)"
             w_pcf_prin = "LOWER(TRIM(CAST(\"5_4_nombre_del_profe\" AS text))) = LOWER(:nombre)"
             w_pcf_int = "LOWER(TRIM(CAST(p.\"5_4_nombre_del_profe\" AS text))) = LOWER(:nombre)"
 
         data = {"usuario": correo or nombre, "rango_fechas": f"{f_ini} / {f_fin}"}
 
+        puntos_pcf = []
+        puntos_esp = []
+        errores_mapa = []
+
+        def es_coordenada_valida(lat, lon):
+            try:
+                if not lat or not lon or str(lat).lower() in ['none', 'null', ''] or str(lon).lower() in ['none',
+                                                                                                          'null',
+                                                                                                          '']: return False
+                lat_f, lon_f = float(lat), float(lon)
+                if lat_f == 0.0 and lon_f == 0.0: return False
+                if abs(lat_f) > 90 or abs(lon_f) > 180: return False
+                return True
+            except:
+                return False
+
         # =========================================================================
-        # 🟢 2. MÓDULO NOVEDADES Y CONCILIACIÓN DE ESPECIALISTAS
+        # 🟢 2. NOVEDADES Y CONCILIACIÓN
         # =========================================================================
         detalle_novedades = []
         tot_evaluados, tot_correctos, tot_sin_pcf, tot_sin_pci, tot_sin_caract = 0, 0, 0, 0, 0
@@ -120,7 +126,6 @@ class AuditoriaEspecialistasService(BaseService):
             registros_esp = self.ejecutar(query_esp, params)
 
             if registros_esp:
-                # Extraemos las llaves de familia del PCF
                 q_pcf_fam = f"""
                     SELECT created_by, "9_7_territorio", "10_8_microterritorio", "13_10_identificacin_", "14_101_identificacin" 
                     FROM pcf_planes_principal_2026 
@@ -144,13 +149,10 @@ class AuditoriaEspecialistasService(BaseService):
 
                 if docs_list:
                     docs_array = "ARRAY[" + ",".join([f"'{d.replace(chr(39), '')}'" for d in docs_list]) + "]::text[]"
-
-                    # Conteo de planes individuales
                     q_pci = f"""SELECT CAST("36_6_numero_de_docum" AS text) as doc, COUNT(*) as c FROM pcf_planes_integrantes_2026 WHERE CAST("36_6_numero_de_docum" AS text) = ANY({docs_array}) GROUP BY 1"""
                     res_pci = self.ejecutar(q_pci, {})
                     dict_pci_counts = {str(r['doc']).strip().lower(): int(r['c']) for r in res_pci}
 
-                    # Caracterización cruzada
                     q_car = f"""SELECT CAST("105_6_numero_de_iden" AS text) as doc FROM caracterizacion_si_aps_individual_2026 WHERE CAST("105_6_numero_de_iden" AS text) = ANY({docs_array})"""
                     res_car = self.ejecutar(q_car, {})
                     set_caract = set([str(r['doc']).strip().lower() for r in res_car])
@@ -175,7 +177,6 @@ class AuditoriaEspecialistasService(BaseService):
                         continue
 
                     is_correct = True
-
                     if key_fam not in set_pcf_fam:
                         tot_sin_pcf += 1
                         is_correct = False
@@ -206,8 +207,7 @@ class AuditoriaEspecialistasService(BaseService):
                              "tipo": "Validación PCI Leve",
                              "detalle": "Intervenida únicamente por el especialista y no por el perfil profesional o técnico. Se requiere validación."})
 
-                    if is_correct:
-                        tot_correctos += 1
+                    if is_correct: tot_correctos += 1
 
             data["novedades"] = {"total_evaluados": tot_evaluados, "correctos": tot_correctos, "sin_pcf": tot_sin_pcf,
                                  "sin_pci": tot_sin_pci, "sin_caracterizacion": tot_sin_caract,
@@ -218,7 +218,7 @@ class AuditoriaEspecialistasService(BaseService):
                                  "sin_caracterizacion": 0, "detalle": []}
 
         # =========================================================================
-        # 🟢 3. FORMULARIOS ESPECIALISTAS (EVALUADOR DE ERRORES Y DUPLICADOS)
+        # 🟢 3. FORMULARIOS ESPECIALISTAS (EXCEL Y MAPAS)
         # =========================================================================
         tot_familias_esp, tot_duplicados_esp, tot_errores_esp = 0, 0, 0
         seen_keys_esp = set()
@@ -269,6 +269,20 @@ class AuditoriaEspecialistasService(BaseService):
                         except ValueError:
                             pass
                     if row_has_error: tot_errores_esp += 1
+
+                    # Geopuntos Especialistas
+                    lat_esp = row_clean.get("latitud")
+                    lon_esp = row_clean.get("longitud")
+                    ficha_id = row_clean.get("id", "N/A")
+                    mod_nom = tabla.replace('formulario_', '').title()
+
+                    if es_coordenada_valida(lat_esp, lon_esp):
+                        puntos_esp.append({"lat": float(lat_esp), "lon": float(lon_esp),
+                                           "popup": f"<b>{mod_nom}</b><br>ID: {ficha_id}<br>Paciente: {row_clean.get('nombre_jefe_hogar', '')}"})
+                    else:
+                        errores_mapa.append(
+                            f"❌ {mod_nom} [ID: {ficha_id}]: Coordenadas inválidas o vacías ({lat_esp}, {lon_esp})")
+
             except Exception as e:
                 logger.error(f"Error procesando formulario especialista {tabla}: {e}")
 
@@ -278,40 +292,7 @@ class AuditoriaEspecialistasService(BaseService):
                                              "tabla_respiratoria": tabla_resp}
 
         # =========================================================================
-        # 🟢 4. DESISTIMIENTOS Y PCC
-        # =========================================================================
-        data["desistimientos"] = {
-            "total": self.safe_count(
-                f"SELECT COUNT(*) FROM desistimiento_aps_2026 WHERE {w_desist} AND {self.get_date_filter(tipo_fecha)}",
-                params),
-            "con_error": self.safe_count(
-                f"SELECT COUNT(*) FROM auditoria_errores_2026 WHERE {err_where_auditoria} AND modulo = 'DESISTIMIENTOS' AND ({self.get_date_filter('fecha_creacion')} OR fecha_creacion IS NULL)",
-                params)
-        }
-
-        query_pcc_int = f"SELECT COUNT(*) FROM pcc_integrantes_2026 b JOIN pcc_principal_2026 p ON b.ec5_branch_owner_uuid = p.ec5_uuid WHERE {w_pcc_int} AND {self.get_date_filter(f'p.{tipo_fecha}')}"
-        pcc_planes_count = self.safe_count(
-            f"SELECT COUNT(*) FROM pcc_principal_2026 WHERE {w_pcc_prin} AND {self.get_date_filter(tipo_fecha)}",
-            params)
-
-        texto_pcc_detalles = ""
-        if pcc_planes_count > 0:
-            try:
-                res_pcc = self.ejecutar(
-                    f"SELECT ec5_uuid, {tipo_fecha} as fecha_base, \"20_14_detalles_jorna\" FROM pcc_principal_2026 WHERE {w_pcc_prin} AND {self.get_date_filter(tipo_fecha)}",
-                    params)
-                for idx, r in enumerate(res_pcc, 1):
-                    texto_pcc_detalles += f"Plan {idx} [{r.get('ec5_uuid', 'N/A')}] - {str(r.get('fecha_base', ''))[:10]}: {str(r.get('20_14_detalles_jorna', '')).replace(chr(10), ' ') or 'Sin detalles.'}\n\n"
-            except:
-                pass
-
-        data["pcc"] = {"planes": pcc_planes_count, "integrantes": self.safe_count(query_pcc_int, params),
-                       "con_error": self.safe_count(
-                           f"SELECT COUNT(*) FROM auditoria_errores_2026 WHERE {err_where_auditoria} AND modulo LIKE 'PCC%' AND ({self.get_date_filter('fecha_creacion')} OR fecha_creacion IS NULL)",
-                           params), "reporte_detalles": texto_pcc_detalles.strip() or "No hay detalles."}
-
-        # =========================================================================
-        # 🟢 5. PLAN CUIDADO FAMILIAR (PCF EXCEL TABLAS)
+        # 🟢 4. PLAN CUIDADO FAMILIAR (PCF EXCEL Y MAPAS)
         # =========================================================================
         query_pcf_prin = f"""
             SELECT ec5_uuid, CAST(created_at AS text) as created_at, CAST(uploaded_at AS text) as uploaded_at, 
@@ -334,6 +315,17 @@ class AuditoriaEspecialistasService(BaseService):
                 dups_pcf_list.append(f"Ficha [{r.get('ec5_uuid')}] -> Motivo: Identificación/Territorio repetido")
             elif c_key != "||||||" and c_key.replace("none", "").replace("|", "") != "":
                 seen_c_pcf_aud.add(c_key)
+
+            # Geopuntos PCF
+            lat_pcf = row_clean.get("lat_1_1_geolocalizacin")
+            lon_pcf = row_clean.get("long_1_1_geolocalizacin")
+            uuid_pcf = row_clean.get("ec5_uuid", "N/A")
+
+            if es_coordenada_valida(lat_pcf, lon_pcf):
+                puntos_pcf.append({"lat": float(lat_pcf), "lon": float(lon_pcf),
+                                   "popup": f"<b>PCF Epicollect</b><br>Ficha: {uuid_pcf}"})
+            else:
+                errores_mapa.append(f"❌ PCF [Ficha: {uuid_pcf}]: Coordenadas inválidas o vacías ({lat_pcf}, {lon_pcf})")
 
         query_pcf_int = f"""
             SELECT b.ec5_branch_owner_uuid, b.ec5_branch_uuid, CAST(b.created_at AS text) as created_at, 
@@ -383,8 +375,10 @@ class AuditoriaEspecialistasService(BaseService):
                        "reporte_duplicados_ind": "\n".join(
                            dups_ind_pcf_aud_list) or "✅ No se detectaron integrantes duplicados."}
 
+        data["mapas"] = {"pcf_puntos": puntos_pcf, "esp_puntos": puntos_esp, "errores": errores_mapa}
+
         # =========================================================================
-        # 🟢 6. REPORTE DE INCONSISTENCIAS GLOBAL ABSOLUTO (Corrección Estricta)
+        # 🟢 5. REPORTE DE INCONSISTENCIAS GLOBAL ABSOLUTO
         # =========================================================================
         query_errores_global = f"""
             SELECT modulo, id_ficha, usuario_creador, titulo_ficha, fecha_creacion, cantidad_errores, detalle_inconsistencias
@@ -395,7 +389,6 @@ class AuditoriaEspecialistasService(BaseService):
 
         lista_errores_texto = []
         try:
-            # Aquí la variable params se inyecta de forma segura a través de SQLAlchemy
             rows_errores = self.ejecutar(query_errores_global, params)
             errores_por_modulo = {}
             for row in rows_errores:
