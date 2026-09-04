@@ -83,7 +83,7 @@
     .stat-value{font-family:'Fraunces',serif;font-size:2rem;font-weight:700;color:var(--navy);line-height:1;margin-bottom:.2rem;}
     .stat-badge{display:inline-block;padding:.15rem .55rem;border-radius:20px;font-size:.68rem;font-weight:600;}
     .badge-error{background:var(--red-lt);color:var(--red)}.badge-ok{background:var(--green-lt);color:var(--green)}.badge-warn{background:var(--gold-lt);color:var(--gold)}.badge-info{background:var(--teal-lt);color:var(--teal)}.badge-orange{background:var(--orange-lt);color:var(--orange)}
-    
+
     .sub-section {background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.2rem 1.4rem;margin-bottom:1rem; min-width:0; max-width:100%;}
     .sub-section-title{font-size:.73rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem;padding-bottom:.6rem;border-bottom:1px solid var(--border);}
     .chart-container{position:relative;height:220px;}
@@ -142,6 +142,7 @@
     <div class="nav-section-title">Módulos</div>
     <a href="/dashboard" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg><span class="nav-label">Dashboard</span></a>
     <a href="/auditoria" class="nav-item active"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg><span class="nav-label">Auditoría (Creación)</span></a>
+    <a href="/auditoria_especialistas" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg><span class="nav-label">Auditoría Especialistas</span></a>
     <a href="/auditoria_actualizacion" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.36 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg><span class="nav-label">Auditoría (Cargas)</span></a>
     <a href="/sihos" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg><span class="nav-label">SIHOS Clínica</span></a>
     <a href="/mapas" class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg><span class="nav-label">Mapas GIS</span></a>
@@ -404,7 +405,7 @@
           <div class="stat-card c-navy"><div class="stat-label">Integrantes intervenidos</div><div class="stat-value" id="a-pcf-int">0</div></div>
           <div class="stat-card c-orange"><div class="stat-label">Integrantes Duplicados</div><div class="stat-value" id="a-pcf-int-dup">0</div><span class="stat-badge badge-orange">Descontados</span></div>
         </div>
-        
+
         <!-- ESTADO DE CIERRE PCF GENERAL -->
         <div class="cards-row">
           <div class="stat-card c-green"><div class="stat-label">PCF Cerrados</div><div class="stat-value" id="a-pcf-cerrados">0</div><span class="stat-badge badge-ok">1. SI</span></div>
@@ -868,7 +869,7 @@ function renderBarChart(cid, labels, data) {
 
 function renderTablaConDataTables(tableId, dataList, cols) {
     const tableEl = $('#' + tableId);
-    
+
     if ($.fn.DataTable.isDataTable(tableEl)) {
         tableEl.DataTable().clear().destroy();
         tableEl.find('thead .filter-row').remove();
@@ -876,7 +877,7 @@ function renderTablaConDataTables(tableId, dataList, cols) {
 
     const tbody = document.querySelector(`#${tableId} tbody`);
     if(tbody) tbody.innerHTML = '';
-    
+
     if(dataList && dataList.length > 0) {
         dataList.forEach(row => {
             const tr = document.createElement('tr');
@@ -895,7 +896,7 @@ function renderTablaConDataTables(tableId, dataList, cols) {
         filterRow = thead.rows[0].cloneNode(true);
         filterRow.className = 'filter-row';
         Array.from(filterRow.cells).forEach((cell) => {
-            cell.className = ''; 
+            cell.className = '';
             cell.innerHTML = `<input type="text" placeholder="🔍 Buscar..." style="width:100%; font-size:0.75rem; padding:4px; border:1px solid var(--border); border-radius:4px; box-sizing:border-box; outline:none; font-family:'Sora', sans-serif; color:var(--text);" />`;
         });
         thead.appendChild(filterRow);
@@ -916,7 +917,7 @@ function renderTablaConDataTables(tableId, dataList, cols) {
         },
         initComplete: function () {
             const api = this.api();
-            
+
             api.columns().eq(0).each(function (colIdx) {
                 const cell = $('.filter-row th', api.table().header()).eq(colIdx);
                 const input = $('input', cell);
@@ -924,12 +925,12 @@ function renderTablaConDataTables(tableId, dataList, cols) {
                 input.off('keyup change clear search').on('keyup change clear search', function (e) {
                     e.stopPropagation();
                     let val = this.value;
-                    
+
                     if (api.column(colIdx).search() !== val) {
                         api.column(colIdx).search(val).draw();
                     }
                 });
-                
+
                 input.on('click', function(e) {
                     e.stopPropagation();
                 });
@@ -1005,23 +1006,23 @@ async function buscarAuditoria() {
         setVal('a-ca-ind',   data.caracterizacion?.individuos);
         setVal('a-ca-ind-dup', data.caracterizacion?.individuos_duplicadas);
         setVal('a-ca-sinaseg', data.caracterizacion?.sin_aseguramiento);
-        
+
         renderTablaConDataTables('tablaCaractFamiliar', data.caracterizacion?.tabla_familiar, [
-            "ec5_uuid", "created_at", "uploaded_at", "created_by", "title", "12_4_territorio", "13_5_microterritorio", 
-            "lat_15_8_geo_punto_georr", "long_15_8_geo_punto_georr", "18_10_cdigo_hogar", "19_101_cdigo_hogar", 
-            "21_11_cdigo_familia", "22_111_cdigo_familia", "24_13_numero_de_hoga", "25_14_numero_de_fami", 
-            "26_15_numero_de_pers", "27_22_cdigo_de_la_fi", "31_19_nmero_de_ident", "32_20_responsable_de", 
-            "34_23_fecha_diligenc", "64_41_tipo_de_famili", "65_42_nmero_de_perso", "66_43_estructura_y_d", 
-            "67_431_seleccione_el", "69_45_funcionalidad_", "70_451_evidencia_apg", "71_46_en_la_familia_", 
+            "ec5_uuid", "created_at", "uploaded_at", "created_by", "title", "12_4_territorio", "13_5_microterritorio",
+            "lat_15_8_geo_punto_georr", "long_15_8_geo_punto_georr", "18_10_cdigo_hogar", "19_101_cdigo_hogar",
+            "21_11_cdigo_familia", "22_111_cdigo_familia", "24_13_numero_de_hoga", "25_14_numero_de_fami",
+            "26_15_numero_de_pers", "27_22_cdigo_de_la_fi", "31_19_nmero_de_ident", "32_20_responsable_de",
+            "34_23_fecha_diligenc", "64_41_tipo_de_famili", "65_42_nmero_de_perso", "66_43_estructura_y_d",
+            "67_431_seleccione_el", "69_45_funcionalidad_", "70_451_evidencia_apg", "71_46_en_la_familia_",
             "72_47_si_la_respuest", "73_471_imagen_escala", "74_48_interrelacione", "99_41_identificacin_", "147_70_observaciones"
         ]);
 
         renderTablaConDataTables('tablaCaractIndividual', data.caracterizacion?.tabla_individual, [
-            "ec5_branch_owner_uuid", "ec5_branch_uuid", "created_at", "uploaded_at", "created_by", "title", 
-            "100_1_primer_nombre", "102_3_primer_apellid", "104_5_tipo_de_identi", "105_6_numero_de_iden", 
-            "106_numero_celular", "107_7_fecha_de_nacim", "108_8_sexo", "109_9_se_encuentra_e", 
-            "110_10_rol_dentro_de", "111_11_ocupacion", "112_12_nivel_educati", "113_13_rgimen_de_afi", 
-            "114_14_eapb", "115_15_pertenencia_a", "116_16_pertenencia_t", "119_19_reconoce_algu", 
+            "ec5_branch_owner_uuid", "ec5_branch_uuid", "created_at", "uploaded_at", "created_by", "title",
+            "100_1_primer_nombre", "102_3_primer_apellid", "104_5_tipo_de_identi", "105_6_numero_de_iden",
+            "106_numero_celular", "107_7_fecha_de_nacim", "108_8_sexo", "109_9_se_encuentra_e",
+            "110_10_rol_dentro_de", "111_11_ocupacion", "112_12_nivel_educati", "113_13_rgimen_de_afi",
+            "114_14_eapb", "115_15_pertenencia_a", "116_16_pertenencia_t", "119_19_reconoce_algu",
             "127_25_cumple_con_el", "128_26_a_qu_etapa_de"
         ]);
 
@@ -1063,7 +1064,7 @@ async function buscarAuditoria() {
         setVal('a-pcf-fam-dup', data.pcf?.familias_duplicadas);
         setVal('a-pcf-int', data.pcf?.integrantes_intervenidos);
         setVal('a-pcf-int-dup', data.pcf?.integrantes_duplicados);
-        
+
         // Mapeo Nuevos Indicadores de Cierre General
         setVal('a-pcf-cerrados', data.pcf?.cerrados);
         setVal('a-pcf-nocerrados', data.pcf?.no_cerrados);
@@ -1074,16 +1075,16 @@ async function buscarAuditoria() {
         setVal('a-pcf-int-dup-ant', data.pcf_ant?.integrantes_duplicados);
 
         renderTablaConDataTables('tablaPcfPrincipal', data.pcf?.tabla_pcf_principal, [
-            "ec5_uuid", "created_at", "uploaded_at", "created_by", "lat_1_1_geolocalizacin", "long_1_1_geolocalizacin", 
-            "2_2_fecha_visita", "4_3_perfil_profesion", "5_4_nombre_del_profe", "9_7_territorio", "10_8_microterritorio", 
-            "11_9_identificacin_d", "12_91_identificacin_", "13_10_identificacin_", "14_101_identificacin", 
+            "ec5_uuid", "created_at", "uploaded_at", "created_by", "lat_1_1_geolocalizacin", "long_1_1_geolocalizacin",
+            "2_2_fecha_visita", "4_3_perfil_profesion", "5_4_nombre_del_profe", "9_7_territorio", "10_8_microterritorio",
+            "11_9_identificacin_d", "12_91_identificacin_", "13_10_identificacin_", "14_101_identificacin",
             "27_16_cules_compromi", "29_integrantes_inter", "73_17_realizara_la_e", "98_resumen_de_interv"
         ]);
 
         renderTablaConDataTables('tablaPcfIntegrantes', data.pcf?.tabla_pcf_integrantes, [
-            "ec5_branch_owner_uuid", "ec5_branch_uuid", "created_at", "uploaded_at", "created_by", "title", 
-            "31_1_primer_nombre", "33_3_primer_apellido", "35_5_tipo_de_documen", "36_6_numero_de_docum", 
-            "37_7_soporte_fotogrf", "38_8_fecha_de_nacimi", "39_9_edad", "40_10_seleccione_tip", "41_11_sexo", 
+            "ec5_branch_owner_uuid", "ec5_branch_uuid", "created_at", "uploaded_at", "created_by", "title",
+            "31_1_primer_nombre", "33_3_primer_apellido", "35_5_tipo_de_documen", "36_6_numero_de_docum",
+            "37_7_soporte_fotogrf", "38_8_fecha_de_nacimi", "39_9_edad", "40_10_seleccione_tip", "41_11_sexo",
             "46_16_numero_de_celu", "57_23_que_tipo_de_co", "72_24_resumen_de_val"
         ]);
 
@@ -1102,15 +1103,15 @@ async function buscarAuditoria() {
         setVal('a-psi-nocerrados', data.pcf_psicologia?.no_cerrados);
 
         renderTablaConDataTables('tablaPsicoPrincipal', data.pcf_psicologia?.tabla_psico_principal, [
-            "ec5_uuid", "ec5_parent_uuid", "created_at", "uploaded_at", "created_by", "title", "100_1_primer_nombre", 
-            "102_3_primer_apellid", "104_5_tipo_de_docume", "105_6_numero_de_docu", "106_7_soporte_fotogr", 
-            "107_8_fecha_de_nacim", "108_9_edad", "109_10_seleccione_ti", "110_11_sexo", "115_16_numero_de_cel", 
+            "ec5_uuid", "ec5_parent_uuid", "created_at", "uploaded_at", "created_by", "title", "100_1_primer_nombre",
+            "102_3_primer_apellid", "104_5_tipo_de_docume", "105_6_numero_de_docu", "106_7_soporte_fotogr",
+            "107_8_fecha_de_nacim", "108_9_edad", "109_10_seleccione_ti", "110_11_sexo", "115_16_numero_de_cel",
             "126_seguimientos_psi", "133_28_resumen_de_va"
         ]);
 
         renderTablaConDataTables('tablaPsicoSeguimientos', data.pcf_psicologia?.tabla_psico_seguimientos, [
-            "ec5_branch_owner_uuid", "ec5_branch_uuid", "created_at", "uploaded_at", "created_by", "title", 
-            "127_22_fecha_consult", "129_24_tareas_de_ref", "130_25_requiere_cont", "131_26_compromisos_y", 
+            "ec5_branch_owner_uuid", "ec5_branch_uuid", "created_at", "uploaded_at", "created_by", "title",
+            "127_22_fecha_consult", "129_24_tareas_de_ref", "130_25_requiere_cont", "131_26_compromisos_y",
             "132_27_evaluacin_de_"
         ]);
 
