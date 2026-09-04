@@ -6,6 +6,7 @@ from services.dashboard_service import DashboardService
 from services.auditoria_service import AuditoriaService
 from services.sihos_service import SihosService
 from services.mapas_service import MapasService
+from services.auditoria_especialistas_service import AuditoriaEspecialistasService
 import logging
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
@@ -71,6 +72,20 @@ def auditoria():
     nombre = request.args.get("nombre", "").strip()
     if not correo and not nombre: return jsonify({"error": "Correo o nombre requerido."}), 400
     return jsonify(srv.obtener_datos(correo, nombre, request.args.get("fecha_inicio", "").strip(), request.args.get("fecha_fin", "").strip(), 'created_at'))
+
+@api_bp.route("/auditoria_especialistas", methods=["GET"])
+@require_auth
+def auditoria_especialistas():
+    srv = AuditoriaEspecialistasService()
+    correo = request.args.get("usuario", "").strip()
+    nombre = request.args.get("nombre", "").strip()
+    f_ini = request.args.get("fecha_inicio", "").strip()
+    f_fin = request.args.get("fecha_fin", "").strip()
+
+    if not correo and not nombre:
+        return jsonify({"error": "Correo o nombre requerido."}), 400
+
+    return jsonify(srv.obtener_datos(correo, nombre, f_ini, f_fin))
 
 @api_bp.route("/auditoria_actualizacion", methods=["GET"])
 @require_auth
