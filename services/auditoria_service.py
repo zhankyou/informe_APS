@@ -313,7 +313,9 @@ class AuditoriaService(BaseService):
         tabla_fam_raw = self.ejecutar(query_tabla_fam, params)
         tabla_fam_data = []
         for r in tabla_fam_raw:
-            tabla_fam_data.append({k: (str(v)[:19] if "fecha" in k or "created" in k or "uploaded" in k else str(v)) if v is not None else "" for k, v in r.items()})
+            tabla_fam_data.append({k: (
+                str(v)[:19] if "fecha" in k or "created" in k or "uploaded" in k else str(v)) if v is not None else ""
+                                   for k, v in r.items()})
 
         query_tabla_ind = f"""
             SELECT tbl.ec5_branch_owner_uuid, tbl.ec5_branch_uuid, tbl.created_at, tbl.uploaded_at, tbl.created_by, tbl.title, 
@@ -329,7 +331,9 @@ class AuditoriaService(BaseService):
         tabla_ind_raw = self.ejecutar(query_tabla_ind, params)
         tabla_ind_data = []
         for r in tabla_ind_raw:
-            tabla_ind_data.append({k: (str(v)[:19] if "fecha" in k or "created" in k or "uploaded" in k else str(v)) if v is not None else "" for k, v in r.items()})
+            tabla_ind_data.append({k: (
+                str(v)[:19] if "fecha" in k or "created" in k or "uploaded" in k else str(v)) if v is not None else ""
+                                   for k, v in r.items()})
 
         data["caracterizacion"] = {
             "familias": uniq_fam_aud,
@@ -437,7 +441,8 @@ class AuditoriaService(BaseService):
         raw_pcf_aud = self.ejecutar(f"""
             SELECT ec5_uuid, title, {tipo_fecha} as fecha_base, created_by, 
                    "9_7_territorio", "10_8_microterritorio", "11_9_identificacin_d", 
-                   "12_91_identificacin_", "13_10_identificacin_", "14_101_identificacin"
+                   "12_91_identificacin_", "13_10_identificacin_", "14_101_identificacin",
+                   "73_17_realizara_la_e"
             FROM pcf_planes_principal_2026
             WHERE {w_pcf_prin} AND {self.get_date_filter(tipo_fecha)}
               AND ("4_3_perfil_profesion" IS NULL OR TRIM("4_3_perfil_profesion") != 'Profesional Psicología')
@@ -448,6 +453,8 @@ class AuditoriaService(BaseService):
         dups_pcf_list = []
         texto_pcf_fam = ""
         c_pcf_ok = 1
+        pcf_cerrados = 0
+        pcf_no_cerrados = 0
 
         for r in raw_pcf_aud:
             uid = str(r.get("ec5_uuid", "N/A"))
@@ -477,6 +484,13 @@ class AuditoriaService(BaseService):
                 uniq_pcf_aud += 1
                 texto_pcf_fam += f"Intervención {c_pcf_ok}: Ficha [{uid}] - {f}\n"
                 c_pcf_ok += 1
+
+                # Cálculo de Planes Cerrados vs No Cerrados
+                cierre = str(r.get("73_17_realizara_la_e", "")).strip().upper()
+                if 'SI' in cierre or 'SÍ' in cierre:
+                    pcf_cerrados += 1
+                elif 'NO' in cierre:
+                    pcf_no_cerrados += 1
 
         texto_dups_pcf = "\n".join(dups_pcf_list) if dups_pcf_list else "✅ No se detectaron planes duplicados."
         dups_pcf_count = len(dups_pcf_list)
@@ -529,6 +543,39 @@ class AuditoriaService(BaseService):
         except:
             texto_err_pcf = ""
 
+        # 🛑 EXTRACCIÓN DE TABLAS COMPLETAS PARA PCF GENERAL 🛑
+        query_tabla_pcf_prin = f"""
+            SELECT ec5_uuid, created_at, uploaded_at, created_by, 
+                   "lat_1_1_geolocalizacin", "long_1_1_geolocalizacin", "2_2_fecha_visita", 
+                   "4_3_perfil_profesion", "5_4_nombre_del_profe", "9_7_territorio", 
+                   "10_8_microterritorio", "11_9_identificacin_d", "12_91_identificacin_", 
+                   "13_10_identificacin_", "14_101_identificacin", "27_16_cules_compromi", 
+                   "29_integrantes_inter", "73_17_realizara_la_e", "98_resumen_de_interv"
+            FROM pcf_planes_principal_2026
+            WHERE {w_pcf_prin} AND {self.get_date_filter(tipo_fecha)}
+              AND ("4_3_perfil_profesion" IS NULL OR TRIM("4_3_perfil_profesion") != 'Profesional Psicología')
+        """
+        tabla_pcf_prin_raw = self.ejecutar(query_tabla_pcf_prin, params)
+        tabla_pcf_prin_data = [
+            {k: (str(v)[:19] if "fecha" in k or "created" in k or "uploaded" in k else str(v)) if v is not None else ""
+             for k, v in r.items()} for r in tabla_pcf_prin_raw]
+
+        query_tabla_pcf_int = f"""
+            SELECT b.ec5_branch_owner_uuid, b.ec5_branch_uuid, b.created_at, b.uploaded_at, b.created_by, b.title, 
+                   b."31_1_primer_nombre", b."33_3_primer_apellido", b."35_5_tipo_de_documen", 
+                   b."36_6_numero_de_docum", b."37_7_soporte_fotogrf", b."38_8_fecha_de_nacimi", 
+                   b."39_9_edad", b."40_10_seleccione_tip", b."41_11_sexo", b."46_16_numero_de_celu", 
+                   b."57_23_que_tipo_de_co", b."72_24_resumen_de_val"
+            FROM pcf_planes_integrantes_2026 b
+            JOIN pcf_planes_principal_2026 p ON b.ec5_branch_owner_uuid = p.ec5_uuid
+            WHERE {w_pcf_int} AND {self.get_date_filter(f'p.{tipo_fecha}')}
+              AND (p."4_3_perfil_profesion" IS NULL OR TRIM(p."4_3_perfil_profesion") != 'Profesional Psicología')
+        """
+        tabla_pcf_int_raw = self.ejecutar(query_tabla_pcf_int, params)
+        tabla_pcf_int_data = [
+            {k: (str(v)[:19] if "fecha" in k or "created" in k or "uploaded" in k else str(v)) if v is not None else ""
+             for k, v in r.items()} for r in tabla_pcf_int_raw]
+
         # === BLOQUE PCF GENERAL (PERÍODO ANTERIOR ACUMULADO) ===
         raw_pcf_ant = self.ejecutar(
             f"SELECT created_by, \"9_7_territorio\", \"10_8_microterritorio\", \"11_9_identificacin_d\", \"12_91_identificacin_\", \"13_10_identificacin_\", \"14_101_identificacin\" FROM pcf_planes_principal_2026 WHERE {w_pcf_prin} AND {self.get_date_filter_ant(tipo_fecha)} AND (\"4_3_perfil_profesion\" IS NULL OR TRIM(\"4_3_perfil_profesion\") != 'Profesional Psicología')",
@@ -540,7 +587,8 @@ class AuditoriaService(BaseService):
             if c_key in seen_c_pcf_ant:
                 dup_pcf_ant += 1
             else:
-                seen_c_pcf_ant.add(c_key); uniq_pcf_ant += 1
+                seen_c_pcf_ant.add(c_key);
+                uniq_pcf_ant += 1
 
         raw_pcf_ind_ant = self.ejecutar(
             f"SELECT b.title, p.created_by FROM pcf_planes_integrantes_2026 b JOIN pcf_planes_principal_2026 p ON b.ec5_branch_owner_uuid = p.ec5_uuid WHERE {w_pcf_int} AND {self.get_date_filter_ant(f'p.{tipo_fecha}')} AND (p.\"4_3_perfil_profesion\" IS NULL OR TRIM(p.\"4_3_perfil_profesion\") != 'Profesional Psicología')",
@@ -553,7 +601,8 @@ class AuditoriaService(BaseService):
             if clave in seen_ind_pcf_ant:
                 dup_ind_pcf_ant += 1
             else:
-                seen_ind_pcf_ant.add(clave); uniq_ind_pcf_ant += 1
+                seen_ind_pcf_ant.add(clave);
+                uniq_ind_pcf_ant += 1
 
         data["pcf_ant"] = {
             "familias_intervenidas": uniq_pcf_ant, "familias_duplicadas": dup_pcf_ant,
@@ -563,19 +612,24 @@ class AuditoriaService(BaseService):
         data["pcf"] = {
             "familias_intervenidas": uniq_pcf_aud,
             "familias_duplicadas": dups_pcf_count,
+            "cerrados": pcf_cerrados,
+            "no_cerrados": pcf_no_cerrados,
             "integrantes_intervenidos": uniq_ind_pcf_aud,
             "integrantes_duplicados": dups_ind_pcf_aud_count,
             "reporte_familias": texto_pcf_fam if texto_pcf_fam else "No hay intervenciones registradas en estas fechas.",
             "reporte_errores": texto_err_pcf if texto_err_pcf else "✅ Excelente. No hay errores de registro.",
             "reporte_duplicados_fam": texto_dups_pcf,
-            "reporte_duplicados_ind": texto_dups_ind_pcf
+            "reporte_duplicados_ind": texto_dups_ind_pcf,
+            "tabla_pcf_principal": tabla_pcf_prin_data,
+            "tabla_pcf_integrantes": tabla_pcf_int_data
         }
 
         # 🛑 DUPLICADOS EN PCF PSICOLOGIA FAMILIAS 🛑
         raw_psico_fam_aud = self.ejecutar(f"""
             SELECT ec5_uuid, title, {tipo_fecha} as fecha_base, created_by, 
                    "9_7_territorio", "10_8_microterritorio", "11_9_identificacin_d", 
-                   "12_91_identificacin_", "13_10_identificacin_", "14_101_identificacin"
+                   "12_91_identificacin_", "13_10_identificacin_", "14_101_identificacin",
+                   "73_17_realizara_la_e"
             FROM pcf_planes_principal_2026
             WHERE {w_pcf_prin} AND {self.get_date_filter(tipo_fecha)}
               AND TRIM("4_3_perfil_profesion") = 'Profesional Psicología'
@@ -586,6 +640,8 @@ class AuditoriaService(BaseService):
         dups_psico_fam_list = []
         texto_psico_fam = ""
         c_psico_fam_ok = 1
+        psico_cerrados = 0
+        psico_no_cerrados = 0
 
         for r in raw_psico_fam_aud:
             uid = str(r.get("ec5_uuid", "N/A"))
@@ -615,6 +671,13 @@ class AuditoriaService(BaseService):
                 uniq_psico_fam_aud += 1
                 texto_psico_fam += f"Intervención {c_psico_fam_ok}: Ficha [{uid}] - {f}\n"
                 c_psico_fam_ok += 1
+
+                # Cálculo de Planes Cerrados vs No Cerrados en Psicología
+                cierre = str(r.get("73_17_realizara_la_e", "")).strip().upper()
+                if 'SI' in cierre or 'SÍ' in cierre:
+                    psico_cerrados += 1
+                elif 'NO' in cierre:
+                    psico_no_cerrados += 1
 
         texto_dups_psico_fam = "\n".join(
             dups_psico_fam_list) if dups_psico_fam_list else "✅ No se detectaron familias duplicadas en Psicología."
@@ -717,9 +780,40 @@ class AuditoriaService(BaseService):
             except:
                 pass
 
+        # 🛑 EXTRACCIÓN DE TABLAS COMPLETAS PARA PSICOLOGÍA 🛑
+        query_tabla_psico_prin = f"""
+            SELECT tbl.ec5_uuid, tbl.ec5_parent_uuid, tbl.created_at, tbl.uploaded_at, tbl.created_by, tbl.title, 
+                   tbl."100_1_primer_nombre", tbl."102_3_primer_apellid", tbl."104_5_tipo_de_docume", 
+                   tbl."105_6_numero_de_docu", tbl."106_7_soporte_fotogr", tbl."107_8_fecha_de_nacim", 
+                   tbl."108_9_edad", tbl."109_10_seleccione_ti", tbl."110_11_sexo", tbl."115_16_numero_de_cel", 
+                   tbl."126_seguimientos_psi", tbl."133_28_resumen_de_va"
+            FROM pcf_psicologia_principal_2026 tbl
+            {j_psico_prin}
+            WHERE {w_psico_prin} AND {self.get_date_filter(f'tbl.{tipo_fecha}')}
+        """
+        tabla_psico_prin_raw = self.ejecutar(query_tabla_psico_prin, params)
+        tabla_psico_prin_data = [
+            {k: (str(v)[:19] if "fecha" in k or "created" in k or "uploaded" in k else str(v)) if v is not None else ""
+             for k, v in r.items()} for r in tabla_psico_prin_raw]
+
+        query_tabla_psico_seg = f"""
+            SELECT tbl.ec5_branch_owner_uuid, tbl.ec5_branch_uuid, tbl.created_at, tbl.uploaded_at, tbl.created_by, tbl.title, 
+                   tbl."127_22_fecha_consult", tbl."129_24_tareas_de_ref", tbl."130_25_requiere_cont", 
+                   tbl."131_26_compromisos_y", tbl."132_27_evaluacin_de_"
+            FROM pcf_psicologia_seguimientos_2026 tbl
+            {j_psico_seg}
+            WHERE {w_psico_seg} AND {self.get_date_filter(f'tbl.{tipo_fecha}')}
+        """
+        tabla_psico_seg_raw = self.ejecutar(query_tabla_psico_seg, params)
+        tabla_psico_seg_data = [
+            {k: (str(v)[:19] if "fecha" in k or "created" in k or "uploaded" in k else str(v)) if v is not None else ""
+             for k, v in r.items()} for r in tabla_psico_seg_raw]
+
         data["pcf_psicologia"] = {
             "intervenciones_familiares": uniq_psico_fam_aud,
             "familias_duplicadas": dups_psico_fam_count,
+            "cerrados": psico_cerrados,
+            "no_cerrados": psico_no_cerrados,
             "familias_anteriores": familias_anteriores_aud,
             "reporte_duplicados_fam": texto_dups_psico_fam,
             "integrantes": integrantes_psico_count,
@@ -734,7 +828,9 @@ class AuditoriaService(BaseService):
             "reporte_seguimientos": texto_psico_seg if texto_psico_seg else "No hay seguimientos en estas fechas.",
             "reporte_compromisos": texto_psico_compromisos if texto_psico_compromisos else "No hay compromisos en estas fechas.",
             "reporte_evaluacion": texto_psico_evaluacion if texto_psico_evaluacion else "No hay evaluaciones en estas fechas.",
-            "reporte_errores": texto_err_psico if texto_err_psico else "✅ Excelente. No hay errores en estas fechas."
+            "reporte_errores": texto_err_psico if texto_err_psico else "✅ Excelente. No hay errores en estas fechas.",
+            "tabla_psico_principal": tabla_psico_prin_data,
+            "tabla_psico_seguimientos": tabla_psico_seg_data
         }
 
         res_tram_err = self.ejecutar(f"""
@@ -884,16 +980,19 @@ class AuditoriaService(BaseService):
 
         # --- REPORTE GLOBAL CONSOLIDADO Y FILTRADO POR USUARIO Y FECHA ---
         date_filter_sql = self.get_date_filter('fecha_creacion')
-        reporte_consolidado = self.obtener_reporte_inconsistencias_consolidadas(params, date_filter_sql, errores_dinamicos)
+        reporte_consolidado = self.obtener_reporte_inconsistencias_consolidadas(params, date_filter_sql,
+                                                                                errores_dinamicos)
 
         data.update(reporte_consolidado)
 
         # Mapear el reporte con el formato estricto solicitado hacia la vista
-        data["reporte_errores_texto"] = reporte_consolidado.get("reporte_texto_global_consolidado") or "✅ ¡Felicitaciones! No se encontraron errores de auditoría para este encuestador en estas fechas."
+        data["reporte_errores_texto"] = reporte_consolidado.get(
+            "reporte_texto_global_consolidado") or "✅ ¡Felicitaciones! No se encontraron errores de auditoría para este encuestador en estas fechas."
 
         return data
 
-    def obtener_reporte_inconsistencias_consolidadas(self, params: dict, date_filter_sql: str, errores_dinamicos: list) -> dict:
+    def obtener_reporte_inconsistencias_consolidadas(self, params: dict, date_filter_sql: str,
+                                                     errores_dinamicos: list) -> dict:
         """
         Consulta la tabla 'auditoria_errores_2026', filtra por usuario específico y rango de fechas,
         y asigna el formato estricto textual conservando todos los atributos y sus íconos representativos.
@@ -968,10 +1067,8 @@ class AuditoriaService(BaseService):
                 # =========================================================================
                 lista_errores_texto.append(
                     f"{icono} MÓDULO: {mod}\n"
-                    f"📄 Ficha ID: {id_ficha}\n"
-                    f"📝 Título: {titulo}\n"
-                    f"👤 Usuario: {usuario}\n"
-                    f"📅 Fecha: {fecha}\n"
+                    f"📄 Ficha ID: {id_ficha} | 📝 Título: {titulo}\n"
+                    f"👤 Usuario: {usuario} | 📅 Fecha: {fecha}\n"
                     f"🔎 Errores/Inconsistencias ({cant_errores}): {detalle}\n"
                     f"--------------------------------------------------"
                 )
@@ -1000,5 +1097,6 @@ class AuditoriaService(BaseService):
             return {
                 "modulos_consolidados": {},
                 "reporte_texto_global_consolidado": "Ocurrió un error al cargar la información consolidada de auditoría.",
-                "resumen_consolidado": {"total_registros": 0, "total_errores": 0, "total_advertencias": 0, "total_modulos": 0}
+                "resumen_consolidado": {"total_registros": 0, "total_errores": 0, "total_advertencias": 0,
+                                        "total_modulos": 0}
             }
