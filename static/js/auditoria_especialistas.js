@@ -1,6 +1,28 @@
 const API_BASE = window.location.protocol === 'file:' ? 'http://127.0.0.1:5001' : window.location.origin;
 const token = localStorage.getItem('informes_token');
-if (!token) window.location.href = '/login';
+
+function logout() {
+    localStorage.removeItem('informes_token');
+    window.location.href = '/login';
+}
+
+if (!token) {
+    window.location.href = '/login';
+} else {
+    try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        const payload = JSON.parse(jsonPayload);
+        document.getElementById('sidebarNombre').textContent = payload.nombre || payload.sub || 'Usuario Registrado';
+        document.getElementById('sidebarRol').textContent = payload.rol || 'ESPECIALISTA';
+    } catch(e) {
+        document.getElementById('sidebarNombre').textContent = 'Usuario Registrado';
+        document.getElementById('sidebarRol').textContent = 'SESIÓN ACTIVA';
+    }
+}
 
 function fmt(n) { return Number(n || 0).toLocaleString('es-CO'); }
 const setVal = (id, v) => { const el = document.getElementById(id); if(el) { el.textContent = fmt(v); el.classList.remove('loading'); }};
@@ -8,13 +30,15 @@ const setValInput = (id, v) => { const el = document.getElementById(id); if(el) 
 
 let todosLosCorreos = [];
 let todosLosNombres = [];
+let mapPcfInstance = null;
+let mapEspInstance = null;
 
 async function cargarFiltros() {
     try {
         const resp1 = await fetch(`${API_BASE}/api/encuestadores`, { headers:{ 'Authorization':'Bearer '+token } });
         if (resp1.ok) {
             const data1 = await resp1.json();
-            todosLosCorreos = data1.map(item => item.correo || item.usuario || item).filter(Boolean);
+            todosLosCorreos = data1.map(item => item.correo || item.usuario || item.email || item).filter(Boolean);
         }
 
         const resp2 = await fetch(`${API_BASE}/api/nombres_profesionales`, { headers:{ 'Authorization':'Bearer '+token } });
@@ -39,13 +63,12 @@ function configurarAutocompletado(inputId, dropdownId, dataArray) {
         const val = this.value.trim().toLowerCase();
         dropdown.innerHTML = '';
 
+        let filtrados = [];
         if (!val) {
-            dropdown.style.display = 'none';
-            return;
+            filtrados = [...new Set(dataArray)].slice(0, 30);
+        } else {
+            filtrados = [...new Set(dataArray)].filter(x => x && x.toLowerCase().includes(val)).slice(0, 30);
         }
-
-        // Filtrar coincidencias y limitar a los 10 primeros resultados para no saturar el DOM
-        const filtrados = [...new Set(dataArray)].filter(x => x.toLowerCase().includes(val)).slice(0, 10);
 
         if (filtrados.length > 0) {
             filtrados.forEach(item => {
@@ -53,13 +76,10 @@ function configurarAutocompletado(inputId, dropdownId, dataArray) {
                 div.className = 'custom-dropdown-item';
                 div.textContent = item;
 
-                // Mousedown se dispara antes del blur del input
                 div.onmousedown = function(e) {
                     e.preventDefault();
                     input.value = item;
                     dropdown.style.display = 'none';
-
-                    // Limpiar el filtro opuesto para evitar consultas cruzadas nulas
                     if (inputId === 'inputUser') document.getElementById('inputName').value = '';
                     if (inputId === 'inputName') document.getElementById('inputUser').value = '';
                 };
@@ -71,14 +91,8 @@ function configurarAutocompletado(inputId, dropdownId, dataArray) {
         }
     });
 
-    input.addEventListener('focus', function() {
-        if (this.value.trim()) this.dispatchEvent(new Event('input'));
-    });
-
-    input.addEventListener('blur', function() {
-        // Un pequeño retraso asegura que el dropdown se cierre suavemente si se clickea afuera
-        setTimeout(() => dropdown.style.display = 'none', 150);
-    });
+    input.addEventListener('focus', function() { this.dispatchEvent(new Event('input')); });
+    input.addEventListener('blur', function() { setTimeout(() => dropdown.style.display = 'none', 150); });
 }
 
 cargarFiltros();
@@ -90,6 +104,35 @@ function copiarTexto(id) {
       .then(() => alert('¡Texto copiado al portapapeles!'))
       .catch(err => alert('Fallo en el copiado: ' + err));
 }
+
+function renderizarCabeceras(targetId, columnas, tableId) {
+    const head = document.getElementById(targetId);
+    if(!head) return;
+    let html = '';
+    columnas.forEach((col, idx) => {
+        html += `
+            <th>
+                <div class="th-wrapper">
+                    <span class="th-title">${col}</span>
+                    <input type="text" class="col-search-input" data-col="${idx}" placeholder="Buscar..." oninput="filtrarTablaExcel('${tableId}')">
+                </div>
+            </th>
+        `;
+    });
+    head.innerHTML = html;
+}
+
+const colFisio = ['id','especialista_email','fecha_visita','territorio','microterritorio','codigo_familia','municipio','barrio','direccion','latitud','longitud','nombre_fisioterapeuta','registro_profesional','nombre_jefe_hogar','doc_identidad','telefono_contacto','total_integrantes','familia_visita_no','tamizaje_motor','riesgo_caidas','barreras_arquitectonicas','riesgo_ergonomico','acciones_educacion','canalizacion','sintesis_evidencias','evidencias_drive_urls','firma_profesional','cc_profesional','firma_jefe','cc_jefe','created_at','synced_at','is_deleted','nombre_fisio','evaluacion','plan_cuidado','remite','cc_cuidador','firma_cuidador','seguimiento','sintesis_analisis','metas'];
+const colNutri = ['id','especialista_email','fecha_visita','territorio','microterritorio','codigo_familia','municipio','barrio','direccion','latitud','longitud','nombre_nutricionista','registro_profesional','nombre_jefe_hogar','doc_identidad','telefono_contacto','total_integrantes','familia_visita_no','no_familia','antropometria','seguridad_alimentaria','plan_cuidado','seguimiento','remite','evidencias_drive_urls','firma_profesional','cc_profesional','firma_cuidador','cc_cuidador','created_at','synced_at','is_deleted','acc_disp','consumo','hfias','lineas_accion','lineas_otra','compromiso'];
+const colResp = ['id','especialista_email','fecha_visita','territorio','microterritorio','codigo_familia','municipio','barrio','direccion','latitud','longitud','nombre_profesional','registro_profesional','nombre_jefe_hogar','doc_identidad','telefono_contacto','total_integrantes','familia_visita_no','no_familia','composicion_familiar','riesgos_intradomiciliarios','acciones_educacion','seguimiento_era','evidencias_drive_urls','firma_profesional','cc_profesional','firma_cuidador','cc_cuidador','created_at','synced_at','is_deleted','sintomatologia','plan_cuidado','remite','seguimiento'];
+const colPcfPrin = ['ec5_uuid','created_at','uploaded_at','created_by','lat_1_1','long_1_1','perfil_profesion','nombre_del_profe','territorio','microterritorio','identificacin_d','id_91','id_10','id_101','integ_inter','realizara_e','resumen_interv'];
+const colPcfInt = ['owner_uuid','branch_uuid','created_at','uploaded_at','created_by','title','primer_nombre','primer_apellido','tipo_doc','num_doc','fecha_nacimi','sexo','num_celu','tipo_de_co','tema_central','metodologia_ed','ruta_sugerida','resumen_val'];
+
+renderizarCabeceras('headFisio', colFisio, 'tablaFisioterapia');
+renderizarCabeceras('headNutri', colNutri, 'tablaNutricion');
+renderizarCabeceras('headResp', colResp, 'tablaRespiratoria');
+renderizarCabeceras('headPcfPrin', colPcfPrin, 'tablaExcelPcfPrincipal');
+renderizarCabeceras('headPcfInt', colPcfInt, 'tablaExcelPcfIntegrantes');
 
 function filtrarTablaExcel(tableId) {
     const table = document.getElementById(tableId);
@@ -121,6 +164,51 @@ function filtrarTablaExcel(tableId) {
     }
 }
 
+function renderizarMapas(dataMapas) {
+    if (!mapPcfInstance) {
+        mapPcfInstance = L.map('mapaPcf').setView([4.11963, -73.564361], 8);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(mapPcfInstance);
+    } else {
+        mapPcfInstance.eachLayer(layer => { if(layer instanceof L.Marker) mapPcfInstance.removeLayer(layer); });
+    }
+
+    if (!mapEspInstance) {
+        mapEspInstance = L.map('mapaEsp').setView([4.11963, -73.564361], 8);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(mapEspInstance);
+    } else {
+        mapEspInstance.eachLayer(layer => { if(layer instanceof L.Marker) mapEspInstance.removeLayer(layer); });
+    }
+
+    setTimeout(() => {
+        mapPcfInstance.invalidateSize();
+        mapEspInstance.invalidateSize();
+    }, 400);
+
+    let boundsPcf = L.latLngBounds();
+    let boundsEsp = L.latLngBounds();
+    let countPcf = 0, countEsp = 0;
+
+    if (dataMapas.pcf_puntos && dataMapas.pcf_puntos.length > 0) {
+        dataMapas.pcf_puntos.forEach(pt => {
+            L.marker([pt.lat, pt.lon]).bindPopup(pt.popup).addTo(mapPcfInstance);
+            boundsPcf.extend([pt.lat, pt.lon]);
+            countPcf++;
+        });
+        if(countPcf > 0) mapPcfInstance.fitBounds(boundsPcf, { padding: [20, 20] });
+    }
+
+    if (dataMapas.esp_puntos && dataMapas.esp_puntos.length > 0) {
+        dataMapas.esp_puntos.forEach(pt => {
+            L.marker([pt.lat, pt.lon]).bindPopup(pt.popup).addTo(mapEspInstance);
+            boundsEsp.extend([pt.lat, pt.lon]);
+            countEsp++;
+        });
+        if(countEsp > 0) mapEspInstance.fitBounds(boundsEsp, { padding: [20, 20] });
+    }
+
+    setValInput('txtMapasErrores', dataMapas.errores.join('\n') || "✅ Todas las atenciones cuentan con coordenadas válidas.");
+}
+
 async function buscarAuditoriaEspecialistas() {
     const email = document.getElementById('inputUser').value.trim();
     const nombre = document.getElementById('inputName').value.trim();
@@ -149,12 +237,6 @@ async function buscarAuditoriaEspecialistas() {
         if (data.error) throw new Error(data.error);
 
         setValInput('textoErroresGlobal', data.reporte_errores_texto);
-        setVal('a-des-tot', data.desistimientos?.total);
-        setVal('a-des-err', data.desistimientos?.con_error);
-        setVal('a-pcc-pla', data.pcc?.planes);
-        setVal('a-pcc-int', data.pcc?.integrantes);
-        setVal('a-pcc-err', data.pcc?.con_error);
-        setValInput('txtPccDetalles', data.pcc?.reporte_detalles);
 
         setVal('nov-ok', data.novedades?.correctos);
         setVal('nov-no-caract', data.novedades?.sin_caracterizacion);
@@ -189,67 +271,25 @@ async function buscarAuditoriaEspecialistas() {
         tbodyFisio.innerHTML = '';
         if(data.formularios_especialistas?.tabla_fisioterapia && data.formularios_especialistas.tabla_fisioterapia.length > 0) {
             data.formularios_especialistas.tabla_fisioterapia.forEach(r => {
-                tbodyFisio.innerHTML += `<tr>
-                    <td>${r.id}</td><td>${r.especialista_email}</td><td>${r.fecha_visita}</td><td>${r.territorio}</td>
-                    <td>${r.microterritorio}</td><td>${r.codigo_familia}</td><td>${r.municipio}</td><td>${r.barrio}</td>
-                    <td>${r.direccion}</td><td>${r.latitud}</td><td>${r.longitud}</td><td>${r.nombre_fisioterapeuta}</td>
-                    <td>${r.registro_profesional}</td><td>${r.nombre_jefe_hogar}</td><td>${r.doc_identidad}</td>
-                    <td>${r.telefono_contacto}</td><td>${r.total_integrantes}</td><td>${r.familia_visita_no}</td>
-                    <td>${r.tamizaje_motor}</td><td>${r.riesgo_caidas}</td><td>${r.barreras_arquitectonicas}</td>
-                    <td>${r.riesgo_ergonomico}</td><td>${r.acciones_educacion}</td><td>${r.canalizacion}</td>
-                    <td>${r.sintesis_evidencias}</td><td>${r.evidencias_drive_urls}</td><td>${r.firma_profesional}</td>
-                    <td>${r.cc_profesional}</td><td>${r.firma_jefe}</td><td>${r.cc_jefe}</td><td>${r.created_at}</td>
-                    <td>${r.synced_at}</td><td>${r.is_deleted}</td><td>${r.nombre_fisio}</td><td>${r.evaluacion}</td>
-                    <td>${r.plan_cuidado}</td><td>${r.remite}</td><td>${r.cc_cuidador}</td><td>${r.firma_cuidador}</td>
-                    <td>${r.seguimiento}</td><td>${r.sintesis_analisis}</td><td>${r.metas}</td>
-                </tr>`;
+                tbodyFisio.innerHTML += `<tr>${colFisio.map(c => `<td>${r[c]}</td>`).join('')}</tr>`;
             });
-        } else {
-            tbodyFisio.innerHTML = '<tr><td colspan="42" style="text-align:center; padding:1.5rem;">Sin registros en Fisioterapia.</td></tr>';
-        }
+        } else { tbodyFisio.innerHTML = `<tr><td colspan="${colFisio.length}" style="text-align:center; padding:1.5rem;">Sin registros en Fisioterapia.</td></tr>`; }
 
         const tbodyNutri = document.querySelector('#tablaNutricion tbody');
         tbodyNutri.innerHTML = '';
         if(data.formularios_especialistas?.tabla_nutricionista && data.formularios_especialistas.tabla_nutricionista.length > 0) {
             data.formularios_especialistas.tabla_nutricionista.forEach(r => {
-                tbodyNutri.innerHTML += `<tr>
-                    <td>${r.id}</td><td>${r.especialista_email}</td><td>${r.fecha_visita}</td><td>${r.territorio}</td>
-                    <td>${r.microterritorio}</td><td>${r.codigo_familia}</td><td>${r.municipio}</td><td>${r.barrio}</td>
-                    <td>${r.direccion}</td><td>${r.latitud}</td><td>${r.longitud}</td><td>${r.nombre_nutricionista}</td>
-                    <td>${r.registro_profesional}</td><td>${r.nombre_jefe_hogar}</td><td>${r.doc_identidad}</td>
-                    <td>${r.telefono_contacto}</td><td>${r.total_integrantes}</td><td>${r.familia_visita_no}</td>
-                    <td>${r.no_familia}</td><td>${r.antropometria}</td><td>${r.seguridad_alimentaria}</td>
-                    <td>${r.plan_cuidado}</td><td>${r.seguimiento}</td><td>${r.remite}</td><td>${r.evidencias_drive_urls}</td>
-                    <td>${r.firma_profesional}</td><td>${r.cc_profesional}</td><td>${r.firma_cuidador}</td>
-                    <td>${r.cc_cuidador}</td><td>${r.created_at}</td><td>${r.synced_at}</td><td>${r.is_deleted}</td>
-                    <td>${r.acc_disp}</td><td>${r.consumo}</td><td>${r.hfias}</td><td>${r.lineas_accion}</td>
-                    <td>${r.lineas_otra}</td><td>${r.compromiso}</td>
-                </tr>`;
+                tbodyNutri.innerHTML += `<tr>${colNutri.map(c => `<td>${r[c]}</td>`).join('')}</tr>`;
             });
-        } else {
-            tbodyNutri.innerHTML = '<tr><td colspan="38" style="text-align:center; padding:1.5rem;">Sin registros en Nutrición.</td></tr>';
-        }
+        } else { tbodyNutri.innerHTML = `<tr><td colspan="${colNutri.length}" style="text-align:center; padding:1.5rem;">Sin registros en Nutrición.</td></tr>`; }
 
         const tbodyResp = document.querySelector('#tablaRespiratoria tbody');
         tbodyResp.innerHTML = '';
         if(data.formularios_especialistas?.tabla_respiratoria && data.formularios_especialistas.tabla_respiratoria.length > 0) {
             data.formularios_especialistas.tabla_respiratoria.forEach(r => {
-                tbodyResp.innerHTML += `<tr>
-                    <td>${r.id}</td><td>${r.especialista_email}</td><td>${r.fecha_visita}</td><td>${r.territorio}</td>
-                    <td>${r.microterritorio}</td><td>${r.codigo_familia}</td><td>${r.municipio}</td><td>${r.barrio}</td>
-                    <td>${r.direccion}</td><td>${r.latitud}</td><td>${r.longitud}</td><td>${r.nombre_profesional}</td>
-                    <td>${r.registro_profesional}</td><td>${r.nombre_jefe_hogar}</td><td>${r.doc_identidad}</td>
-                    <td>${r.telefono_contacto}</td><td>${r.total_integrantes}</td><td>${r.familia_visita_no}</td>
-                    <td>${r.no_familia}</td><td>${r.composicion_familiar}</td><td>${r.riesgos_intradomiciliarios}</td>
-                    <td>${r.acciones_educacion}</td><td>${r.seguimiento_era}</td><td>${r.evidencias_drive_urls}</td>
-                    <td>${r.firma_profesional}</td><td>${r.cc_profesional}</td><td>${r.firma_cuidador}</td>
-                    <td>${r.cc_cuidador}</td><td>${r.created_at}</td><td>${r.synced_at}</td><td>${r.is_deleted}</td>
-                    <td>${r.sintomatologia}</td><td>${r.plan_cuidado}</td><td>${r.remite}</td><td>${r.seguimiento}</td>
-                </tr>`;
+                tbodyResp.innerHTML += `<tr>${colResp.map(c => `<td>${r[c]}</td>`).join('')}</tr>`;
             });
-        } else {
-            tbodyResp.innerHTML = '<tr><td colspan="35" style="text-align:center; padding:1.5rem;">Sin registros en Terapia Respiratoria.</td></tr>';
-        }
+        } else { tbodyResp.innerHTML = `<tr><td colspan="${colResp.length}" style="text-align:center; padding:1.5rem;">Sin registros en Terapia Respiratoria.</td></tr>`; }
 
         setVal('a-pcf-fam', data.pcf?.familias_intervenidas);
         setVal('a-pcf-fam-dup', data.pcf?.familias_duplicadas);
@@ -261,37 +301,23 @@ async function buscarAuditoriaEspecialistas() {
         tbodyPcfPrin.innerHTML = '';
         if(data.pcf?.tabla_principal && data.pcf.tabla_principal.length > 0) {
             data.pcf.tabla_principal.forEach(r => {
-                tbodyPcfPrin.innerHTML += `<tr>
-                    <td>${r.ec5_uuid}</td><td>${r.created_at}</td><td>${r.uploaded_at}</td><td>${r.created_by}</td>
-                    <td>${r.lat_1_1_geolocalizacin}</td><td>${r.long_1_1_geolocalizacin}</td><td>${r['4_3_perfil_profesion']}</td>
-                    <td>${r['5_4_nombre_del_profe']}</td><td>${r['9_7_territorio']}</td><td>${r['10_8_microterritorio']}</td>
-                    <td>${r['11_9_identificacin_d']}</td><td>${r['12_91_identificacin_']}</td><td>${r['13_10_identificacin_']}</td>
-                    <td>${r['14_101_identificacin']}</td><td>${r['29_integrantes_inter']}</td><td>${r['73_17_realizara_la_e']}</td>
-                    <td>${r['98_resumen_de_interv']}</td>
-                </tr>`;
+                tbodyPcfPrin.innerHTML += `<tr>${colPcfPrin.map(c => `<td>${r[c]}</td>`).join('')}</tr>`;
             });
-        } else {
-            tbodyPcfPrin.innerHTML = '<tr><td colspan="17" style="text-align:center; padding:1.5rem;">Sin registros en Planes de Cuidado Familiar.</td></tr>';
-        }
+        } else { tbodyPcfPrin.innerHTML = `<tr><td colspan="${colPcfPrin.length}" style="text-align:center; padding:1.5rem;">Sin registros en Planes de Cuidado Familiar.</td></tr>`; }
 
         const tbodyPcfInt = document.querySelector('#tablaExcelPcfIntegrantes tbody');
         tbodyPcfInt.innerHTML = '';
         if(data.pcf?.tabla_integrantes && data.pcf.tabla_integrantes.length > 0) {
             data.pcf.tabla_integrantes.forEach(r => {
-                tbodyPcfInt.innerHTML += `<tr>
-                    <td>${r.ec5_branch_owner_uuid}</td><td>${r.ec5_branch_uuid}</td><td>${r.created_at}</td>
-                    <td>${r.uploaded_at}</td><td>${r.created_by}</td><td>${r.title}</td><td>${r['31_1_primer_nombre']}</td>
-                    <td>${r['33_3_primer_apellido']}</td><td>${r['35_5_tipo_de_documen']}</td><td>${r['36_6_numero_de_docum']}</td>
-                    <td>${r['38_8_fecha_de_nacimi']}</td><td>${r['41_11_sexo']}</td><td>${r['46_16_numero_de_celu']}</td>
-                    <td>${r['57_23_que_tipo_de_co']}</td><td>${r['67_237_tema_central_']}</td><td>${r['69_239_metodologa_ed']}</td>
-                    <td>${r['71_2311_ruta_sugerid']}</td><td>${r['72_24_resumen_de_val']}</td>
-                </tr>`;
+                tbodyPcfInt.innerHTML += `<tr>${colPcfInt.map(c => `<td>${r[c]}</td>`).join('')}</tr>`;
             });
-        } else {
-            tbodyPcfInt.innerHTML = '<tr><td colspan="18" style="text-align:center; padding:1.5rem;">Sin registros en Planes de Cuidado Individual.</td></tr>';
-        }
+        } else { tbodyPcfInt.innerHTML = `<tr><td colspan="${colPcfInt.length}" style="text-align:center; padding:1.5rem;">Sin registros en Planes de Cuidado Individual.</td></tr>`; }
 
         document.getElementById('resultadosAuditoria').style.display = 'block';
+
+        if (data.mapas) {
+            renderizarMapas(data.mapas);
+        }
 
     } catch(err) {
         alert(`Error: ${err.message}`);
