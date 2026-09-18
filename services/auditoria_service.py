@@ -16,7 +16,25 @@ class AuditoriaService(BaseService):
         f_fin = fecha_fin or "2099-12-31"
 
         email_res = correo if correo else self.resolver_correo(nombre)
-        params = {"correo": correo, "nombre": nombre, "email_res": email_res, "f_ini": f_ini, "f_fin": f_fin}
+
+        params = {
+            "correo": correo,
+            "nombre": nombre,
+            "email_res": email_res,
+            "f_ini": f_ini,
+            "f_fin": f_fin,
+            "nombre_like": f"%{nombre.strip().lower()}%" if nombre else "___NOMATCH___"
+        }
+
+        # 🟢 FILTROS MEJORADOS PARA INCLUIR LA COLUMNA "nombres"
+        where_errores = """
+            (LOWER(TRIM(CAST(usuario_creador AS text))) = LOWER(:email_res) 
+            OR (:nombre != '' AND LOWER(TRIM(CAST(nombres AS text))) ILIKE :nombre_like))
+        """
+        where_tramites_cons = """
+            (LOWER(TRIM(CAST(usuario AS text))) = LOWER(:email_res) 
+            OR (:nombre != '' AND LOWER(TRIM(CAST(nombres AS text))) ILIKE :nombre_like))
+        """
 
         if correo:
             w_desist = "LOWER(TRIM(CAST(created_by AS text))) = LOWER(:correo)"
@@ -78,7 +96,7 @@ class AuditoriaService(BaseService):
                 f"SELECT COUNT(*) FROM desistimiento_aps_2026 WHERE {w_desist} AND {self.get_date_filter(tipo_fecha)}",
                 params),
             "con_error": self.safe_count(
-                f"SELECT COUNT(*) FROM auditoria_errores_2026 WHERE LOWER(TRIM(CAST(usuario_creador AS text))) = LOWER(:email_res) AND modulo = 'DESISTIMIENTOS' AND {self.get_date_filter('fecha_creacion')}",
+                f"SELECT COUNT(*) FROM auditoria_errores_2026 WHERE {where_errores} AND modulo = 'DESISTIMIENTOS' AND {self.get_date_filter('fecha_creacion')}",
                 params)
         }
 
@@ -114,7 +132,7 @@ class AuditoriaService(BaseService):
             "planes": pcc_planes_count,
             "integrantes": self.safe_count(query_pcc_int, params),
             "con_error": self.safe_count(
-                f"SELECT COUNT(*) FROM auditoria_errores_2026 WHERE LOWER(TRIM(CAST(usuario_creador AS text))) = LOWER(:email_res) AND modulo LIKE 'PCC%' AND {self.get_date_filter('fecha_creacion')}",
+                f"SELECT COUNT(*) FROM auditoria_errores_2026 WHERE {where_errores} AND modulo LIKE 'PCC%' AND {self.get_date_filter('fecha_creacion')}",
                 params),
             "reporte_detalles": texto_pcc_detalles.strip() if texto_pcc_detalles else "No hay detalles de planes comunitarios registrados."
         }
@@ -357,10 +375,10 @@ class AuditoriaService(BaseService):
                 params),
             "discapacidad_total": total_discapacidad_aud, "discapacidades_chart": disc_chart_aud,
             "error_familiar": self.safe_count(
-                f"SELECT COUNT(*) FROM auditoria_errores_2026 WHERE LOWER(TRIM(CAST(usuario_creador AS text))) = LOWER(:email_res) AND modulo = 'CARACT_FAMILIAR' AND {self.get_date_filter('fecha_creacion')}",
+                f"SELECT COUNT(*) FROM auditoria_errores_2026 WHERE {where_errores} AND modulo = 'CARACT_FAMILIAR' AND {self.get_date_filter('fecha_creacion')}",
                 params),
             "error_individual": self.safe_count(
-                f"SELECT COUNT(*) FROM auditoria_errores_2026 WHERE LOWER(TRIM(CAST(usuario_creador AS text))) = LOWER(:email_res) AND modulo = 'CARACT_INDIVIDUAL' AND {self.get_date_filter('fecha_creacion')}",
+                f"SELECT COUNT(*) FROM auditoria_errores_2026 WHERE {where_errores} AND modulo = 'CARACT_INDIVIDUAL' AND {self.get_date_filter('fecha_creacion')}",
                 params),
             "tipo_familia": tipo_familia_aud, "estrato": estrato_aud, "nivel_educativo": nivel_educativo_aud,
             "etnia_sin_pct": round(int(etnia_data_aud.get("sin_etnia") or 0) / total_etnia_aud * 100, 1),
@@ -533,7 +551,7 @@ class AuditoriaService(BaseService):
             res_err_pcf = self.ejecutar(f"""
                                    SELECT id_ficha, detalle_inconsistencias, modulo
                                    FROM auditoria_errores_2026
-                                   WHERE LOWER(TRIM(CAST(usuario_creador AS text))) = LOWER(:email_res)
+                                   WHERE {where_errores}
                                      AND modulo IN ('PCF_PRINCIPAL', 'PCF_INTEGRANTES')
                                      AND {self.get_date_filter('fecha_creacion')}
                                    """, params)
@@ -771,7 +789,7 @@ class AuditoriaService(BaseService):
                 res_err_psico = self.ejecutar(f"""
                                          SELECT id_ficha, detalle_inconsistencias, modulo
                                          FROM auditoria_errores_2026
-                                         WHERE LOWER(TRIM(CAST(usuario_creador AS text))) = LOWER(:email_res)
+                                         WHERE {where_errores}
                                            AND modulo IN ('PSICOLOGIA_PRINCIPAL', 'PSICOLOGIA_SEGUIMIENTOS')
                                            AND {self.get_date_filter('fecha_creacion')}
                                          """, params)
@@ -836,7 +854,7 @@ class AuditoriaService(BaseService):
         res_tram_err = self.ejecutar(f"""
                                 SELECT SUM(CAST(errores AS numeric)) as err
                                 FROM tramites_consolidados_2026
-                                WHERE LOWER(TRIM(CAST(usuario AS text))) = LOWER(:email_res)
+                                WHERE {where_tramites_cons}
                                   AND {self.get_date_filter('fecha')}
                                 """, params)
 
@@ -845,7 +863,7 @@ class AuditoriaService(BaseService):
         res_tramites_textos = self.ejecutar(f"""
                                        SELECT nombres_realizados, nombres_efectivos
                                        FROM tramites_consolidados_2026
-                                       WHERE LOWER(TRIM(CAST(usuario AS text))) = LOWER(:email_res)
+                                       WHERE {where_tramites_cons}
                                          AND {self.get_date_filter('fecha')}
                                        """, params)
 
@@ -898,7 +916,7 @@ class AuditoriaService(BaseService):
         res_err_tr = self.ejecutar(f"""
                               SELECT id_ficha, detalle_inconsistencias
                               FROM auditoria_errores_2026
-                              WHERE LOWER(TRIM(CAST(usuario_creador AS text))) = LOWER(:email_res)
+                              WHERE {where_errores}
                                 AND modulo = 'TRAMITES'
                                 AND {self.get_date_filter('fecha_creacion')}
                               """, params)
@@ -981,7 +999,7 @@ class AuditoriaService(BaseService):
         # --- REPORTE GLOBAL CONSOLIDADO Y FILTRADO POR USUARIO Y FECHA ---
         date_filter_sql = self.get_date_filter('fecha_creacion')
         reporte_consolidado = self.obtener_reporte_inconsistencias_consolidadas(params, date_filter_sql,
-                                                                                errores_dinamicos)
+                                                                                errores_dinamicos, where_errores)
 
         data.update(reporte_consolidado)
 
@@ -992,23 +1010,23 @@ class AuditoriaService(BaseService):
         return data
 
     def obtener_reporte_inconsistencias_consolidadas(self, params: dict, date_filter_sql: str,
-                                                     errores_dinamicos: list) -> dict:
+                                                     errores_dinamicos: list, where_errores: str) -> dict:
         """
-        Consulta la tabla 'auditoria_errores_2026', filtra por usuario específico y rango de fechas,
-        y asigna el formato estricto textual conservando todos los atributos y sus íconos representativos.
+        Consulta la tabla 'auditoria_errores_2026', filtra por usuario específico (y nombres) y rango de fechas.
         """
         query = f"""
             SELECT 
                 COALESCE(modulo, 'SIN_MODULO') AS modulo,
                 id_ficha,
                 COALESCE(usuario_creador, 'Desconocido') AS usuario_creador,
+                COALESCE(nombres, 'Desconocido') AS nombres,
                 COALESCE(titulo_ficha, 'Sin Título') AS titulo_ficha,
                 fecha_creacion,
                 COALESCE(cantidad_errores, 0) AS cantidad_errores,
                 COALESCE(detalle_inconsistencias, '') AS detalle_inconsistencias,
                 'auditoria_errores_2026' AS tabla_origen
             FROM auditoria_errores_2026
-            WHERE LOWER(TRIM(CAST(usuario_creador AS text))) = LOWER(:email_res)
+            WHERE {where_errores}
               AND {date_filter_sql}
             ORDER BY modulo ASC, cantidad_errores DESC, fecha_creacion DESC;
         """
@@ -1028,13 +1046,13 @@ class AuditoriaService(BaseService):
                 mod = str(row['modulo']).strip().upper()
                 id_ficha = row['id_ficha']
                 usuario = row['usuario_creador']
+                nombre_db = row['nombres']
                 titulo = row['titulo_ficha']
                 fecha = row['fecha_creacion'].strftime('%Y-%m-%d %H:%M:%S') if row.get('fecha_creacion') else 'N/A'
                 cant_errores = row['cantidad_errores']
                 detalle = row['detalle_inconsistencias']
                 tabla = row['tabla_origen']
 
-                # Identificación de Severidad y Asignación de Íconos
                 detalle_upper = str(detalle).upper()
                 if any(k in detalle_upper for k in ['ADVERTENCIA', 'WARNING', 'ADV']) or cant_errores == 0:
                     icono = "⚠️"
@@ -1050,6 +1068,7 @@ class AuditoriaService(BaseService):
                     "modulo": mod,
                     "id_ficha": id_ficha,
                     "usuario_creador": usuario,
+                    "nombres": nombre_db,
                     "titulo_ficha": titulo,
                     "fecha_creacion": fecha,
                     "cantidad_errores": cant_errores,
@@ -1062,24 +1081,20 @@ class AuditoriaService(BaseService):
                     modulos_agrupados[mod] = []
                 modulos_agrupados[mod].append(registro_dict)
 
-                # =========================================================================
-                # 📌 FORMATO ESTRICTO REQUERIDO PARA EL CUADRO DE TEXTO
-                # =========================================================================
                 lista_errores_texto.append(
                     f"{icono} MÓDULO: {mod}\n"
                     f"📄 Ficha ID: {id_ficha} | 📝 Título: {titulo}\n"
-                    f"👤 Usuario: {usuario} | 📅 Fecha: {fecha}\n"
+                    f"👤 Usuario: {usuario} | 🏷️ Nombre: {nombre_db}\n"
+                    f"📅 Fecha: {fecha}\n"
                     f"🔎 Errores/Inconsistencias ({cant_errores}): {detalle}\n"
                     f"--------------------------------------------------"
                 )
 
-            # Inyección de errores dinámicos detectados en vuelo por el servicio
             if errores_dinamicos:
                 lista_errores_texto.extend(errores_dinamicos)
                 total_registros += len(errores_dinamicos)
                 total_errores += len(errores_dinamicos)
 
-            # Acoplamiento del texto
             reporte_global_str = "\n".join(lista_errores_texto)
 
             return {
